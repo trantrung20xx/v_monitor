@@ -1,17 +1,22 @@
 # v_monitor
 
-A new Flutter project.
+Cross-platform monitoring app for enterprise device attendance and movement
+management. The current UAV scope monitors the UAV controller/handheld, not the
+aircraft itself.
 
-## Getting Started
+## Flutter
 
-This project is a starting point for a Flutter application.
+```powershell
+flutter pub get
+flutter run -d windows
+```
 
-A few resources to get you started if this is your first Flutter project:
+## Database
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+The initial PostgreSQL/PostGIS schema is in:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```text
+backend/migrations/0001_uav_controller_monitoring.sql
+```
+
+For now, apply it manually to your local PostgreSQL database when needed.
