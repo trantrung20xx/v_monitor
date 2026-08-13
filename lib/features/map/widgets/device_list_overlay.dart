@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../data/models/device_model.dart';
 import '../../../domain/entities/device_status_resolver.dart';
 
-class DeviceListOverlay extends StatelessWidget {
+class DeviceListOverlay extends StatefulWidget {
   const DeviceListOverlay({
     super.key,
     required this.devices,
@@ -13,6 +13,13 @@ class DeviceListOverlay extends StatelessWidget {
   final List<DeviceModel> devices;
   final void Function(DeviceModel) onDeviceSelected;
   final VoidCallback? onClose;
+
+  @override
+  State<DeviceListOverlay> createState() => _DeviceListOverlayState();
+}
+
+class _DeviceListOverlayState extends State<DeviceListOverlay> {
+  String _searchQuery = '';
 
   @override
   Widget build(BuildContext context) {
@@ -44,15 +51,15 @@ class DeviceListOverlay extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Thiết bị (${devices.length})',
+                  'Thiết bị (${widget.devices.length})',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                if (onClose != null)
+                if (widget.onClose != null)
                   IconButton(
                     icon: const Icon(Icons.close),
-                    onPressed: onClose,
+                    onPressed: widget.onClose,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     iconSize: 20,
@@ -60,22 +67,64 @@ class DeviceListOverlay extends StatelessWidget {
               ],
             ),
           ),
+          // Search Bar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Tìm kiếm thiết bị...',
+                prefixIcon: const Icon(Icons.search, size: 20),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.5)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.5)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: theme.colorScheme.primary),
+                ),
+                isDense: true,
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
+            ),
+          ),
+          const Divider(height: 1),
           // List
           Expanded(
-            child: devices.isEmpty
-                ? const Center(child: Text('Không có thiết bị nào'))
-                : ListView.separated(
-                    padding: EdgeInsets.zero,
-                    itemCount: devices.length,
-                    separatorBuilder: (context, index) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final device = devices[index];
-                      return _DeviceListItem(
-                        device: device,
-                        onTap: () => onDeviceSelected(device),
-                      );
-                    },
-                  ),
+            child: Builder(
+              builder: (context) {
+                final filteredDevices = widget.devices.where((d) {
+                  final query = _searchQuery.toLowerCase();
+                  return d.name.toLowerCase().contains(query) || 
+                         d.deviceCode.toLowerCase().contains(query);
+                }).toList();
+
+                if (filteredDevices.isEmpty) {
+                  return const Center(child: Text('Không tìm thấy thiết bị nào'));
+                }
+
+                return ListView.separated(
+                  padding: EdgeInsets.zero,
+                  itemCount: filteredDevices.length,
+                  separatorBuilder: (context, index) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final device = filteredDevices[index];
+                    return _DeviceListItem(
+                      device: device,
+                      onTap: () => widget.onDeviceSelected(device),
+                    );
+                  },
+                );
+              },
+            ),
           ),
         ],
       ),
