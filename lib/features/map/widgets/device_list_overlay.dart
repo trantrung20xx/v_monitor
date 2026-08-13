@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../data/models/device_model.dart';
 import '../../../domain/entities/device_status_resolver.dart';
+import '../../../core/widgets/device_icon.dart';
+import 'package:intl/intl.dart';
 
 class DeviceListOverlay extends StatefulWidget {
   const DeviceListOverlay({
@@ -34,7 +36,7 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
     final theme = Theme.of(context);
 
     return Container(
-      width: 350,
+      width: 380,
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
@@ -193,48 +195,94 @@ class _DeviceListItem extends StatelessWidget {
     }
 
     final displayName = device.name.isNotEmpty ? device.name : device.deviceCode;
-    final subtitle = device.name.isNotEmpty && device.deviceCode != device.name 
-        ? device.deviceCode 
-        : '';
+    
+    final lastSeenText = device.lastSeenAt != null 
+        ? DateFormat('HH:mm dd/MM').format(device.lastSeenAt!.toLocal())
+        : 'Không xác định';
+
+    final personName = (device.currentPersonName != null && device.currentPersonName!.isNotEmpty)
+        ? device.currentPersonName!
+        : 'Chưa giao thiết bị';
 
     return InkWell(
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Status Indicator
-            Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                color: _getStatusColor(status.connectivity, status.movement),
-                shape: BoxShape.circle,
-              ),
+            // Avatar & Status Badge
+            Stack(
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+                  child: Icon(
+                    DeviceIcon.iconFor(device.deviceType),
+                    color: theme.colorScheme.primary,
+                    size: 22,
+                  ),
+                ),
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: _getStatusColor(status.connectivity, status.movement),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: theme.colorScheme.surface, width: 2),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            // Identity
+            const SizedBox(width: 16),
+            // Identity & Details
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     displayName,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (subtitle.isNotEmpty)
-                    Text(
-                      subtitle,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.outline,
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.person, size: 14, color: theme.colorScheme.outline),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          personName,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Icon(Icons.access_time, size: 14, color: theme.colorScheme.outline),
+                      const SizedBox(width: 4),
+                      Text(
+                        lastSeenText,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.outline,
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -242,17 +290,20 @@ class _DeviceListItem extends StatelessWidget {
             // Speed
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   speedText,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: theme.colorScheme.primary,
                   ),
                 ),
                 Text(
                   'km/h',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.outline,
+                    fontWeight: FontWeight.w600,
                     height: 0.8,
                   ),
                 ),
