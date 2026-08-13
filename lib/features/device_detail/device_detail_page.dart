@@ -6,16 +6,19 @@ import 'package:latlong2/latlong.dart';
 
 import '../../core/widgets/device_icon.dart';
 import '../../core/widgets/status_badge.dart';
+import '../../core/utils/map_launcher_service.dart';
 import '../../data/models/device_model.dart';
 import '../../data/models/device_event_model.dart';
 import '../../data/models/location_model.dart';
+import '../../data/models/assignment_model.dart';
+import '../../data/models/usage_session_model.dart';
+import '../../domain/entities/device_status_resolver.dart';
 import 'device_detail_cubit.dart';
 
 import '../../data/repositories/device_repository.dart';
 import '../../data/repositories/tracking_repository.dart';
-import '../../core/network/api_client.dart';
 
-/// Device detail page with tabs: Overview, Map, History, Events.
+/// Chi tiết thiết bị với các tab: Tổng quan, Bản đồ, Phân công, Lịch sử dùng, Sự kiện.
 class DeviceDetailPage extends StatelessWidget {
   const DeviceDetailPage({super.key, required this.deviceId});
 
@@ -59,6 +62,13 @@ class _DeviceDetailView extends StatelessWidget {
         }
 
         final device = state.device!;
+        
+        final status = DeviceStatusResolver.resolve(
+          isOnline: device.isOnline,
+          lastSeenAt: device.lastSeenAt,
+          currentSpeedMps: device.currentSpeedMps,
+          baseStatus: device.status,
+        );
 
         return DefaultTabController(
           length: 4,
@@ -75,21 +85,31 @@ class _DeviceDetailView extends StatelessWidget {
                   Text(device.deviceCode),
                   const SizedBox(width: 8),
                   StatusBadge(
-                    label: device.statusLabel,
-                    isOnline: device.isOnline,
-                    isMoving: device.isMoving,
+                    label: status.label,
+                    isOnline: status.connectivity == ConnectivityStatus.online,
+                    isMoving: status.movement == MovementStatus.moving,
                   ),
                 ],
               ),
               bottom: const TabBar(
+                isScrollable: true,
                 tabs: [
-                  Tab(text: 'Tổng quan'),
-                  Tab(text: 'Bản đồ'),
-                  Tab(text: 'Lịch sử'),
-                  Tab(text: 'Sự kiện'),
+                  Tab(text: 'Tổng quan & Bản đồ'),
+                  Tab(text: 'Lịch sử phân công'),
+                  Tab(text: 'Lịch sử sử dụng'),
+                  Tab(text: 'Sự kiện hệ thống'),
                 ],
               ),
               actions: [
+                if (device.latitude != null && device.longitude != null)
+                  IconButton(
+                    icon: const Icon(Icons.directions),
+                    onPressed: () => MapLauncherService.openDefaultMap(
+                      device.latitude!, 
+                      device.longitude!
+                    ),
+                    tooltip: 'Chỉ đường',
+                  ),
                 IconButton(
                   icon: const Icon(Icons.refresh),
                   onPressed: () => context.read<DeviceDetailCubit>().load(),
@@ -99,9 +119,9 @@ class _DeviceDetailView extends StatelessWidget {
             ),
             body: TabBarView(
               children: [
-                _OverviewTab(device: device),
-                _MapTab(device: device, locations: state.locations),
-                _HistoryTab(locations: state.locations),
+                _OverviewTab(device: device, locations: state.locations, address: state.address),
+                _AssignmentsTab(assignments: state.assignments),
+                _UsagesTab(usages: state.usages),
                 _EventsTab(events: state.events),
               ],
             ),
@@ -114,80 +134,114 @@ class _DeviceDetailView extends StatelessWidget {
 
 /// Overview tab — device info cards.
 class _OverviewTab extends StatelessWidget {
-  const _OverviewTab({required this.device});
+  const _OverviewTab({required this.device, required this.locations, this.address});
   final DeviceModel device;
+  final List<LocationModel> locations;
+  final String? address;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    
+    final status = DeviceStatusResolver.resolve(
+      isOnline: device.isOnline,
+      lastSeenAt: device.lastSeenAt,
+      currentSpeedMps: device.currentSpeedMps,
+      baseStatus: device.status,
+    );
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Thông tin', style: theme.textTheme.titleMedium),
-                  const SizedBox(height: 12),
-                  _InfoRow(label: 'Mã thiết bị', value: device.deviceCode),
-                  _InfoRow(label: 'Tên', value: device.name),
-                  _InfoRow(label: 'Loại', value: _deviceTypeLabel(device.deviceType)),
-                  _InfoRow(label: 'Trạng thái', value: device.statusLabel),
-                  if (device.currentPersonName != null)
-                    _InfoRow(label: 'Người giữ', value: device.currentPersonName!),
-                ],
-              ),
-            ),
+          SizedBox(
+            height: 300,
+            child: _MapWidget(device: device, locations: locations),
           ),
-          const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Vị trí hiện tại', style: theme.textTheme.titleMedium),
-                  const SizedBox(height: 12),
-                  if (device.latitude != null && device.longitude != null) ...[
-                    _InfoRow(
-                      label: 'Tọa độ',
-                      value: '${device.latitude!.toStringAsFixed(6)}, ${device.longitude!.toStringAsFixed(6)}',
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Thông tin', style: theme.textTheme.titleMedium),
+                        const SizedBox(height: 12),
+                        _InfoRow(label: 'Mã thiết bị', value: device.deviceCode),
+                        _InfoRow(label: 'Tên', value: device.name),
+                        _InfoRow(label: 'Loại', value: _deviceTypeLabel(device.deviceType)),
+                        _InfoRow(label: 'Trạng thái', value: status.label),
+                        if (device.currentPersonName != null)
+                          _InfoRow(label: 'Người giữ', value: device.currentPersonName!),
+                      ],
                     ),
-                    if (device.currentSpeedMps != null)
-                      _InfoRow(
-                        label: 'Tốc độ',
-                        value: '${(device.currentSpeedMps! * 3.6).toStringAsFixed(1)} km/h',
-                      ),
-                    if (device.currentHeadingDeg != null)
-                      _InfoRow(
-                        label: 'Hướng',
-                        value: '${device.currentHeadingDeg!.toStringAsFixed(0)}°',
-                      ),
-                    _InfoRow(
-                      label: 'Di chuyển',
-                      value: device.isMoving ? 'Có' : 'Không',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Trạng thái hiện tại', style: theme.textTheme.titleMedium),
+                        const SizedBox(height: 12),
+                        if (device.latitude != null && device.longitude != null) ...[
+                          _InfoRow(
+                            label: 'Tọa độ',
+                            value: 'Kinh độ: ${device.longitude!.toStringAsFixed(6)}\nVĩ độ: ${device.latitude!.toStringAsFixed(6)}',
+                          ),
+                          if (address != null && address!.isNotEmpty)
+                            _InfoRow(
+                              label: 'Địa điểm',
+                              value: address!,
+                            ),
+                          if (device.currentSpeedMps != null)
+                            _InfoRow(
+                              label: 'Tốc độ',
+                              value: '${(device.currentSpeedMps! * 3.6).toStringAsFixed(1)} km/h',
+                            ),
+                          if (device.currentHeadingDeg != null)
+                            _InfoRow(
+                              label: 'Hướng',
+                              value: '${device.currentHeadingDeg!.toStringAsFixed(0)}°',
+                            ),
+                        ] else
+                          Text(
+                            'Chưa có dữ liệu vị trí',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.outline,
+                            ),
+                          ),
+                          
+                        if (device.uavBatteryPct != null)
+                          _InfoRow(
+                            label: 'Pin UAV',
+                            value: '${device.uavBatteryPct}%',
+                          ),
+                        if (device.controllerBatteryPct != null)
+                          _InfoRow(
+                            label: 'Pin Điều khiển',
+                            value: '${device.controllerBatteryPct}%',
+                          ),
+                          
+                        if (device.lastSeenAt != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'Hoạt động lần cuối: ${_formatTime(device.lastSeenAt!)}',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ],
                     ),
-                  ] else
-                    Text(
-                      'Chưa có dữ liệu vị trí',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.outline,
-                      ),
-                    ),
-                  if (device.lastSeenAt != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      'Hoạt động lần cuối: ${_formatTime(device.lastSeenAt!)}',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ],
-              ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -246,9 +300,8 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-/// Map tab — shows device position and route.
-class _MapTab extends StatelessWidget {
-  const _MapTab({required this.device, required this.locations});
+class _MapWidget extends StatelessWidget {
+  const _MapWidget({required this.device, required this.locations});
   final DeviceModel device;
   final List<LocationModel> locations;
 
@@ -256,7 +309,10 @@ class _MapTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasPosition = device.latitude != null && device.longitude != null;
     if (!hasPosition && locations.isEmpty) {
-      return const Center(child: Text('Chưa có dữ liệu vị trí'));
+      return Container(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        child: const Center(child: Text('Chưa có dữ liệu vị trí', style: TextStyle(color: Colors.grey))),
+      );
     }
 
     final center = hasPosition
@@ -340,80 +396,157 @@ class _MapTab extends StatelessWidget {
   }
 }
 
-/// History tab — list of location samples with timestamps and speed.
-class _HistoryTab extends StatelessWidget {
-  const _HistoryTab({required this.locations});
-  final List<LocationModel> locations;
+/// Assignments Tab
+class _AssignmentsTab extends StatelessWidget {
+  const _AssignmentsTab({required this.assignments});
+  final List<AssignmentModel> assignments;
 
   @override
   Widget build(BuildContext context) {
-    if (locations.isEmpty) {
-      return const Center(child: Text('Chưa có dữ liệu lịch sử'));
+    if (assignments.isEmpty) {
+      return const Center(child: Text('Chưa có lịch sử phân công'));
     }
 
     final theme = Theme.of(context);
-    final dateFormat = DateFormat('HH:mm:ss');
-
-    // Group by date
-    final reversed = locations.reversed.toList();
+    final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
 
     return ListView.builder(
       padding: const EdgeInsets.all(12),
-      itemCount: reversed.length,
+      itemCount: assignments.length,
       itemBuilder: (context, index) {
-        final loc = reversed[index];
-        final speedKmh = (loc.speedMps ?? 0) * 3.6;
-
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 4),
-          child: Row(
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: loc.isMoving ? Colors.blue : Colors.orange,
-                  shape: BoxShape.circle,
-                ),
+        final a = assignments[index];
+        final isActive = a.unassignedAt == null;
+        
+        return Card(
+          elevation: isActive ? 2 : 0,
+          color: isActive ? theme.colorScheme.surface : theme.colorScheme.surfaceContainerHighest,
+          child: ListTile(
+            leading: Icon(
+              isActive ? Icons.person : Icons.person_off,
+              color: isActive ? theme.colorScheme.primary : theme.colorScheme.outline,
+            ),
+            title: Text(
+              a.personName ?? 'Người dùng',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
               ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 70,
-                child: Text(
-                  dateFormat.format(loc.measuredAt.toLocal()),
-                  style: theme.textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '${loc.latitude.toStringAsFixed(5)}, ${loc.longitude.toStringAsFixed(5)}',
-                  style: theme.textTheme.bodySmall,
-                ),
-              ),
-              SizedBox(
-                width: 60,
-                child: Text(
-                  '${speedKmh.toStringAsFixed(1)} km/h',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: loc.isMoving ? Colors.blue : theme.colorScheme.outline,
-                  ),
-                  textAlign: TextAlign.end,
-                ),
-              ),
-              if (loc.headingDeg != null)
-                Padding(
-                  padding: const EdgeInsets.only(left: 8),
-                  child: Transform.rotate(
-                    angle: (loc.headingDeg! * 3.14159 / 180),
-                    child: Icon(
-                      Icons.navigation,
-                      size: 14,
-                      color: theme.colorScheme.primary,
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (a.personCode != null) Text('Mã NV: ${a.personCode}'),
+                Text('Bắt đầu: ${dateFormat.format(a.assignedAt)}'),
+                if (!isActive) Text('Kết thúc: ${dateFormat.format(a.unassignedAt!)}'),
+                if (a.notes != null) Text('Ghi chú: ${a.notes}'),
+              ],
+            ),
+            trailing: isActive
+                ? Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(4),
                     ),
-                  ),
+                    child: Text(
+                      'Đang giữ',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                  )
+                : null,
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Usages Tab
+class _UsagesTab extends StatelessWidget {
+  const _UsagesTab({required this.usages});
+  final List<UsageSessionModel> usages;
+
+  @override
+  Widget build(BuildContext context) {
+    if (usages.isEmpty) {
+      return const Center(child: Text('Chưa có lịch sử sử dụng'));
+    }
+
+    final theme = Theme.of(context);
+    final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: usages.length,
+      itemBuilder: (context, index) {
+        final u = usages[index];
+        final isOngoing = u.endedAt == null;
+        
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Phiên ${dateFormat.format(u.startedAt)}',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    if (isOngoing)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'Đang diễn ra',
+                          style: theme.textTheme.labelSmall?.copyWith(color: Colors.green),
+                        ),
+                      ),
+                  ],
                 ),
-            ],
+                const Divider(),
+                if (u.personName != null) ...[
+                  _InfoRow(label: 'Người dùng', value: '${u.personName} (${u.personCode})'),
+                ],
+                _InfoRow(
+                  label: 'Thời gian', 
+                  value: isOngoing 
+                    ? 'Từ ${dateFormat.format(u.startedAt)}'
+                    : '${dateFormat.format(u.startedAt)} - ${dateFormat.format(u.endedAt!)}'
+                ),
+                if (u.distanceM != null)
+                  _InfoRow(
+                    label: 'Quãng đường', 
+                    value: '${(u.distanceM! / 1000).toStringAsFixed(2)} km'
+                  ),
+                if (u.maxSpeedMps != null)
+                  _InfoRow(
+                    label: 'Tốc độ tối đa', 
+                    value: '${(u.maxSpeedMps! * 3.6).toStringAsFixed(1)} km/h'
+                  ),
+                if (u.avgSpeedMps != null)
+                  _InfoRow(
+                    label: 'Tốc độ TB', 
+                    value: '${(u.avgSpeedMps! * 3.6).toStringAsFixed(1)} km/h'
+                  ),
+                if (u.movingDurationS != null)
+                  _InfoRow(
+                    label: 'Thời gian di chuyển', 
+                    value: '${(u.movingDurationS! / 60).toStringAsFixed(0)} phút'
+                  ),
+                if (u.stoppedDurationS != null)
+                  _InfoRow(
+                    label: 'Thời gian dừng', 
+                    value: '${(u.stoppedDurationS! / 60).toStringAsFixed(0)} phút'
+                  ),
+              ],
+            ),
           ),
         );
       },
@@ -502,3 +635,4 @@ class _EventsTab extends StatelessWidget {
     }
   }
 }
+

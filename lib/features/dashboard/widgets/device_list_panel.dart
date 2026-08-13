@@ -1,97 +1,73 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/widgets/device_icon.dart';
-import '../../../core/widgets/status_badge.dart';
 import '../../../data/models/device_model.dart';
+import 'device_card.dart';
 
-/// Side panel listing devices with status.
-class DeviceListPanel extends StatelessWidget {
-  const DeviceListPanel({super.key, required this.devices});
+class DeviceGrid extends StatelessWidget {
+  const DeviceGrid({
+    super.key,
+    required this.devices,
+    required this.searchQuery,
+    required this.deviceAddresses,
+  });
 
   final List<DeviceModel> devices;
+  final String searchQuery;
+  final Map<String, String> deviceAddresses;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    if (devices.isEmpty) {
+    // Apply search filter
+    final filteredDevices = devices.where((device) {
+      if (searchQuery.isEmpty) return true;
+      final q = searchQuery.toLowerCase();
+      return device.name.toLowerCase().contains(q) ||
+          device.deviceCode.toLowerCase().contains(q) ||
+          (device.currentPersonName?.toLowerCase().contains(q) ?? false);
+    }).toList();
+
+    if (filteredDevices.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.devices_other, size: 48, color: theme.colorScheme.outline),
-            const SizedBox(height: 12),
-            Text('Chưa có thiết bị', style: theme.textTheme.bodyLarge),
+            Icon(Icons.search_off, size: 64, color: theme.colorScheme.outline),
+            const SizedBox(height: 16),
+            Text(
+              searchQuery.isEmpty ? 'Chưa có thiết bị nào' : 'Không tìm thấy thiết bị phù hợp',
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: theme.colorScheme.outline,
+              ),
+            ),
           ],
         ),
       );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.all(8),
-      itemCount: devices.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 2),
+    return GridView.builder(
+      padding: const EdgeInsets.all(16),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 400,
+        mainAxisExtent: 280, // Fixed height for cards
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+      ),
+      itemCount: filteredDevices.length,
       itemBuilder: (context, index) {
-        final device = devices[index];
-        return _DeviceTile(device: device);
+        final device = filteredDevices[index];
+        return DeviceCard(
+          device: device,
+          address: deviceAddresses[device.id],
+          onTap: () => context.pushNamed(
+            'device-detail',
+            pathParameters: {'id': device.id},
+          ),
+        );
       },
     );
   }
 }
 
-class _DeviceTile extends StatelessWidget {
-  const _DeviceTile({required this.device});
-  final DeviceModel device;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: () => context.pushNamed('device-detail', pathParameters: {'id': device.id}),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Row(
-            children: [
-              DeviceIcon(
-                deviceType: device.deviceType,
-                isOnline: device.isOnline,
-                isMoving: device.isMoving,
-                size: 28,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      device.deviceCode,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    if (device.name != device.deviceCode)
-                      Text(
-                        device.name,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              StatusBadge(
-                label: device.statusLabel,
-                isOnline: device.isOnline,
-                isMoving: device.isMoving,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

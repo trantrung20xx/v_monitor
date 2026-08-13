@@ -23,7 +23,7 @@ class VMonitorApp extends StatelessWidget {
     return MultiRepositoryProvider(
       providers: [
         RepositoryProvider<DeviceRepository>(
-          create: (_) => DeviceRepository(apiClient),
+          create: (_) => DeviceRepository(apiClient, websocketClient),
         ),
         RepositoryProvider<TrackingRepository>(
           create: (_) => TrackingRepository(apiClient),
@@ -37,7 +37,6 @@ class VMonitorApp extends StatelessWidget {
           BlocProvider<DashboardCubit>(
             create: (context) => DashboardCubit(
               deviceRepo: context.read<DeviceRepository>(),
-              websocketClient: context.read<WebsocketClient>(),
             )..loadDashboard(),
           ),
         ],

@@ -46,12 +46,22 @@ class StatsOverview extends StatelessWidget {
           width: 180,
           child: StatCard(
             label: 'Dừng',
-            value: '${state.idleCount}',
+            value: '${state.stoppedCount}',
             icon: Icons.pause_circle_outline,
             color: Colors.orange.shade600,
+          ),
+        ),
+        SizedBox(
+          width: 180,
+          child: StatCard(
+            label: 'Mất tín hiệu',
+            value: '${state.staleCount}',
+            icon: Icons.warning_amber,
+            color: Colors.redAccent,
           ),
         ),
       ],
     );
   }
 }
+

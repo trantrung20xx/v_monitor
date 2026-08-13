@@ -12,11 +12,8 @@ import '../dashboard/dashboard_cubit.dart';
 import '../dashboard/dashboard_state.dart';
 
 import '../../data/repositories/device_repository.dart';
-import '../../data/repositories/tracking_repository.dart';
-import '../../core/network/websocket_client.dart';
-import '../../core/network/api_client.dart';
 
-/// Full-screen map view showing all devices.
+/// Trang Bản đồ toàn màn hình hiển thị toàn bộ thiết bị.
 class MapViewPage extends StatefulWidget {
   const MapViewPage({super.key});
 
@@ -32,7 +29,6 @@ class _MapViewPageState extends State<MapViewPage> {
     super.initState();
     _cubit = DashboardCubit(
       deviceRepo: context.read<DeviceRepository>(),
-      websocketClient: context.read<WebsocketClient>(),
     );
     _cubit.loadDashboard();
   }

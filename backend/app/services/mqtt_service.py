@@ -7,80 +7,118 @@ from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 from app.schemas.tracking import LocationSampleCreate
 from app.services.tracking_service import TrackingService
+from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
+# Lớp dịch vụ quản lý kết nối MQTT (Message Queuing Telemetry Transport).
+# Giao tiếp với các thiết bị vật lý (UAV, Xe) để nhận dữ liệu GPS liên tục.
 class MQTTService:
     def __init__(self):
+        # Khởi tạo client paho-mqtt
         self.client = mqtt.Client(client_id="v_monitor_backend")
+
+        # Đăng ký các hàm callback xử lý sự kiện của MQTT
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
         self.client.on_disconnect = self.on_disconnect
-        
-        # Save the asyncio event loop to dispatch async tasks from the MQTT thread
+
+        # Lưu lại event loop của asyncio vì thư viện paho-mqtt chạy trên một thread riêng (đồng bộ)
+        # Việc lưu loop giúp đẩy các hàm bất đồng bộ (async db operations) ngược lại luồng chính của FastAPI
         self.loop = None
 
     def on_connect(self, client, userdata, flags, rc):
+        # rc = 0 nghĩa là kết nối thành công tới broker
         if rc == 0:
-            logger.info("Connected to MQTT broker")
+            logger.info("Đã kết nối thành công tới MQTT broker")
+            # Theo dõi tất cả các tin nhắn gửi tới chủ đề (topic) bắt đầu bằng v_monitor/telemetry/
             client.subscribe("v_monitor/telemetry/#", qos=1)
         else:
-            logger.error(f"Failed to connect to MQTT broker, return code {rc}")
+            logger.error(f"Kết nối tới MQTT broker thất bại, mã lỗi: {rc}")
 
     def on_message(self, client, userdata, msg):
+        # Decode gói tin từ byte sang chuỗi JSON (UTF-8)
         payload_str = msg.payload.decode('utf-8')
-        logger.info(f"Received message on {msg.topic}: {payload_str}")
-        
-        # Dispatch to asyncio loop
+        logger.info(f"Nhận được tin nhắn trên {msg.topic}: {payload_str}")
+
+        # Chuyển công việc xử lý cơ sở dữ liệu (cần await) vào lại event loop chính của FastAPI
         if self.loop and self.loop.is_running():
             asyncio.run_coroutine_threadsafe(self.process_message(msg.topic, payload_str), self.loop)
 
     def on_disconnect(self, client, userdata, rc):
-        logger.info("Disconnected from MQTT broker")
+        logger.info("Đã ngắt kết nối khỏi MQTT broker")
 
     async def process_message(self, topic: str, payload_str: str):
         try:
+            # Parse chuỗi JSON thành Dictionary Python
             data = json.loads(payload_str)
-            # topic format: v_monitor/telemetry/{device_id}
+
+            # Phân tách chủ đề để lấy ID thiết bị, ví dụ: v_monitor/telemetry/CAR-001
             parts = topic.split('/')
             if len(parts) >= 3:
-                device_id = parts[2]
-                
-                # Check if it's a location message
+                device_code = parts[2]
+
+                # Kiểm tra nếu gói tin có chứa tọa độ (latitude, longitude)
                 if 'latitude' in data and 'longitude' in data:
-                    location_data = LocationSampleCreate(
-                        device_id=device_id,
-                        measured_at=datetime.fromisoformat(data.get('measured_at').replace('Z', '+00:00')) if data.get('measured_at') else datetime.now(timezone.utc),
-                        latitude=data['latitude'],
-                        longitude=data['longitude'],
-                        altitude_m=data.get('altitude_m'),
-                        speed_mps=data.get('speed_mps'),
-                        heading_deg=data.get('heading_deg'),
-                        source="mqtt"
-                    )
-                    
+                    # Mở kết nối cơ sở dữ liệu để truy vấn device_id và lưu
+                    from app.models.device import Device
+                    from sqlalchemy.future import select
                     async with AsyncSessionLocal() as db:
-                        await TrackingService.add_location(db, location_data)
-                        logger.info(f"Successfully processed location from {device_id}")
+                        # Truy vấn lấy device_id từ device_code
+                        device_result = await db.execute(select(Device.id).filter(Device.device_code == device_code))
+                        device_id = device_result.scalar_one_or_none()
                         
+                        if not device_id:
+                            logger.warning(f"Bỏ qua dữ liệu MQTT: Không tìm thấy thiết bị với mã '{device_code}'")
+                            return
+
+                        # Chuẩn hóa thời gian gửi từ thiết bị, hoặc dùng thời gian hiện tại nếu không có
+                        measured_at = data.get('measured_at')
+                        if measured_at:
+                            parsed_time = datetime.fromisoformat(measured_at.replace('Z', '+00:00'))
+                        else:
+                            parsed_time = datetime.now(timezone.utc)
+
+                        # Tạo model Pydantic chứa dữ liệu nhận được
+                        location_data = LocationSampleCreate(
+                            device_id=device_id,
+                            measured_at=parsed_time,
+                            latitude=data['latitude'],
+                            longitude=data['longitude'],
+                            altitude_m=data.get('altitude_m'),
+                            speed_mps=data.get('speed_mps'),
+                            heading_deg=data.get('heading_deg'),
+                            source="mqtt"
+                        )
+
+                        await TrackingService.add_location(db, location_data)
+                        logger.info(f"Đã xử lý thành công dữ liệu vị trí từ {device_code}")
+
         except Exception as e:
-            logger.error(f"Error processing MQTT message: {e}", exc_info=True)
+            logger.error(f"Lỗi khi xử lý tin nhắn MQTT: {e}", exc_info=True)
 
     async def start(self):
+        # Lấy event loop hiện tại của FastAPI để chuẩn bị gọi các hàm async từ paho-mqtt
         self.loop = asyncio.get_running_loop()
-        logger.info(f"Starting MQTT client to connect to {settings.MQTT_HOST}:{settings.MQTT_PORT}")
-        
+        logger.info(f"Bắt đầu khởi động MQTT client kết nối tới {settings.MQTT_HOST}:{settings.MQTT_PORT}")
+
         if getattr(settings, 'MQTT_USERNAME', None):
-            self.client.username_pw_set(settings.MQTT_USERNAME, settings.MQTT_PASSWORD)
-            
+            if settings.MQTT_USERNAME and settings.MQTT_PASSWORD:
+                self.client.username_pw_set(settings.MQTT_USERNAME, settings.MQTT_PASSWORD)
+
+        # Kết nối tới Broker (chạy không đồng bộ để không chặn luồng chính)
         self.client.connect_async(
-            settings.MQTT_HOST, 
+            settings.MQTT_HOST,
             port=settings.MQTT_PORT
         )
+
+        # Bắt đầu vòng lặp mạng của MQTT (chạy trên một thread ẩn của paho-mqtt)
         self.client.loop_start()
 
     async def stop(self):
+        # Dừng vòng lặp và ngắt kết nối an toàn khi server FastAPI tắt
         self.client.loop_stop()
         self.client.disconnect()
 
+# Khởi tạo một đối tượng duy nhất (Singleton) để dùng chung trên toàn ứng dụng
 mqtt_service = MQTTService()

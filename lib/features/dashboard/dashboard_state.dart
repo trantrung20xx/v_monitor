@@ -12,7 +12,11 @@ class DashboardState extends Equatable {
     this.onlineCount = 0,
     this.offlineCount = 0,
     this.movingCount = 0,
-    this.idleCount = 0,
+    this.stoppedCount = 0,
+    this.inactiveCount = 0,
+    this.staleCount = 0,
+    this.searchQuery = '',
+    this.deviceAddresses = const {},
   });
 
   final bool isLoading;
@@ -22,7 +26,11 @@ class DashboardState extends Equatable {
   final int onlineCount;
   final int offlineCount;
   final int movingCount;
-  final int idleCount;
+  final int stoppedCount;
+  final int inactiveCount;
+  final int staleCount;
+  final String searchQuery;
+  final Map<String, String> deviceAddresses;
 
   DashboardState copyWith({
     bool? isLoading,
@@ -32,7 +40,11 @@ class DashboardState extends Equatable {
     int? onlineCount,
     int? offlineCount,
     int? movingCount,
-    int? idleCount,
+    int? stoppedCount,
+    int? inactiveCount,
+    int? staleCount,
+    String? searchQuery,
+    Map<String, String>? deviceAddresses,
   }) {
     return DashboardState(
       isLoading: isLoading ?? this.isLoading,
@@ -42,7 +54,11 @@ class DashboardState extends Equatable {
       onlineCount: onlineCount ?? this.onlineCount,
       offlineCount: offlineCount ?? this.offlineCount,
       movingCount: movingCount ?? this.movingCount,
-      idleCount: idleCount ?? this.idleCount,
+      stoppedCount: stoppedCount ?? this.stoppedCount,
+      inactiveCount: inactiveCount ?? this.inactiveCount,
+      staleCount: staleCount ?? this.staleCount,
+      searchQuery: searchQuery ?? this.searchQuery,
+      deviceAddresses: deviceAddresses ?? this.deviceAddresses,
     );
   }
 
@@ -55,6 +71,10 @@ class DashboardState extends Equatable {
         onlineCount,
         offlineCount,
         movingCount,
-        idleCount,
+        stoppedCount,
+        inactiveCount,
+        staleCount,
+        searchQuery,
+        deviceAddresses,
       ];
 }

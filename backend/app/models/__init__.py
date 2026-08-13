@@ -2,8 +2,6 @@ from app.models.base import Base
 from app.models.person import Person
 from app.models.device import Device
 from app.models.device_assignment import DeviceAssignment
-from app.models.uav_controller_profile import UavControllerProfile
-from app.models.vehicle_profile import VehicleProfile
 from app.models.usage_session import UsageSession
 from app.models.location_sample import LocationSample
 from app.models.battery_sample import BatterySample

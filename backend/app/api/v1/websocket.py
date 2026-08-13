@@ -5,10 +5,10 @@ router = APIRouter()
 
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    await realtime_service.connect(websocket)
+    await realtime_service.connect(websocket) # Chấp nhận kết nối và đăng ký client realtime
     try:
         while True:
-            # We just keep connection open, optionally receive ping/pong
+            # Giữ kết nối WebSocket luôn mở và chờ dữ liệu từ client
             data = await websocket.receive_text()
     except WebSocketDisconnect:
-        realtime_service.disconnect(websocket)
+        realtime_service.disconnect(websocket) # Xóa client khi kết nối bị ngắt

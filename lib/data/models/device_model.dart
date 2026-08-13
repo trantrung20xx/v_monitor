@@ -12,6 +12,7 @@ class DeviceModel {
   final double? currentSpeedMps;
   final double? currentHeadingDeg;
   final DateTime? lastSeenAt;
+  final String? currentPersonName;
 
   DeviceModel({
     required this.id,
@@ -27,6 +28,7 @@ class DeviceModel {
     this.currentSpeedMps,
     this.currentHeadingDeg,
     this.lastSeenAt,
+    this.currentPersonName,
   });
 
   String get deviceType => type;
@@ -39,7 +41,6 @@ class DeviceModel {
       default: return 'Không xác định';
     }
   }
-  String? get currentPersonName => null; // To be implemented later from assignments
 
   factory DeviceModel.fromJson(Map<String, dynamic> json) {
     return DeviceModel(
@@ -56,6 +57,7 @@ class DeviceModel {
       currentSpeedMps: json['current_speed_mps'],
       currentHeadingDeg: json['current_heading_deg'],
       lastSeenAt: json['last_seen_at'] != null ? DateTime.tryParse(json['last_seen_at']) : null,
+      currentPersonName: json['current_person_name'],
     );
   }
 }

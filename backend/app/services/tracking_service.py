@@ -7,27 +7,38 @@ from app.models.location_sample import LocationSample
 from app.models.device_latest_state import DeviceLatestState
 from app.schemas.tracking import LocationSampleCreate
 
+# Lớp dịch vụ chuyên phụ trách các nghiệp vụ liên quan đến Theo dõi (Tracking) thiết bị.
+# Xử lý logic ghi nhận vị trí mới và trích xuất lịch sử di chuyển.
 class TrackingService:
     @staticmethod
     async def get_location_history(db: AsyncSession, device_id: uuid.UUID, limit: int = 100) -> List[LocationSample]:
+        """
+        Lấy danh sách lịch sử vị trí của một thiết bị.
+        Sắp xếp theo thời gian giảm dần (mới nhất xếp trước) và giới hạn số lượng kết quả.
+        """
         result = await db.execute(
             select(LocationSample)
             .filter(LocationSample.device_id == device_id)
             .order_by(LocationSample.measured_at.desc())
             .limit(limit)
         )
-        return result.scalars().all()
+        # Sử dụng scalars().all() để bóc tách dữ liệu ra khỏi cấu trúc Row của SQLAlchemy
+        return list(result.scalars().all())
 
     @staticmethod
     async def add_location(db: AsyncSession, location_in: LocationSampleCreate) -> LocationSample:
-        # Create WKT point for PostGIS
+        """
+        Ghi nhận một tọa độ mới vào CSDL và đồng thời cập nhật trạng thái mới nhất của thiết bị.
+        """
+        # Tạo chuỗi định dạng WKT (Well-Known Text) dành riêng cho cơ sở dữ liệu không gian PostGIS (SRID=4326)
         point = f"SRID=4326;POINT({location_in.longitude} {location_in.latitude})"
-        
+
+        # Khởi tạo bản ghi lịch sử vị trí
         sample = LocationSample(
             **location_in.model_dump(exclude={'latitude', 'longitude', 'altitude_m', 'speed_mps', 'heading_deg', 'accuracy_m', 'satellite_count', 'source'}),
             latitude=location_in.latitude,
             longitude=location_in.longitude,
-            location=point,
+            location=point, # Điểm PostGIS phục vụ truy vấn không gian sau này
             altitude_m=location_in.altitude_m,
             speed_mps=location_in.speed_mps,
             heading_deg=location_in.heading_deg,
@@ -37,19 +48,26 @@ class TrackingService:
             received_at=datetime.now(timezone.utc)
         )
         db.add(sample)
-        
-        # Update latest state
+
+        # Truy vấn lấy dòng trạng thái hiện tại (bảng rút gọn) của thiết bị
         latest = await db.execute(select(DeviceLatestState).filter(DeviceLatestState.device_id == location_in.device_id))
         latest = latest.scalars().first()
+
+        # Nếu thiết bị đã có dòng trạng thái, tiến hành cập nhật
         if latest:
             latest.current_latitude = location_in.latitude
             latest.current_longitude = location_in.longitude
             latest.current_speed_mps = location_in.speed_mps
             latest.current_heading_deg = location_in.heading_deg
-            latest.last_seen_at = location_in.measured_at.replace(tzinfo=None) if location_in.measured_at else None
+            latest.last_seen_at = location_in.measured_at
             latest.is_online = True
-            latest.updated_at = datetime.utcnow()
-            
+            # Sử dụng datetime.now(timezone.utc) thay cho utcnow() đã bị deprecate
+            latest.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+
+        # Commit giao dịch (transaction) để lưu đồng thời cả 2 bảng vào CSDL
         await db.commit()
+        # Làm mới lại đối tượng sample để lấy các trường tự động tạo (như ID tự tăng) từ CSDL
         await db.refresh(sample)
+
         return sample
+

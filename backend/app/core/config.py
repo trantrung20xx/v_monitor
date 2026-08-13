@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000
     JWT_SECRET: str = "change-me"
+    MQTT_USERNAME: str = ""
+    MQTT_PASSWORD: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

@@ -2,45 +2,55 @@ from pydantic import BaseModel
 from typing import Optional, Dict
 from datetime import datetime
 import uuid
+
 from app.schemas.common import BaseSchema
 from app.domain.enums import DeviceType, DeviceStatus
 
+
 class DeviceBase(BaseSchema):
-    device_code: str
-    name: str
-    device_type: DeviceType
-    serial_number: Optional[str] = None
-    manufacturer: Optional[str] = None
-    model: Optional[str] = None
-    firmware_version: Optional[str] = None
-    status: DeviceStatus = DeviceStatus.UNKNOWN
-    metadata_json: Optional[Dict] = None
+    device_code: str                                       # Mã định danh thiết bị
+    name: str                                              # Tên hiển thị thiết bị
+    device_type: DeviceType                                # Loại thiết bị
+    serial_number: Optional[str] = None                    # Số serial thiết bị
+    manufacturer: Optional[str] = None                     # Nhà sản xuất
+    model: Optional[str] = None                            # Model thiết bị
+    firmware_version: Optional[str] = None                 # Phiên bản firmware
+    status: DeviceStatus = DeviceStatus.UNKNOWN            # Trạng thái thiết bị
+    metadata_json: Optional[Dict] = None                   # Thông tin mở rộng dạng key-value
+
 
 class DeviceCreate(DeviceBase):
-    pass
+    pass                                                   # Schema tạo thiết bị
+
 
 class DeviceResponse(DeviceBase):
-    id: uuid.UUID
-    created_at: datetime
-    updated_at: datetime
-    
-    # Latest state fields
-    is_online: Optional[bool] = False
-    current_latitude: Optional[float] = None
-    current_longitude: Optional[float] = None
-    current_speed_mps: Optional[float] = None
-    current_heading_deg: Optional[float] = None
-    controller_battery_pct: Optional[int] = None
-    uav_battery_pct: Optional[int] = None
-    last_seen_at: Optional[datetime] = None
-    
+    id: uuid.UUID                                          # ID duy nhất trong database
+    created_at: datetime                                   # Thời điểm tạo bản ghi
+    updated_at: datetime                                   # Thời điểm cập nhật bản ghi
+
+    # Current assignee (nếu có)
+    current_person_name: Optional[str] = None              # Tên người đang phụ trách
+
+    # Latest state
+    is_online: Optional[bool] = False                      # Trạng thái online hiện tại
+    current_latitude: Optional[float] = None               # Vĩ độ GPS hiện tại
+    current_longitude: Optional[float] = None              # Kinh độ GPS hiện tại
+    current_altitude_m: Optional[float] = None             # Độ cao GPS hiện tại (m)
+    current_speed_mps: Optional[float] = None              # Vận tốc hiện tại (m/s)
+    current_heading_deg: Optional[float] = None            # Hướng di chuyển hiện tại (độ)
+    last_seen_at: Optional[datetime] = None                # Thời điểm nhận dữ liệu gần nhất
+    uav_battery_pct: Optional[int] = None                  # Pin UAV (%)
+    controller_battery_pct: Optional[int] = None           # Pin tay cầm (%)
+
+
 class DeviceLatestStateResponse(BaseSchema):
-    device_id: uuid.UUID
-    last_seen_at: datetime
-    is_online: bool
-    current_latitude: Optional[float] = None
-    current_longitude: Optional[float] = None
-    current_speed_mps: Optional[float] = None
-    current_heading_deg: Optional[float] = None
-    controller_battery_pct: Optional[int] = None
-    uav_battery_pct: Optional[int] = None
+    device_id: uuid.UUID                                   # ID thiết bị
+    last_seen_at: datetime                                 # Thời điểm nhận dữ liệu gần nhất
+    is_online: bool                                        # Trạng thái online hiện tại
+    current_latitude: Optional[float] = None               # Vĩ độ GPS hiện tại
+    current_longitude: Optional[float] = None              # Kinh độ GPS hiện tại
+    current_altitude_m: Optional[float] = None             # Độ cao GPS hiện tại (m)
+    current_speed_mps: Optional[float] = None              # Vận tốc hiện tại (m/s)
+    current_heading_deg: Optional[float] = None            # Hướng di chuyển hiện tại (độ)
+    uav_battery_pct: Optional[int] = None                  # Pin UAV (%)
+    controller_battery_pct: Optional[int] = None           # Pin tay cầm (%)

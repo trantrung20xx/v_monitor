@@ -1,10 +1,19 @@
+import 'package:flutter/foundation.dart';
 import '../models/device_model.dart';
+import '../models/assignment_model.dart';
+import '../models/usage_session_model.dart';
 import '../../core/network/api_client.dart';
+import '../../core/network/websocket_client.dart';
 
+/// Lớp Repository chịu trách nhiệm tương tác với API liên quan đến Thiết bị.
+/// Nhận instance của ApiClient và WebsocketClient từ bên ngoài.
 class DeviceRepository {
   final ApiClient _apiClient;
-  DeviceRepository(this._apiClient);
+  final WebsocketClient _websocketClient;
 
+  DeviceRepository(this._apiClient, this._websocketClient);
+
+  /// Lấy danh sách toàn bộ thiết bị từ Backend thông qua endpoint `/devices/`.
   Future<List<DeviceModel>> getDevices() async {
     try {
       final response = await _apiClient.get('/devices/');
@@ -14,11 +23,12 @@ class DeviceRepository {
       }
       return [];
     } catch (e) {
-      print('Error fetching devices: $e');
+      debugPrint('Lỗi khi lấy danh sách thiết bị: $e');
       return [];
     }
   }
 
+  /// Lấy thông tin chi tiết của một thiết bị cụ thể thông qua ID.
   Future<DeviceModel?> getDevice(String id) async {
     try {
       final response = await _apiClient.get('/devices/$id');
@@ -27,8 +37,45 @@ class DeviceRepository {
       }
       return null;
     } catch (e) {
-      print('Error fetching device: $e');
+      debugPrint('Lỗi khi lấy thông tin chi tiết thiết bị: $e');
       return null;
     }
+  }
+
+  /// Lấy lịch sử phân công người sử dụng cho thiết bị
+  Future<List<AssignmentModel>> getDeviceAssignments(String id) async {
+    try {
+      final response = await _apiClient.get('/devices/$id/assignments');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data;
+        return data.map((json) => AssignmentModel.fromJson(json)).toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Lỗi khi lấy danh sách phân công: $e');
+      return [];
+    }
+  }
+
+  /// Lấy lịch sử phiên sử dụng của thiết bị
+  Future<List<UsageSessionModel>> getDeviceUsages(String id) async {
+    try {
+      final response = await _apiClient.get('/devices/$id/usages');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data;
+        return data.map((json) => UsageSessionModel.fromJson(json)).toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Lỗi khi lấy danh sách phiên sử dụng: $e');
+      return [];
+    }
+  }
+
+  /// Lắng nghe dữ liệu realtime từ thiết bị qua WebSocket
+  Stream<DeviceModel> get deviceUpdates {
+    return _websocketClient.messages
+        .where((data) => data['type'] == 'DEVICE_UPDATE' && data['device'] != null)
+        .map((data) => DeviceModel.fromJson(data['device']));
   }
 }
