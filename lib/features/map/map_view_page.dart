@@ -10,6 +10,7 @@ import '../../core/widgets/device_icon.dart';
 import '../../data/models/device_model.dart';
 import '../dashboard/dashboard_cubit.dart';
 import '../dashboard/dashboard_state.dart';
+import 'widgets/device_list_overlay.dart';
 
 import '../../data/repositories/device_repository.dart';
 
@@ -42,56 +43,143 @@ class _MapViewPageState extends State<MapViewPage> {
   }
 }
 
-class _MapViewBody extends StatelessWidget {
+class _MapViewBody extends StatefulWidget {
   const _MapViewBody();
 
   @override
+  State<_MapViewBody> createState() => _MapViewBodyState();
+}
+
+class _MapViewBodyState extends State<_MapViewBody> {
+  final MapController _mapController = MapController();
+  bool _showDesktopList = false;
+
+  void _onDeviceSelected(BuildContext context, DeviceModel device) {
+    if (device.latitude != null && device.longitude != null) {
+      _mapController.move(LatLng(device.latitude!, device.longitude!), 16.0);
+    }
+  }
+
+  void _openMobileList(BuildContext context, List<DeviceModel> devices) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.6,
+          minChildSize: 0.3,
+          maxChildSize: 0.9,
+          builder: (context, scrollController) {
+            return DeviceListOverlay(
+              devices: devices,
+              onDeviceSelected: (d) {
+                Navigator.pop(context);
+                _onDeviceSelected(context, d);
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Bản đồ'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              context.read<DashboardCubit>().loadDashboard();
-            },
-            tooltip: 'Tải lại',
-          ),
-        ],
-      ),
-      body: BlocBuilder<DashboardCubit, DashboardState>(
-        builder: (context, state) {
-          if (state.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final located = state.devices
-              .where((d) => d.latitude != null && d.longitude != null)
-              .toList();
-
-          const defaultCenter = LatLng(21.0285, 105.8542);
-          final center = located.isNotEmpty
-              ? LatLng(located.first.latitude!, located.first.longitude!)
-              : defaultCenter;
-
-          return FlutterMap(
-            options: MapOptions(
-              initialCenter: center,
-              initialZoom: 13,
-            ),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.vmonitor.app',
-              ),
-              MarkerLayer(
-                markers: located.map((device) => _buildMarker(context, device)).toList(),
+    return BlocBuilder<DashboardCubit, DashboardState>(
+      builder: (context, state) {
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Bản đồ'),
+            actions: [
+              if (!state.isLoading && state.devices.isNotEmpty)
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isDesktop = MediaQuery.of(context).size.width > 800;
+                    return IconButton(
+                      icon: const Icon(Icons.list_alt),
+                      tooltip: 'Danh sách thiết bị',
+                      onPressed: () {
+                        if (isDesktop) {
+                          setState(() {
+                            _showDesktopList = !_showDesktopList;
+                          });
+                        } else {
+                          _openMobileList(context, state.devices);
+                        }
+                      },
+                    );
+                  },
+                ),
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: () {
+                  context.read<DashboardCubit>().loadDashboard();
+                },
+                tooltip: 'Tải lại',
               ),
             ],
-          );
-        },
-      ),
+          ),
+          body: () {
+            if (state.isLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final located = state.devices
+                .where((d) => d.latitude != null && d.longitude != null)
+                .toList();
+
+            const defaultCenter = LatLng(21.0285, 105.8542);
+            final center = located.isNotEmpty
+                ? LatLng(located.first.latitude!, located.first.longitude!)
+                : defaultCenter;
+
+            final isDesktop = MediaQuery.of(context).size.width > 800;
+            if (!isDesktop && _showDesktopList) {
+              // Auto hide when resized to mobile
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                setState(() {
+                  _showDesktopList = false;
+                });
+              });
+            }
+
+            return Stack(
+              children: [
+                FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: center,
+                    initialZoom: 13,
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.vmonitor.app',
+                    ),
+                    MarkerLayer(
+                      markers: located.map((device) => _buildMarker(context, device)).toList(),
+                    ),
+                  ],
+                ),
+                if (isDesktop && _showDesktopList)
+                  Positioned(
+                    top: 16,
+                    right: 16,
+                    bottom: 16,
+                    child: DeviceListOverlay(
+                      devices: state.devices,
+                      onDeviceSelected: (d) => _onDeviceSelected(context, d),
+                      onClose: () => setState(() => _showDesktopList = false),
+                    ),
+                  ),
+              ],
+            );
+          }(),
+        );
+      },
     );
   }
 

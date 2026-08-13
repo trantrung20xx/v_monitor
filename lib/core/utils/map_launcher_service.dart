@@ -1,6 +1,5 @@
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:intl/intl.dart';
 
 import '../../data/models/device_model.dart';
 
