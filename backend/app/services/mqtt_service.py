@@ -92,7 +92,22 @@ class MQTTService:
                         )
 
                         await TrackingService.add_location(db, location_data)
-                        logger.info(f"Đã xử lý thành công dữ liệu vị trí từ {device_code}")
+                        
+                        # Lấy bản ghi thiết bị mới nhất (kèm latest_state và current_person) để đẩy qua WebSocket
+                        from app.services.device_service import DeviceService
+                        from app.schemas.device import DeviceResponse
+                        from app.services.realtime_service import realtime_service
+                        
+                        updated_device = await DeviceService.get_device(db, device_id)
+                        if updated_device:
+                            device_resp = DeviceResponse.model_validate(updated_device)
+                            message = {
+                                "type": "DEVICE_UPDATE",
+                                "device": json.loads(device_resp.model_dump_json())
+                            }
+                            await realtime_service.broadcast_telemetry(message)
+
+                        logger.info(f"Đã xử lý thành công dữ liệu vị trí từ {device_code} và đẩy qua WebSockets")
 
         except Exception as e:
             logger.error(f"Lỗi khi xử lý tin nhắn MQTT: {e}", exc_info=True)
