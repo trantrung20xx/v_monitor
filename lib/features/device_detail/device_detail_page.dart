@@ -101,15 +101,7 @@ class _DeviceDetailView extends StatelessWidget {
                 ],
               ),
               actions: [
-                if (device.latitude != null && device.longitude != null)
-                  IconButton(
-                    icon: const Icon(Icons.directions),
-                    onPressed: () => MapLauncherService.openDefaultMap(
-                      device.latitude!, 
-                      device.longitude!
-                    ),
-                    tooltip: 'Chỉ đường',
-                  ),
+                _ShareLocationMenu(device: device),
                 IconButton(
                   icon: const Icon(Icons.refresh),
                   onPressed: () => context.read<DeviceDetailCubit>().load(),
@@ -633,6 +625,114 @@ class _EventsTab extends StatelessWidget {
       default:
         return Colors.grey;
     }
+  }
+}
+
+class _ShareLocationMenu extends StatelessWidget {
+  const _ShareLocationMenu({required this.device});
+  final DeviceModel device;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasLocation = MapLauncherService.isValidCoordinate(device.latitude, device.longitude);
+
+    if (!hasLocation) {
+      return PopupMenuButton<String>(
+        icon: const Icon(Icons.share_location),
+        tooltip: 'Chia sẻ vị trí',
+        itemBuilder: (context) => [
+          const PopupMenuItem<String>(
+            enabled: false,
+            child: Text('Vị trí không khả dụng'),
+          ),
+        ],
+      );
+    }
+
+    final isStale = device.lastSeenAt != null && 
+        DateTime.now().difference(device.lastSeenAt!).inMinutes > 5;
+    
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.share_location),
+      tooltip: 'Chia sẻ vị trí',
+      onSelected: (value) async {
+        if (value == 'google') {
+          final success = await MapLauncherService.openGoogleMaps(device.latitude, device.longitude);
+          if (!success && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Không thể mở Google Maps')),
+            );
+          }
+        } else if (value == 'apple') {
+          final success = await MapLauncherService.openAppleMaps(device.latitude, device.longitude);
+          if (!success && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Không thể mở Apple Maps')),
+            );
+          }
+        } else if (value == 'copy') {
+          try {
+            await MapLauncherService.copyLocationToClipboard(device, device.latitude, device.longitude);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Đã copy vị trí')),
+              );
+            }
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Không thể copy vị trí')),
+              );
+            }
+          }
+        }
+      },
+      itemBuilder: (context) => [
+        if (isStale) ...[
+          PopupMenuItem<String>(
+            enabled: false,
+            child: Text(
+              'Vị trí cũ (Cập nhật: ${DateFormat('HH:mm dd/MM').format(device.lastSeenAt!.toLocal())})',
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.outline,
+              ),
+            ),
+          ),
+          const PopupMenuDivider(),
+        ],
+        const PopupMenuItem<String>(
+          value: 'google',
+          child: Row(
+            children: [
+              Icon(Icons.map, size: 20),
+              SizedBox(width: 12),
+              Text('Google Maps'),
+            ],
+          ),
+        ),
+        const PopupMenuItem<String>(
+          value: 'apple',
+          child: Row(
+            children: [
+              Icon(Icons.apple, size: 20),
+              SizedBox(width: 12),
+              Text('Apple Maps'),
+            ],
+          ),
+        ),
+        const PopupMenuItem<String>(
+          value: 'copy',
+          child: Row(
+            children: [
+              Icon(Icons.content_copy, size: 20),
+              SizedBox(width: 12),
+              Text('Copy Location'),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 
