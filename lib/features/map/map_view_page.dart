@@ -56,7 +56,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
 
   void _onDeviceSelected(BuildContext context, DeviceModel device) {
     if (device.latitude != null && device.longitude != null) {
-      _mapController.move(LatLng(device.latitude!, device.longitude!), 16.0);
+      _mapController.move(LatLng(device.latitude!, device.longitude!), 18.0);
     }
   }
 
