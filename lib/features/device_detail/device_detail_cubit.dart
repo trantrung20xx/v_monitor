@@ -125,16 +125,34 @@ class DeviceDetailCubit extends Cubit<DeviceDetailState> {
       final placemarks = await placemarkFromCoordinates(lat, lng);
       if (placemarks.isNotEmpty) {
         final p = placemarks.first;
-        // Format according to Vietnam standard: street, sublocality, locality, administrative area
-        final parts = [
-          if (p.street != null && p.street!.isNotEmpty) p.street!,
-          if (p.subLocality != null && p.subLocality!.isNotEmpty) p.subLocality!,
-          if (p.locality != null && p.locality!.isNotEmpty) p.locality!,
-          if (p.subAdministrativeArea != null && p.subAdministrativeArea!.isNotEmpty) p.subAdministrativeArea!,
-          if (p.administrativeArea != null && p.administrativeArea!.isNotEmpty) p.administrativeArea!,
+        final rawParts = [
+          p.street,
+          p.subLocality,
+          p.locality,
+          p.subAdministrativeArea,
+          p.administrativeArea,
+          p.country,
         ];
-        // Remove duplicates and join
-        final address = parts.toSet().join(', ');
+        
+        final cleanParts = <String>[];
+        for (final part in rawParts) {
+          if (part != null && part.isNotEmpty && part != 'Unnamed Road') {
+            if (cleanParts.isEmpty || cleanParts.last != part) {
+              bool skip = false;
+              for (int i = 0; i < cleanParts.length; i++) {
+                if (cleanParts[i].contains(part) || part.contains(cleanParts[i])) {
+                  if (part.length > cleanParts[i].length) {
+                    cleanParts[i] = part; 
+                  }
+                  skip = true;
+                  break;
+                }
+              }
+              if (!skip) cleanParts.add(part);
+            }
+          }
+        }
+        final address = cleanParts.join(', ');
         emit(state.copyWith(address: address));
       }
     } catch (e) {

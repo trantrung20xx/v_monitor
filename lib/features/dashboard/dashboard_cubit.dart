@@ -110,14 +110,36 @@ class DashboardCubit extends Cubit<DashboardState> {
       final placemarks = await placemarkFromCoordinates(lat, lng);
       if (placemarks.isNotEmpty) {
         final p = placemarks.first;
-        final parts = [
-          if (p.street != null && p.street!.isNotEmpty) p.street!,
-          if (p.subLocality != null && p.subLocality!.isNotEmpty) p.subLocality!,
-          if (p.locality != null && p.locality!.isNotEmpty) p.locality!,
-          if (p.subAdministrativeArea != null && p.subAdministrativeArea!.isNotEmpty) p.subAdministrativeArea!,
-          if (p.administrativeArea != null && p.administrativeArea!.isNotEmpty) p.administrativeArea!,
+        final rawParts = [
+          p.street,
+          p.subLocality,
+          p.locality,
+          p.subAdministrativeArea,
+          p.administrativeArea,
+          p.country,
         ];
-        final address = parts.toSet().join(', ');
+        
+        final cleanParts = <String>[];
+        for (final part in rawParts) {
+          if (part != null && part.isNotEmpty && part != 'Unnamed Road') {
+            // Prevent consecutive duplicates (e.g. "Hà Nội, Hà Nội")
+            if (cleanParts.isEmpty || cleanParts.last != part) {
+              // Also check if this part is a substring of the previous part or vice versa
+              bool skip = false;
+              for (int i = 0; i < cleanParts.length; i++) {
+                if (cleanParts[i].contains(part) || part.contains(cleanParts[i])) {
+                  if (part.length > cleanParts[i].length) {
+                    cleanParts[i] = part; // Keep the longer more descriptive one
+                  }
+                  skip = true;
+                  break;
+                }
+              }
+              if (!skip) cleanParts.add(part);
+            }
+          }
+        }
+        final address = cleanParts.join(', ');
         _addressCache[cacheKey] = address;
         
         final newAddresses = Map<String, String>.from(state.deviceAddresses);

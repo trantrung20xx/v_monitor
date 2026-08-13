@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/widgets/stat_card.dart';
 import '../dashboard_state.dart';
 
-/// Row of stat cards for the dashboard overview.
+/// Horizontal scrollable stats overview for mobile.
 class StatsOverview extends StatelessWidget {
   const StatsOverview({super.key, required this.state});
 
@@ -11,57 +11,50 @@ class StatsOverview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: [
-        SizedBox(
-          width: 180,
-          child: StatCard(
-            label: 'Trực tuyến',
-            value: '${state.onlineCount}',
-            icon: Icons.wifi,
-            color: Colors.green.shade600,
-          ),
-        ),
-        SizedBox(
-          width: 180,
-          child: StatCard(
-            label: 'Ngoại tuyến',
-            value: '${state.offlineCount}',
-            icon: Icons.wifi_off,
-            color: Colors.grey.shade600,
-          ),
-        ),
-        SizedBox(
-          width: 180,
-          child: StatCard(
-            label: 'Di chuyển',
-            value: '${state.movingCount}',
-            icon: Icons.navigation,
-            color: Colors.blue.shade600,
-          ),
-        ),
-        SizedBox(
-          width: 180,
-          child: StatCard(
-            label: 'Dừng',
-            value: '${state.stoppedCount}',
-            icon: Icons.pause_circle_outline,
-            color: Colors.orange.shade600,
-          ),
-        ),
-        SizedBox(
-          width: 180,
-          child: StatCard(
-            label: 'Mất tín hiệu',
-            value: '${state.staleCount}',
-            icon: Icons.warning_amber,
-            color: Colors.redAccent,
-          ),
-        ),
-      ],
+    final cards = [
+      StatCard(
+        label: 'Trực tuyến',
+        value: '${state.onlineCount}',
+        icon: Icons.wifi_rounded,
+        color: const Color(0xFF16A34A),
+      ),
+      StatCard(
+        label: 'Ngoại tuyến',
+        value: '${state.offlineCount}',
+        icon: Icons.wifi_off_rounded,
+        color: Colors.grey.shade600,
+      ),
+      StatCard(
+        label: 'Di chuyển',
+        value: '${state.movingCount}',
+        icon: Icons.navigation_rounded,
+        color: const Color(0xFF2563EB),
+      ),
+      StatCard(
+        label: 'Đang dừng',
+        value: '${state.stoppedCount}',
+        icon: Icons.pause_circle_rounded,
+        color: const Color(0xFFD97706),
+      ),
+      StatCard(
+        label: 'Mất tín hiệu',
+        value: '${state.staleCount}',
+        icon: Icons.signal_wifi_statusbar_connected_no_internet_4_rounded,
+        color: const Color(0xFFDC2626),
+      ),
+    ];
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      clipBehavior: Clip.none,
+      child: Row(
+        children: cards.map((c) {
+          return Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: SizedBox(width: 140, child: c),
+          );
+        }).toList(),
+      ),
     );
   }
 }
-

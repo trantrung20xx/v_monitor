@@ -146,7 +146,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
               });
             }
 
-            return Stack(
+          return Stack(
               children: [
                 FlutterMap(
                   mapController: _mapController,
@@ -164,6 +164,55 @@ class _MapViewBodyState extends State<_MapViewBody> {
                     ),
                   ],
                 ),
+                // Empty GPS state overlay
+                if (located.isEmpty)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: Center(
+                        child: Container(
+                          margin: const EdgeInsets.all(32),
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.92),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.08),
+                                blurRadius: 16,
+                              )
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.location_off_rounded,
+                                size: 48,
+                                color: Theme.of(context).colorScheme.outline,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Chưa có thiết bị nào có dữ liệu GPS',
+                                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              if (state.devices.isNotEmpty) ...[  
+                                const SizedBox(height: 6),
+                                Text(
+                                  '${state.devices.length} thiết bị đang chờ tín hiệu GPS',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.outline,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 if (isDesktop && _showDesktopList)
                   Positioned(
                     top: 16,
@@ -184,14 +233,16 @@ class _MapViewBodyState extends State<_MapViewBody> {
   }
 
   Marker _buildMarker(BuildContext context, DeviceModel device) {
-    final color = device.isOnline
-        ? (device.isMoving ? Colors.blue : Colors.green)
-        : Colors.grey;
+    final isMoving = device.isMoving;
+    final isOnline = device.isOnline;
+    final Color markerColor = isOnline
+        ? (isMoving ? const Color(0xFF2563EB) : const Color(0xFF16A34A))
+        : Colors.grey.shade500;
 
     return Marker(
       point: LatLng(device.latitude!, device.longitude!),
-      width: 120,
-      height: 50,
+      width: 130,
+      height: 52,
       child: GestureDetector(
         onTap: () => context.pushNamed(
           'device-detail',
@@ -201,15 +252,15 @@ class _MapViewBodyState extends State<_MapViewBody> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: color,
+                color: markerColor,
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.3),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
+                    color: markerColor.withValues(alpha: 0.4),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
                   ),
                 ],
               ),
@@ -219,24 +270,32 @@ class _MapViewBodyState extends State<_MapViewBody> {
                   Icon(
                     DeviceIcon.iconFor(device.deviceType),
                     color: Colors.white,
-                    size: 14,
+                    size: 13,
                   ),
                   const SizedBox(width: 4),
-                  Text(
-                    device.deviceCode,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
+                  Flexible(
+                    child: Text(
+                      device.name.isNotEmpty ? device.name : device.deviceCode,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
+                  if (isMoving) ...[  
+                    const SizedBox(width: 4),
+                    const Icon(Icons.navigation_rounded, color: Colors.white, size: 10),
+                  ],
                 ],
               ),
             ),
-            // Arrow pointing down
+            // Arrow tip
             CustomPaint(
               size: const Size(10, 6),
-              painter: _ArrowPainter(color),
+              painter: _ArrowPainter(markerColor),
             ),
           ],
         ),

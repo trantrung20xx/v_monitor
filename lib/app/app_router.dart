@@ -91,16 +91,7 @@ class _AppShellState extends State<_AppShell> {
               selectedIndex: _selectedIndex,
               onDestinationSelected: _onDestinationSelected,
               labelType: NavigationRailLabelType.all,
-              leading: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Text(
-                  'v_monitor',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                ),
-              ),
+              leading: const SizedBox(height: 8),
               destinations: _destinations,
             ),
             const VerticalDivider(width: 1, thickness: 1),

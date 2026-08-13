@@ -3,6 +3,9 @@ import 'app/app.dart';
 import 'core/network/api_client.dart';
 import 'core/network/websocket_client.dart';
 
+import 'package:flutter/foundation.dart';
+import 'package:device_preview/device_preview.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -13,8 +16,13 @@ void main() async {
   // Connect to realtime backend
   websocketClient.connect();
 
-  runApp(VMonitorApp(
-    apiClient: apiClient,
-    websocketClient: websocketClient,
-  ));
+  runApp(
+    DevicePreview(
+      enabled: !kReleaseMode,
+      builder: (context) => VMonitorApp(
+        apiClient: apiClient,
+        websocketClient: websocketClient,
+      ),
+    ),
+  );
 }
