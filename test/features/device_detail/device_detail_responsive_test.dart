@@ -23,7 +23,14 @@ void main() {
     final deviceRepo = _FakeDeviceRepository();
     final trackingRepo = _FakeTrackingRepository();
     final geocodingRepo = _FakeGeocodingRepository();
+    final flutterErrors = <FlutterErrorDetails>[];
+    final previousOnError = FlutterError.onError;
+    FlutterError.onError = (details) {
+      flutterErrors.add(details);
+      previousOnError?.call(details);
+    };
     addTearDown(deviceRepo.dispose);
+    addTearDown(() => FlutterError.onError = previousOnError);
 
     for (final scenario in const [
       _ViewportScenario(Size(320, 740), 3),
@@ -53,6 +60,19 @@ void main() {
       expect(find.text('Phiên sử dụng'), findsOneWidget);
       expect(find.text('Hành trình hiện tại'), findsOneWidget);
       expect(find.text('Hoạt động gần đây'), findsOneWidget);
+      expect(
+        flutterErrors
+            .where(
+              (details) =>
+                  details.exceptionAsString().contains('overflowed by') ||
+                  details.exceptionAsString().contains(
+                    'A RenderFlex overflowed',
+                  ),
+            )
+            .toList(),
+        isEmpty,
+      );
+      flutterErrors.clear();
       expect(tester.takeException(), isNull);
     }
   });
@@ -95,7 +115,8 @@ Future<void> _pumpDetailAtSize(
       ),
     ),
   );
-  await tester.pumpAndSettle();
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 600));
 }
 
 class _FakeDeviceRepository extends DeviceRepository {
@@ -115,8 +136,12 @@ class _FakeDeviceRepository extends DeviceRepository {
       type: 'UAV_CONTROLLER',
       status: 'UNKNOWN',
       isOnline: true,
+      latitude: 21.0322,
+      longitude: 105.80776,
+      currentAltitudeM: 36.5,
       currentSpeedMps: 12.5,
       currentHeadingDeg: 45,
+      currentPersonName: 'Nguyễn Văn A',
       lastSeenAt: DateTime.now().subtract(const Duration(seconds: 12)),
     );
   }
@@ -125,7 +150,27 @@ class _FakeDeviceRepository extends DeviceRepository {
   Future<List<AssignmentModel>> getDeviceAssignments(String id) async => [];
 
   @override
-  Future<List<UsageSessionModel>> getDeviceUsages(String id) async => [];
+  Future<List<UsageSessionModel>> getDeviceUsages(String id) async {
+    final startedAt = DateTime.now().subtract(
+      const Duration(hours: 2, minutes: 14),
+    );
+    return [
+      UsageSessionModel(
+        id: 'usage-1',
+        deviceId: id,
+        personId: 'person-1',
+        startedAt: startedAt,
+        distanceM: 23700,
+        avgSpeedMps: 7.8,
+        maxSpeedMps: 16.9,
+        movingDurationS: 6120,
+        stoppedDurationS: 1920,
+        status: 'ACTIVE',
+        personName: 'Nguyễn Văn A',
+        personCode: 'NV-012',
+      ),
+    ];
+  }
 
   void dispose() {
     _updates.close();
@@ -146,7 +191,40 @@ class _FakeTrackingRepository extends TrackingRepository {
   ];
 
   @override
-  Future<List<LocationModel>> getLocationHistory(String deviceId) async => [];
+  Future<List<LocationModel>> getLocationHistory(String deviceId) async {
+    final now = DateTime.now();
+    return [
+      LocationModel(
+        id: 'loc-3',
+        deviceId: deviceId,
+        measuredAt: now.subtract(const Duration(minutes: 1)),
+        latitude: 21.0322,
+        longitude: 105.80776,
+        altitudeM: 36.5,
+        speedMps: 12.5,
+        headingDeg: 45,
+        accuracyM: 4,
+      ),
+      LocationModel(
+        id: 'loc-2',
+        deviceId: deviceId,
+        measuredAt: now.subtract(const Duration(minutes: 6)),
+        latitude: 21.0299,
+        longitude: 105.8052,
+        speedMps: 11.2,
+        headingDeg: 45,
+      ),
+      LocationModel(
+        id: 'loc-1',
+        deviceId: deviceId,
+        measuredAt: now.subtract(const Duration(minutes: 12)),
+        latitude: 21.0275,
+        longitude: 105.8028,
+        speedMps: 0,
+        headingDeg: 45,
+      ),
+    ];
+  }
 }
 
 class _FakeGeocodingRepository extends GeocodingRepository {
@@ -154,6 +232,6 @@ class _FakeGeocodingRepository extends GeocodingRepository {
 
   @override
   Future<String?> reverseAddress(double latitude, double longitude) async {
-    return 'So 1 Trang Tien, Hoan Kiem, Ha Noi';
+    return 'Cầu Giấy, Hà Nội';
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -73,95 +74,41 @@ class _DeviceDetailView extends StatelessWidget {
         return DefaultTabController(
           length: 4,
           child: Scaffold(
-            appBar: AppBar(
-              titleSpacing: 0,
-              title: Row(
+            backgroundColor: _refBackground,
+            body: SafeArea(
+              bottom: false,
+              child: Column(
                 children: [
-                  const SizedBox(width: 4),
-                  Container(
-                    padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(
-                      color: status.color.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      DeviceIcon.iconFor(device.deviceType),
-                      color: status.color,
-                      size: 20,
-                    ),
+                  _DeviceDetailHeader(
+                    device: device,
+                    status: status,
+                    onRefresh: () => context.read<DeviceDetailCubit>().load(),
                   ),
-                  const SizedBox(width: 10),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: TabBarView(
                       children: [
-                        Text(
-                          device.name.isNotEmpty
-                              ? device.name
-                              : device.deviceCode,
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                height: 1.2,
-                              ),
-                          overflow: TextOverflow.ellipsis,
+                        _OverviewTab(
+                          device: device,
+                          locations: state.locations,
+                          address: state.address,
+                          usages: state.usages,
+                          events: state.events,
                         ),
-                        if (device.name.isNotEmpty &&
-                            device.name != device.deviceCode)
-                          Text(
-                            '${device.deviceCode} · ${DeviceFormatters.deviceTypeLabel(device.deviceType)}',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: Theme.of(context).colorScheme.outline,
-                                  height: 1,
-                                ),
-                          ),
+                        _JourneyTab(
+                          device: device,
+                          locations: state.locations,
+                          usages: state.usages,
+                        ),
+                        _UsageHistoryTab(
+                          usages: state.usages,
+                          assignments: state.assignments,
+                        ),
+                        _EventsTab(events: state.events),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
                 ],
               ),
-              bottom: const TabBar(
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
-                tabs: [
-                  Tab(text: 'Tổng quan'),
-                  Tab(text: 'Hành trình'),
-                  Tab(text: 'Lịch sử sử dụng'),
-                  Tab(text: 'Sự kiện'),
-                ],
-              ),
-              actions: [
-                _HeaderStatusBadge(status: status),
-                _ShareLocationMenu(device: device),
-                IconButton(
-                  icon: const Icon(Icons.refresh_rounded),
-                  onPressed: () => context.read<DeviceDetailCubit>().load(),
-                  tooltip: 'Tải lại',
-                ),
-              ],
-            ),
-            body: TabBarView(
-              children: [
-                _OverviewTab(
-                  device: device,
-                  locations: state.locations,
-                  address: state.address,
-                  usages: state.usages,
-                  events: state.events,
-                ),
-                _JourneyTab(
-                  device: device,
-                  locations: state.locations,
-                  usages: state.usages,
-                ),
-                _UsageHistoryTab(
-                  usages: state.usages,
-                  assignments: state.assignments,
-                ),
-                _EventsTab(events: state.events),
-              ],
             ),
           ),
         );
@@ -172,51 +119,243 @@ class _DeviceDetailView extends StatelessWidget {
 
 // ─── Tab 1: Overview + Map ────────────────────────────────────────────────────
 
-class _HeaderStatusBadge extends StatelessWidget {
-  const _HeaderStatusBadge({required this.status});
+const _refBackground = Color(0xFFF7F9FC);
+const _refSurface = Color(0xFFFFFFFF);
+const _refPrimaryBlue = Color(0xFF1677FF);
+const _refText = Color(0xFF111827);
+const _refMuted = Color(0xFF667085);
+const _refBorder = Color(0xFFE5EAF2);
+const _refOnline = Color(0xFF16A34A);
+const _refAmber = Color(0xFFD97706);
 
+class _DeviceDetailHeader extends StatelessWidget {
+  const _DeviceDetailHeader({
+    required this.device,
+    required this.status,
+    required this.onRefresh,
+  });
+
+  final DeviceModel device;
   final ResolvedDeviceStatus status;
+  final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
-    final label = status.connectivity == ConnectivityStatus.online
+    final theme = Theme.of(context);
+    final width = MediaQuery.sizeOf(context).width;
+    final compact = width < 720;
+    final statusText = status.connectivity == ConnectivityStatus.online
         ? 'Trực tuyến'
         : 'Ngoại tuyến';
-    final icon = status.connectivity == ConnectivityStatus.online
-        ? Icons.circle_rounded
-        : Icons.circle_outlined;
+    final statusColor = status.connectivity == ConnectivityStatus.online
+        ? _refOnline
+        : _refMuted;
 
-    return Padding(
-      padding: const EdgeInsets.only(right: 4),
-      child: Tooltip(
-        message: label,
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 132),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: status.color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: status.color.withValues(alpha: 0.18)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 10, color: status.color),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: status.color,
-                    fontWeight: FontWeight.w800,
+    return Container(
+      color: _refSurface,
+      child: Column(
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              compact ? 14 : 24,
+              compact ? 12 : 20,
+              compact ? 14 : 24,
+              0,
+            ),
+            child: Row(
+              children: [
+                _BackSquareButton(
+                  onPressed: () {
+                    final navigator = Navigator.of(context);
+                    if (navigator.canPop()) {
+                      navigator.pop();
+                    } else {
+                      context.goNamed('dashboard');
+                    }
+                  },
+                ),
+                const SizedBox(width: 20),
+                Container(
+                  width: compact ? 44 : 54,
+                  height: compact ? 44 : 54,
+                  decoration: BoxDecoration(
+                    color: _refPrimaryBlue,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _refPrimaryBlue.withValues(alpha: 0.24),
+                        blurRadius: 14,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    DeviceIcon.iconFor(device.deviceType),
+                    color: Colors.white,
+                    size: compact ? 24 : 28,
                   ),
                 ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        DeviceFormatters.displayName(device),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          color: _refText,
+                          fontWeight: FontWeight.w800,
+                          height: 1.08,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${device.deviceCode}  ·  ${DeviceFormatters.deviceTypeLabel(device.deviceType)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: _refMuted,
+                          fontWeight: FontWeight.w500,
+                          height: 1.1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (!compact) ...[
+                  _HeaderStatusText(label: statusText, color: statusColor),
+                  const SizedBox(width: 24),
+                  _HeaderActionButton(
+                    icon: Icons.refresh_rounded,
+                    label: 'Làm mới',
+                    onPressed: onRefresh,
+                  ),
+                ] else
+                  IconButton(
+                    onPressed: onRefresh,
+                    icon: const Icon(Icons.refresh_rounded),
+                    tooltip: 'Làm mới',
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 24),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: TabBar(
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                labelColor: _refPrimaryBlue,
+                unselectedLabelColor: _refMuted,
+                dividerColor: Colors.transparent,
+                indicatorColor: _refPrimaryBlue,
+                indicatorWeight: 3,
+                indicatorSize: TabBarIndicatorSize.tab,
+                labelPadding: EdgeInsets.symmetric(
+                  horizontal: compact ? 16 : 28,
+                ),
+                labelStyle: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+                unselectedLabelStyle: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
+                tabs: const [
+                  Tab(height: 48, text: 'Tổng quan'),
+                  Tab(height: 48, text: 'Hành trình'),
+                  Tab(height: 48, text: 'Lịch sử sử dụng'),
+                  Tab(height: 48, text: 'Sự kiện'),
+                ],
               ),
-            ],
+            ),
+          ),
+          const Divider(height: 1, color: _refBorder),
+        ],
+      ),
+    );
+  }
+}
+
+class _BackSquareButton extends StatelessWidget {
+  const _BackSquareButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 48,
+      height: 48,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          padding: EdgeInsets.zero,
+          side: const BorderSide(color: _refBorder),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          foregroundColor: _refMuted,
+        ),
+        child: const Icon(Icons.arrow_back_rounded, size: 24),
+      ),
+    );
+  }
+}
+
+class _HeaderStatusText extends StatelessWidget {
+  const _HeaderStatusText({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.circle_rounded, size: 9, color: color),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+            color: color,
+            fontWeight: FontWeight.w800,
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _HeaderActionButton extends StatelessWidget {
+  const _HeaderActionButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 18),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: _refText,
+        backgroundColor: _refSurface,
+        side: const BorderSide(color: _refBorder),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        textStyle: Theme.of(
+          context,
+        ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -256,9 +395,9 @@ class _OverviewTab extends StatelessWidget {
       builder: (context, constraints) {
         final width = constraints.maxWidth;
         final isWide = width >= 900;
-        final horizontalPadding = width < 600 ? 12.0 : 16.0;
-        final mapHeight = isWide
-            ? (width >= 1280 ? 420.0 : 360.0)
+        final horizontalPadding = width < 600 ? 12.0 : 22.0;
+        final topHeight = isWide
+            ? (width >= 1280 ? 374.0 : 350.0)
             : width >= 600
             ? 320.0
             : 260.0;
@@ -267,11 +406,21 @@ class _OverviewTab extends StatelessWidget {
             : width >= 680
             ? 2
             : 1;
-        final cardExtent = columns == 1
-            ? 0.0
-            : columns == 3
-            ? 258.0
-            : 276.0;
+        final locationRows = _locationRows(
+          context,
+          status: status,
+          latestLocation: latestLocation,
+          altitudeM: altitudeM,
+          accuracyM: accuracyM,
+        );
+        final usageRows = _usageRows(context, status, latestUsage);
+        final journeyRows = _journeyRows(context, journey);
+        final maxCardRows = [
+          locationRows.length,
+          usageRows.length,
+          journeyRows.length,
+        ].fold<int>(0, (current, count) => count > current ? count : current);
+        final cardExtent = _sectionCardExtent(columns, maxCardRows);
 
         final cards = [
           _SectionCard(
@@ -280,25 +429,19 @@ class _OverviewTab extends StatelessWidget {
                 : 'Vị trí hiện tại',
             icon: Icons.location_on_rounded,
             iconColor: const Color(0xFF0D9488),
-            children: _locationRows(
-              context,
-              status: status,
-              latestLocation: latestLocation,
-              altitudeM: altitudeM,
-              accuracyM: accuracyM,
-            ),
+            children: locationRows,
           ),
           _SectionCard(
             title: 'Phiên sử dụng',
             icon: Icons.assignment_ind_rounded,
             iconColor: const Color(0xFF2563EB),
-            children: _usageRows(context, status, latestUsage),
+            children: usageRows,
           ),
           _SectionCard(
             title: 'Hành trình hiện tại',
             icon: Icons.route_rounded,
             iconColor: const Color(0xFF7C3AED),
-            children: _journeyRows(context, journey),
+            children: journeyRows,
           ),
         ];
 
@@ -307,28 +450,33 @@ class _OverviewTab extends StatelessWidget {
           child: Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1240),
+              constraints: const BoxConstraints(maxWidth: 1560),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (isWide)
                     SizedBox(
-                      height: mapHeight,
+                      height: topHeight,
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Expanded(
-                            flex: 7,
-                            child: _MapSurface(
-                              child: _MapWidget(
+                            flex: 65,
+                            child: _MapOverviewCard(
+                              map: _MapWidget(
                                 device: device,
                                 locations: locations,
+                              ),
+                              strip: _SummaryStrip(
+                                device: device,
+                                status: status,
+                                latestUsage: latestUsage,
                               ),
                             ),
                           ),
                           const SizedBox(width: 16),
                           Expanded(
-                            flex: 3,
+                            flex: 35,
                             child: _CurrentSummaryPanel(
                               device: device,
                               status: status,
@@ -341,7 +489,7 @@ class _OverviewTab extends StatelessWidget {
                     )
                   else ...[
                     SizedBox(
-                      height: mapHeight,
+                      height: topHeight,
                       child: _MapSurface(
                         child: _MapWidget(device: device, locations: locations),
                       ),
@@ -355,12 +503,14 @@ class _OverviewTab extends StatelessWidget {
                       compact: true,
                     ),
                   ],
-                  const SizedBox(height: 12),
-                  _SummaryStrip(
-                    device: device,
-                    status: status,
-                    latestUsage: latestUsage,
-                  ),
+                  if (!isWide) ...[
+                    const SizedBox(height: 12),
+                    _SummaryStrip(
+                      device: device,
+                      status: status,
+                      latestUsage: latestUsage,
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   _AdaptiveSectionGrid(
                     columns: columns,
@@ -381,6 +531,14 @@ class _OverviewTab extends StatelessWidget {
         );
       },
     );
+  }
+
+  double _sectionCardExtent(int columns, int maxRows) {
+    if (columns <= 1) return 0.0;
+    final minExtent = columns == 3 ? 252.0 : 268.0;
+    final maxExtent = columns == 3 ? 292.0 : 316.0;
+    final estimatedExtent = 104.0 + (maxRows * 25.0);
+    return estimatedExtent.clamp(minExtent, maxExtent).toDouble();
   }
 
   List<Widget> _locationRows(
@@ -437,6 +595,10 @@ class _OverviewTab extends StatelessWidget {
             ? null
             : theme.colorScheme.error,
         icon: Icons.schedule_rounded,
+      ),
+      Align(
+        alignment: Alignment.centerRight,
+        child: _ShareLocationCompactButton(device: device),
       ),
     ];
   }
@@ -506,6 +668,15 @@ class _OverviewTab extends StatelessWidget {
         label: 'Trạng thái',
         value: DeviceFormatters.usageStatus(latestUsage),
         icon: Icons.assignment_turned_in_rounded,
+      ),
+      Align(
+        alignment: Alignment.center,
+        child: TextButton.icon(
+          onPressed: () => DefaultTabController.of(context).animateTo(2),
+          label: const Text('Xem lịch sử sử dụng'),
+          icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+          iconAlignment: IconAlignment.end,
+        ),
       ),
     ];
   }
@@ -720,19 +891,7 @@ class _SummaryStripState extends State<_SummaryStrip> {
       ),
     ];
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withValues(alpha: 0.98),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.9)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+      padding: EdgeInsets.zero,
       child: Scrollbar(
         controller: _controller,
         thumbVisibility: false,
@@ -927,8 +1086,15 @@ class _SectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Card(
+      elevation: 0,
+      color: _refSurface,
+      shadowColor: Colors.black.withValues(alpha: 0.05),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: _refBorder),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -938,7 +1104,7 @@ class _SectionCard extends StatelessWidget {
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    color: iconColor.withValues(alpha: 0.1),
+                    color: iconColor.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(icon, size: 16, color: iconColor),
@@ -957,9 +1123,9 @@ class _SectionCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             const Divider(height: 1),
-            const SizedBox(height: 7),
+            const SizedBox(height: 8),
             ...children,
           ],
         ),
@@ -970,6 +1136,35 @@ class _SectionCard extends StatelessWidget {
 
 // ─── Map Widget ───────────────────────────────────────────────────────────────
 
+class _MapOverviewCard extends StatelessWidget {
+  const _MapOverviewCard({required this.map, required this.strip});
+
+  final Widget map;
+  final Widget strip;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: _referenceCardDecoration(),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          Expanded(child: map),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: const BoxDecoration(
+              color: _refSurface,
+              border: Border(top: BorderSide(color: _refBorder)),
+            ),
+            child: strip,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _MapSurface extends StatelessWidget {
   const _MapSurface({required this.child});
 
@@ -977,24 +1172,27 @@ class _MapSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: theme.dividerColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
+      decoration: _referenceCardDecoration(),
       clipBehavior: Clip.antiAlias,
       child: child,
     );
   }
+}
+
+BoxDecoration _referenceCardDecoration() {
+  return BoxDecoration(
+    color: _refSurface,
+    borderRadius: BorderRadius.circular(14),
+    border: Border.all(color: _refBorder),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.035),
+        blurRadius: 16,
+        offset: const Offset(0, 8),
+      ),
+    ],
+  );
 }
 
 class _CurrentSummaryPanel extends StatelessWidget {
@@ -1032,12 +1230,31 @@ class _CurrentSummaryPanel extends StatelessWidget {
         status.movement == MovementStatus.moving &&
         !hasPerson &&
         latestUsage == null;
+    final gpsLabel = DeviceFormatters.gpsFreshness(status, device.lastSeenAt);
+    final gpsColor = status.freshness == DataFreshnessStatus.fresh
+        ? _refOnline
+        : theme.colorScheme.error;
+    final startText = latestUsage == null
+        ? '--'
+        : DateFormat('HH:mm').format(latestUsage!.startedAt.toLocal());
+    final durationText = latestUsage == null
+        ? '--'
+        : DeviceFormatters.duration(
+            latestUsage!.startedAt,
+            latestUsage!.endedAt,
+          );
+    final updateText = DeviceFormatters.lastSeen(device.lastSeenAt);
 
     return Card(
-      elevation: 2,
-      shadowColor: Colors.black.withValues(alpha: 0.12),
+      elevation: 0,
+      color: _refSurface,
+      shadowColor: Colors.black.withValues(alpha: 0.05),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: _refBorder),
+      ),
       child: Padding(
-        padding: EdgeInsets.all(compact ? 14 : 16),
+        padding: EdgeInsets.all(compact ? 14 : 18),
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1048,38 +1265,33 @@ class _CurrentSummaryPanel extends StatelessWidget {
                 runSpacing: 8,
                 children: [
                   _SummaryPill(
-                    icon: status.connectivity == ConnectivityStatus.online
-                        ? Icons.circle_rounded
-                        : Icons.circle_outlined,
-                    label: status.connectivity == ConnectivityStatus.online
-                        ? 'Trực tuyến'
-                        : 'Ngoại tuyến',
-                    color: status.color,
-                    primary: true,
-                  ),
-                  _SummaryPill(
                     icon: _movementIcon(status),
                     label: _movementLabel(status),
                     color: movementColor,
                   ),
+                  _SummaryPill(
+                    icon: status.freshness == DataFreshnessStatus.fresh
+                        ? Icons.location_on_rounded
+                        : Icons.gps_not_fixed_rounded,
+                    label: gpsLabel,
+                    color: gpsColor,
+                  ),
+                  _SummaryPill(
+                    icon: hasPerson
+                        ? Icons.person_rounded
+                        : Icons.warning_amber_rounded,
+                    label: hasPerson ? personName : 'Chưa xác định người dùng',
+                    color: hasPerson ? _refAmber : _refAmber,
+                    emphasized: !hasPerson,
+                  ),
                 ],
               ),
+              const SizedBox(height: 16),
+              const Divider(height: 1),
               const SizedBox(height: 14),
-              Text(
-                speed,
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: theme.colorScheme.onSurface,
-                  height: 1,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                DeviceFormatters.heading(device.currentHeadingDeg),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
+              _SpeedHeadingBlock(
+                speedText: speed,
+                headingText: DeviceFormatters.heading(device.currentHeadingDeg),
               ),
               const SizedBox(height: 14),
               const Divider(),
@@ -1094,25 +1306,13 @@ class _CurrentSummaryPanel extends StatelessWidget {
                     ? theme.colorScheme.primary
                     : theme.colorScheme.error,
               ),
-              if (latestUsage != null) ...[
-                const SizedBox(height: 10),
-                _PanelMetricLine(
-                  label: 'Bắt đầu',
-                  value: DateFormat(
-                    'HH:mm dd/MM',
-                  ).format(latestUsage!.startedAt.toLocal()),
-                ),
-              ],
               const SizedBox(height: 12),
-              _PanelLine(
-                icon: status.freshness == DataFreshnessStatus.fresh
-                    ? Icons.gps_fixed_rounded
-                    : Icons.gps_not_fixed_rounded,
-                label: _freshnessShortLabel(status),
-                value: DeviceFormatters.gpsFreshness(status, device.lastSeenAt),
-                color: status.freshness == DataFreshnessStatus.fresh
-                    ? const Color(0xFF16A34A)
-                    : theme.colorScheme.error,
+              const Divider(),
+              const SizedBox(height: 12),
+              _SummaryMetaGrid(
+                startText: startText,
+                durationText: durationText,
+                updateText: updateText,
               ),
               if (journey.distanceM != null) ...[
                 const SizedBox(height: 10),
@@ -1161,23 +1361,220 @@ class _CurrentSummaryPanel extends StatelessWidget {
   static Color _movementColor(ResolvedDeviceStatus status, ThemeData theme) {
     switch (status.movement) {
       case MovementStatus.moving:
-        return const Color(0xFF2563EB);
+        return _refPrimaryBlue;
       case MovementStatus.stopped:
-        return const Color(0xFFD97706);
+        return _refAmber;
       case MovementStatus.unknown:
         return theme.colorScheme.outline;
     }
   }
+}
 
-  static String _freshnessShortLabel(ResolvedDeviceStatus status) {
-    switch (status.freshness) {
-      case DataFreshnessStatus.fresh:
-        return 'GPS mới';
-      case DataFreshnessStatus.stale:
-        return 'GPS cũ';
-      case DataFreshnessStatus.unknown:
-        return 'Chưa có GPS';
-    }
+class _SpeedHeadingBlock extends StatelessWidget {
+  const _SpeedHeadingBlock({
+    required this.speedText,
+    required this.headingText,
+  });
+
+  final String speedText;
+  final String headingText;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final parts = speedText.split(' ');
+    final speedValue = parts.isEmpty ? speedText : parts.first;
+    final speedUnit = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'TỐC ĐỘ HIỆN TẠI',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: _refMuted,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
+                ),
+              ),
+              const SizedBox(height: 10),
+              RichText(
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: speedValue,
+                      style: theme.textTheme.displayMedium?.copyWith(
+                        color: _refPrimaryBlue,
+                        fontWeight: FontWeight.w800,
+                        height: 0.92,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                    if (speedUnit.isNotEmpty)
+                      TextSpan(
+                        text: ' $speedUnit',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: _refText,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Container(width: 1, height: 88, color: _refBorder),
+        const SizedBox(width: 18),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'HƯỚNG DI CHUYỂN',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: _refMuted,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: _refPrimaryBlue.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.explore_rounded,
+                      color: _refPrimaryBlue,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      headingText,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: _refText,
+                        fontWeight: FontWeight.w700,
+                        height: 1.18,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SummaryMetaGrid extends StatelessWidget {
+  const _SummaryMetaGrid({
+    required this.startText,
+    required this.durationText,
+    required this.updateText,
+  });
+
+  final String startText;
+  final String durationText;
+  final String updateText;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _SummaryMetaItem(
+            icon: Icons.schedule_rounded,
+            label: 'BẮT ĐẦU',
+            value: startText,
+          ),
+        ),
+        Container(width: 1, height: 46, color: _refBorder),
+        Expanded(
+          child: _SummaryMetaItem(
+            icon: Icons.timer_outlined,
+            label: 'THỜI LƯỢNG',
+            value: durationText,
+          ),
+        ),
+        Container(width: 1, height: 46, color: _refBorder),
+        Expanded(
+          child: _SummaryMetaItem(
+            icon: Icons.sync_rounded,
+            label: 'CẬP NHẬT',
+            value: updateText,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SummaryMetaItem extends StatelessWidget {
+  const _SummaryMetaItem({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 14, color: _refMuted),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: _refMuted,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: _refText,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -1338,8 +1735,14 @@ class _RecentActivityCard extends StatelessWidget {
     final recentEvents = events.take(5).toList();
 
     return Card(
+      elevation: 0,
+      color: _refSurface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: _refBorder),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1375,7 +1778,36 @@ class _RecentActivityCard extends StatelessWidget {
                 valueColor: theme.colorScheme.outline,
               )
             else
-              ...recentEvents.map((event) => _RecentActivityRow(event: event)),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth >= 760) {
+                    return Row(
+                      children: [
+                        for (
+                          var index = 0;
+                          index < recentEvents.length && index < 4;
+                          index++
+                        ) ...[
+                          if (index > 0) const SizedBox(width: 22),
+                          Expanded(
+                            child: _RecentActivityRow(
+                              event: recentEvents[index],
+                              compact: true,
+                            ),
+                          ),
+                        ],
+                      ],
+                    );
+                  }
+
+                  return Column(
+                    children: [
+                      for (final event in recentEvents)
+                        _RecentActivityRow(event: event),
+                    ],
+                  );
+                },
+              ),
           ],
         ),
       ),
@@ -1384,9 +1816,10 @@ class _RecentActivityCard extends StatelessWidget {
 }
 
 class _RecentActivityRow extends StatelessWidget {
-  const _RecentActivityRow({required this.event});
+  const _RecentActivityRow({required this.event, this.compact = false});
 
   final DeviceEventModel event;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -1396,8 +1829,14 @@ class _RecentActivityRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Icon(
+            Icons.circle_rounded,
+            size: 12,
+            color: _eventAccent(event.eventType),
+          ),
+          const SizedBox(width: 12),
           SizedBox(
-            width: 48,
+            width: compact ? 50 : 48,
             child: Text(
               DateFormat('HH:mm').format(event.occurredAt.toLocal()),
               style: theme.textTheme.bodySmall?.copyWith(
@@ -1406,8 +1845,6 @@ class _RecentActivityRow extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          Icon(Icons.circle_rounded, size: 8, color: theme.colorScheme.primary),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -1422,6 +1859,22 @@ class _RecentActivityRow extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+Color _eventAccent(String type) {
+  switch (type) {
+    case 'MOVEMENT_STOPPED':
+    case 'IDLE':
+      return _refAmber;
+    case 'MOVEMENT_STARTED':
+    case 'MOVING':
+      return _refPrimaryBlue;
+    case 'ONLINE':
+    case 'GPS_RESTORED':
+      return _refOnline;
+    default:
+      return _refMuted;
   }
 }
 
@@ -2488,6 +2941,7 @@ class _ShareLocationInlineButton extends StatelessWidget {
           _handleShareLocationSelection(context, device, value),
       itemBuilder: (context) => _shareLocationMenuItems(context, device),
       child: Container(
+        width: double.infinity,
         height: 40,
         padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
@@ -2522,8 +2976,9 @@ class _ShareLocationInlineButton extends StatelessWidget {
   }
 }
 
-class _ShareLocationMenu extends StatelessWidget {
-  const _ShareLocationMenu({required this.device});
+class _ShareLocationCompactButton extends StatelessWidget {
+  const _ShareLocationCompactButton({required this.device});
+
   final DeviceModel device;
 
   @override
@@ -2534,24 +2989,44 @@ class _ShareLocationMenu extends StatelessWidget {
     );
 
     if (!hasLocation) {
-      return PopupMenuButton<String>(
-        icon: const Icon(Icons.share_location_rounded),
-        tooltip: 'Chia sẻ vị trí',
-        itemBuilder: (context) => const [
-          PopupMenuItem<String>(
-            enabled: false,
-            child: Text('Vị trí không khả dụng'),
-          ),
-        ],
+      return OutlinedButton.icon(
+        onPressed: null,
+        icon: const Icon(Icons.share_rounded, size: 16),
+        label: const Text('Chia sẻ'),
       );
     }
 
     return PopupMenuButton<String>(
-      icon: const Icon(Icons.share_location_rounded),
       tooltip: 'Chia sẻ vị trí',
+      position: PopupMenuPosition.under,
       onSelected: (value) =>
           _handleShareLocationSelection(context, device, value),
       itemBuilder: (context) => _shareLocationMenuItems(context, device),
+      child: Container(
+        height: 36,
+        constraints: const BoxConstraints(minWidth: 132),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: _refSurface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: _refBorder),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.share_rounded, size: 16, color: _refPrimaryBlue),
+            const SizedBox(width: 8),
+            Text(
+              'Chia sẻ',
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: _refPrimaryBlue,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
