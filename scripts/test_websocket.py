@@ -1,12 +1,18 @@
 import asyncio
 import json
+import os
 import random
 from datetime import datetime
 import urllib.request
 import websockets
 
-API_URL = "http://localhost:8000/api/v1"
-WS_URL = "ws://localhost:8000/api/v1/ws"
+API_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000/api/v1")
+WS_BASE_URL = os.getenv("WS_BASE_URL", "ws://127.0.0.1:8000")
+WS_PATH = os.getenv("WS_PATH", "/api/v1/ws")
+WS_URL = os.getenv(
+    "WS_URL",
+    f"{WS_BASE_URL.rstrip('/')}/{WS_PATH.lstrip('/')}",
+)
 
 def create_device():
     req = urllib.request.Request(

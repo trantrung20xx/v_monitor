@@ -1,14 +1,27 @@
+import json
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+
 from app.services.realtime_service import realtime_service
+
 
 router = APIRouter()
 
+
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    await realtime_service.connect(websocket) # Chấp nhận kết nối và đăng ký client realtime
+    await realtime_service.connect(websocket)
     try:
         while True:
-            # Giữ kết nối WebSocket luôn mở và chờ dữ liệu từ client
             data = await websocket.receive_text()
+            try:
+                payload = json.loads(data)
+            except json.JSONDecodeError:
+                continue
+
+            if payload.get("type") == "PING":
+                await websocket.send_json({"type": "PONG"})
     except WebSocketDisconnect:
-        realtime_service.disconnect(websocket) # Xóa client khi kết nối bị ngắt
+        realtime_service.disconnect(websocket)
+    except Exception:
+        realtime_service.disconnect(websocket)

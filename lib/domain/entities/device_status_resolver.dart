@@ -1,109 +1,109 @@
 import 'package:flutter/material.dart';
 
-enum ConnectivityStatus {
-  online,
-  offline,
-  stale
-}
+enum ConnectivityStatus { online, offline }
 
-enum MovementStatus {
-  moving,
-  stopped,
-  unknown
-}
+enum DataFreshnessStatus { fresh, stale, unknown }
 
-enum ActivityStatus {
-  active,
-  inactive,
-  unknown
-}
+enum MovementStatus { moving, stopped, unknown }
+
+enum ActivityStatus { active, inactive, unknown }
 
 class ResolvedDeviceStatus {
-  final ConnectivityStatus connectivity;
-  final MovementStatus movement;
-  final ActivityStatus activity;
-  final String label;
-  final Color color;
-
   const ResolvedDeviceStatus({
     required this.connectivity,
+    required this.freshness,
     required this.movement,
     required this.activity,
     required this.label,
     required this.color,
   });
+
+  final ConnectivityStatus connectivity;
+  final DataFreshnessStatus freshness;
+  final MovementStatus movement;
+  final ActivityStatus activity;
+  final String label;
+  final Color color;
+}
+
+class DeviceStateThresholds {
+  const DeviceStateThresholds({
+    this.onlineTimeout = const Duration(minutes: 5),
+    this.gpsStaleTimeout = const Duration(minutes: 2),
+    this.movementSpeedThresholdMps = 0.5,
+  });
+
+  final Duration onlineTimeout;
+  final Duration gpsStaleTimeout;
+  final double movementSpeedThresholdMps;
 }
 
 class DeviceStatusResolver {
-  static const double movingThresholdMps = 0.5;
-  static const int staleThresholdSeconds = 120; // 2 minutes
+  static const DeviceStateThresholds defaultThresholds =
+      DeviceStateThresholds();
+
+  static double get movingThresholdMps =>
+      defaultThresholds.movementSpeedThresholdMps;
 
   static ResolvedDeviceStatus resolve({
     required bool isOnline,
     required DateTime? lastSeenAt,
     required double? currentSpeedMps,
-    required String baseStatus, // ACTIVE, INACTIVE, UNKNOWN
+    required String baseStatus,
+    DeviceStateThresholds? thresholds,
   }) {
+    final activeThresholds = thresholds ?? defaultThresholds;
     final now = DateTime.now();
-    bool isStale = false;
+    final age = lastSeenAt == null
+        ? null
+        : now.difference(lastSeenAt.toLocal());
 
-    if (lastSeenAt != null) {
-      final diff = now.difference(lastSeenAt).inSeconds;
-      if (diff > staleThresholdSeconds) {
-        isStale = true;
-      }
-    } else {
-      isStale = true; // No data means stale/unknown
+    final freshness = age == null
+        ? DataFreshnessStatus.unknown
+        : age > activeThresholds.gpsStaleTimeout
+        ? DataFreshnessStatus.stale
+        : DataFreshnessStatus.fresh;
+
+    final hasRecentConnection =
+        age != null && age <= activeThresholds.onlineTimeout;
+    final connectivity = isOnline && hasRecentConnection
+        ? ConnectivityStatus.online
+        : ConnectivityStatus.offline;
+
+    var movement = MovementStatus.unknown;
+    if (connectivity == ConnectivityStatus.online &&
+        freshness == DataFreshnessStatus.fresh &&
+        currentSpeedMps != null) {
+      movement = currentSpeedMps > activeThresholds.movementSpeedThresholdMps
+          ? MovementStatus.moving
+          : MovementStatus.stopped;
     }
 
-    // Determine connectivity
-    ConnectivityStatus connectivity = ConnectivityStatus.offline;
-    if (isOnline && !isStale) {
-      connectivity = ConnectivityStatus.online;
-    } else if (isOnline && isStale) {
-      connectivity = ConnectivityStatus.stale;
-    }
-
-    // Determine movement
-    MovementStatus movement = MovementStatus.unknown;
-    if (connectivity == ConnectivityStatus.online) {
-      if (currentSpeedMps != null) {
-        movement = currentSpeedMps > movingThresholdMps
-            ? MovementStatus.moving
-            : MovementStatus.stopped;
-      } else {
-        movement = MovementStatus.stopped;
-      }
-    } else {
-      movement = MovementStatus.unknown; // Offline/stale cannot be moving reliably
-    }
-
-    // Determine activity
-    ActivityStatus activity = ActivityStatus.unknown;
+    var activity = ActivityStatus.unknown;
     if (baseStatus == 'ACTIVE') {
       activity = ActivityStatus.active;
     } else if (baseStatus == 'INACTIVE') {
       activity = ActivityStatus.inactive;
     }
 
-    // Determine overall label and color
-    String label = 'Không xác định';
+    var label = 'Không xác định';
     Color color = Colors.grey;
 
-    if (connectivity == ConnectivityStatus.online) {
-      if (movement == MovementStatus.moving) {
-        label = 'Đang di chuyển';
-        color = Colors.blue;
-      } else {
-        label = 'Đang dừng';
-        color = Colors.orange;
-      }
-    } else if (connectivity == ConnectivityStatus.stale) {
-      label = 'Mất tín hiệu (Stale)';
-      color = Colors.redAccent;
-    } else {
+    if (connectivity == ConnectivityStatus.offline) {
       label = 'Ngoại tuyến';
       color = Colors.grey;
+    } else if (freshness == DataFreshnessStatus.stale) {
+      label = 'Mất tín hiệu GPS';
+      color = Colors.redAccent;
+    } else if (movement == MovementStatus.moving) {
+      label = 'Đang di chuyển';
+      color = Colors.blue;
+    } else if (movement == MovementStatus.stopped) {
+      label = 'Đang dừng';
+      color = Colors.orange;
+    } else if (connectivity == ConnectivityStatus.online) {
+      label = 'Trực tuyến';
+      color = Colors.green;
     }
 
     if (activity == ActivityStatus.inactive) {
@@ -113,6 +113,7 @@ class DeviceStatusResolver {
 
     return ResolvedDeviceStatus(
       connectivity: connectivity,
+      freshness: freshness,
       movement: movement,
       activity: activity,
       label: label,

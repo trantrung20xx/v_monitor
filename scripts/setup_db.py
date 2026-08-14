@@ -14,7 +14,7 @@ import app.models
 
 async def setup_db():
     print(f"Connecting to database...")
-    engine = create_async_engine(settings.DATABASE_URL, echo=True)
+    engine = create_async_engine(settings.database_url, echo=True)
     
     async with engine.begin() as conn:
         print("Creating tables...")

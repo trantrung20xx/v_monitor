@@ -1,8 +1,10 @@
+import 'config/app_config.dart';
+
 /// Application-wide constants.
 class ApiConstants {
-  static const String baseUrl = 'http://localhost:8000';
-  static const String wsUrl = 'ws://localhost:8000/ws/tracking';
-  static const String apiPrefix = '/api/v1';
+  static String get baseUrl => AppConfig.apiOrigin;
+  static String get wsUrl => AppConfig.websocketUrl;
+  static String get apiPrefix => AppConfig.apiPathPrefix;
 }
 
 class AppConstants {

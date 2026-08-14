@@ -13,45 +13,45 @@ class DeviceFormatters {
   static String displayName(DeviceModel device) {
     if (device.name.trim().isNotEmpty) return device.name.trim();
     if (device.deviceCode.trim().isNotEmpty) return device.deviceCode.trim();
-    return 'Unknown device';
+    return 'Thiết bị không xác định';
   }
 
   static String deviceTypeLabel(String type) {
     switch (type.toUpperCase()) {
       case 'UAV_CONTROLLER':
-        return 'UAV controller';
+        return 'Điều khiển UAV';
       case 'VEHICLE':
-        return 'Vehicle';
+        return 'Xe';
       default:
-        return 'Other device';
+        return 'Thiết bị khác';
     }
   }
 
   static String statusLabel(String status) {
     switch (status.toUpperCase()) {
       case 'ONLINE':
-        return 'Online';
+        return 'Trực tuyến';
       case 'OFFLINE':
-        return 'Offline';
+        return 'Ngoại tuyến';
       case 'ACTIVE':
-        return 'Active';
+        return 'Đang hoạt động';
       case 'INACTIVE':
-        return 'Inactive';
+        return 'Không hoạt động';
       case 'MAINTENANCE':
-        return 'Maintenance';
+        return 'Bảo trì';
       case 'RETIRED':
-        return 'Retired';
+        return 'Ngừng sử dụng';
       default:
-        return 'Unknown';
+        return 'Không xác định';
     }
   }
 
   static IconData statusIcon(ResolvedDeviceStatus status) {
-    if (status.connectivity == ConnectivityStatus.stale) {
-      return Icons.signal_wifi_statusbar_connected_no_internet_4_rounded;
-    }
     if (status.connectivity == ConnectivityStatus.offline) {
       return Icons.wifi_off_rounded;
+    }
+    if (status.freshness == DataFreshnessStatus.stale) {
+      return Icons.signal_wifi_statusbar_connected_no_internet_4_rounded;
     }
     if (status.movement == MovementStatus.moving) {
       return Icons.near_me_rounded;
@@ -61,13 +61,43 @@ class DeviceFormatters {
 
   static String speed(DeviceModel device, ResolvedDeviceStatus status) {
     if (status.movement == MovementStatus.stopped) return '0 km/h';
-    if (device.currentSpeedMps == null) return '--';
+    if (status.movement != MovementStatus.moving ||
+        device.currentSpeedMps == null) {
+      return '--';
+    }
     return '${(device.currentSpeedMps! * 3.6).toStringAsFixed(1)} km/h';
   }
 
   static String speedValue(DeviceModel device) {
     if (device.currentSpeedMps == null) return '--';
     return (device.currentSpeedMps! * 3.6).toStringAsFixed(1);
+  }
+
+  static String speedMps(double? speedMps) {
+    if (speedMps == null) return '--';
+    final kmh = speedMps * 3.6;
+    if (kmh.abs() >= 10 || kmh == 0) {
+      return '${kmh.toStringAsFixed(0)} km/h';
+    }
+    return '${kmh.toStringAsFixed(1)} km/h';
+  }
+
+  static String heading(double? degrees) {
+    if (degrees == null) return '--';
+    final normalized = degrees % 360;
+    final positive = normalized < 0 ? normalized + 360 : normalized;
+    final directions = [
+      'Bắc',
+      'Đông Bắc',
+      'Đông',
+      'Đông Nam',
+      'Nam',
+      'Tây Nam',
+      'Tây',
+      'Tây Bắc',
+    ];
+    final index = ((positive + 22.5) ~/ 45) % directions.length;
+    return '${directions[index]} · ${positive.toStringAsFixed(0)}°';
   }
 
   static String battery(DeviceModel device) {
@@ -81,12 +111,27 @@ class DeviceFormatters {
   static String currentUser(DeviceModel device) {
     final name = device.currentPersonName?.trim();
     if (name != null && name.isNotEmpty) return name;
-    return 'Unassigned';
+    return 'Chưa phân công';
   }
 
   static String coordinates(double? latitude, double? longitude) {
     if (latitude == null || longitude == null) return '--';
-    return '${latitude.toStringAsFixed(5)}, ${longitude.toStringAsFixed(5)}';
+    return '${latitudeText(latitude)}, ${longitudeText(longitude)}';
+  }
+
+  static String coordinatePair(double? latitude, double? longitude) {
+    if (latitude == null || longitude == null) return '--';
+    return '${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}';
+  }
+
+  static String latitudeText(double latitude) {
+    final direction = latitude >= 0 ? 'N' : 'S';
+    return '${latitude.abs().toStringAsFixed(6)}° $direction';
+  }
+
+  static String longitudeText(double longitude) {
+    final direction = longitude >= 0 ? 'E' : 'W';
+    return '${longitude.abs().toStringAsFixed(6)}° $direction';
   }
 
   static String location(DeviceModel device, String? address) {
@@ -99,10 +144,25 @@ class DeviceFormatters {
     if (value == null) return '--';
     final local = value.toLocal();
     final diff = DateTime.now().difference(local);
-    if (diff.inSeconds < 45) return 'Just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
-    if (diff.inHours < 24) return '${diff.inHours} h ago';
+    if (diff.inSeconds < 45) return 'Vừa xong';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} phút trước';
+    if (diff.inHours < 24) return '${diff.inHours} giờ trước';
     return _shortDateTime.format(local);
+  }
+
+  static String gpsFreshness(
+    ResolvedDeviceStatus status,
+    DateTime? lastSeenAt,
+  ) {
+    final age = lastSeen(lastSeenAt);
+    switch (status.freshness) {
+      case DataFreshnessStatus.fresh:
+        return 'GPS mới · $age';
+      case DataFreshnessStatus.stale:
+        return 'GPS cũ · $age';
+      case DataFreshnessStatus.unknown:
+        return 'Chưa có GPS';
+    }
   }
 
   static String dateTime(DateTime? value) {
@@ -138,12 +198,14 @@ class DeviceFormatters {
   }
 
   static String usageStatus(UsageSessionModel usage) {
-    if (usage.endedAt == null || usage.status == 'ACTIVE') return 'Ongoing';
+    if (usage.endedAt == null || usage.status == 'ACTIVE') {
+      return 'Đang diễn ra';
+    }
     switch (usage.status) {
       case 'COMPLETED':
-        return 'Completed';
+        return 'Hoàn tất';
       case 'CANCELLED':
-        return 'Cancelled';
+        return 'Đã hủy';
       default:
         return usage.status;
     }
@@ -153,38 +215,38 @@ class DeviceFormatters {
     switch (event.eventType) {
       case 'DEVICE_STARTED':
       case 'STARTED':
-        return 'Device started';
+        return 'Thiết bị khởi động';
       case 'DEVICE_STOPPED':
       case 'STOPPED':
-        return 'Device stopped';
+        return 'Thiết bị dừng';
       case 'MOVEMENT_STARTED':
       case 'MOVING':
-        return 'Movement started';
+        return 'Bắt đầu di chuyển';
       case 'MOVEMENT_STOPPED':
       case 'IDLE':
-        return 'Movement stopped';
+        return 'Dừng di chuyển';
       case 'USER_ASSIGNED':
       case 'ASSIGNED':
-        return 'User assigned';
+        return 'Gán người dùng';
       case 'USER_RELEASED':
       case 'UNASSIGNED':
-        return 'User released';
+        return 'Thu hồi người dùng';
       case 'GPS_LOST':
-        return 'GPS lost';
+        return 'Mất GPS';
       case 'GPS_RESTORED':
-        return 'GPS restored';
+        return 'GPS khôi phục';
       case 'ONLINE':
-        return 'Online';
+        return 'Trực tuyến';
       case 'OFFLINE':
-        return 'Offline';
+        return 'Ngoại tuyến';
       case 'BATTERY_LOW':
-        return 'Battery low';
+        return 'Pin yếu';
       case 'STATUS_CHANGE':
-        return 'Status changed';
+        return 'Đổi trạng thái';
       case 'ERROR':
-        return 'Device error';
+        return 'Lỗi thiết bị';
       default:
-        return 'Event (${event.eventType})';
+        return 'Sự kiện (${event.eventType})';
     }
   }
 }

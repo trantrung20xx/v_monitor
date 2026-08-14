@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime, timezone
 from app.models.location_sample import LocationSample
 from app.models.device_latest_state import DeviceLatestState
+from app.models.device_event import DeviceEvent
 from app.schemas.tracking import LocationSampleCreate
 
 # Lớp dịch vụ chuyên phụ trách các nghiệp vụ liên quan đến Theo dõi (Tracking) thiết bị.
@@ -23,6 +24,16 @@ class TrackingService:
             .limit(limit)
         )
         # Sử dụng scalars().all() để bóc tách dữ liệu ra khỏi cấu trúc Row của SQLAlchemy
+        return list(result.scalars().all())
+
+    @staticmethod
+    async def get_device_events(db: AsyncSession, device_id: uuid.UUID, limit: int = 100) -> List[DeviceEvent]:
+        result = await db.execute(
+            select(DeviceEvent)
+            .filter(DeviceEvent.device_id == device_id)
+            .order_by(DeviceEvent.occurred_at.desc())
+            .limit(limit)
+        )
         return list(result.scalars().all())
 
     @staticmethod
@@ -70,4 +81,3 @@ class TrackingService:
         await db.refresh(sample)
 
         return sample
-

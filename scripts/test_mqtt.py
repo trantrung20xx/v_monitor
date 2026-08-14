@@ -1,20 +1,51 @@
 import json
+import os
 import time
 import random
-from datetime import datetime
+from datetime import datetime, timezone
+from pathlib import Path
 import paho.mqtt.client as mqtt
 
-BROKER = "broker.emqx.io"
-PORT = 1883
-TOPIC = "v_monitor/telemetry/2c258afc-9f0f-48ed-bb9a-dc3c84d80a13"
+def load_backend_env():
+    env_path = Path(__file__).resolve().parents[1] / "backend" / ".env"
+    if not env_path.exists():
+        return
 
-def on_connect(client, userdata, flags, rc):
-    print(f"Connected to MQTT broker with result code {rc}")
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        os.environ.setdefault(key, value)
+
+
+load_backend_env()
+
+BROKER = os.getenv("MQTT_HOST", "broker.emqx.io")
+PORT = int(os.getenv("MQTT_PORT", "1883"))
+USE_TLS = os.getenv("MQTT_USE_TLS", "false").lower() == "true"
+USERNAME = os.getenv("MQTT_USERNAME") or None
+PASSWORD = os.getenv("MQTT_PASSWORD") or None
+TOPIC = os.getenv("MQTT_TOPIC", "v_monitor/telemetry/UAV-100")
+COUNT = int(os.getenv("MQTT_COUNT", "5"))
+INTERVAL_SECONDS = float(os.getenv("MQTT_INTERVAL_SECONDS", "1"))
+
+def on_connect(client, userdata, flags, reason_code, properties):
+    print(
+        f"Connected to MQTT broker {BROKER}:{PORT} "
+        f"with result code {reason_code}"
+    )
+    if getattr(reason_code, "is_failure", False):
+        client.disconnect()
+        return
     
     lat = 21.028511
     lng = 105.804817
     
-    for i in range(5):
+    for _ in range(COUNT):
         lat += random.uniform(-0.0001, 0.0001)
         lng += random.uniform(-0.0001, 0.0001)
         
@@ -24,17 +55,26 @@ def on_connect(client, userdata, flags, rc):
             "altitude_m": random.uniform(10, 50),
             "speed_mps": random.uniform(0, 15),
             "heading_deg": random.uniform(0, 360),
-            "measured_at": datetime.utcnow().isoformat() + "Z"
+            "measured_at": datetime.now(timezone.utc)
+            .isoformat()
+            .replace("+00:00", "Z"),
         }
         
         print(f"Publishing to {TOPIC}: {payload}")
-        client.publish(TOPIC, json.dumps(payload))
-        time.sleep(1)
+        client.publish(TOPIC, json.dumps(payload), qos=1)
+        time.sleep(INTERVAL_SECONDS)
         
     client.disconnect()
 
-client = mqtt.Client(client_id="v_monitor_test_publisher")
+client = mqtt.Client(
+    mqtt.CallbackAPIVersion.VERSION2,
+    client_id="v_monitor_test_publisher",
+)
 client.on_connect = on_connect
+if USERNAME:
+    client.username_pw_set(USERNAME, PASSWORD)
+if USE_TLS:
+    client.tls_set()
 
 print(f"Connecting to {BROKER}:{PORT}...")
 try:

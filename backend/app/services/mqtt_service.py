@@ -16,7 +16,10 @@ logger = logging.getLogger(__name__)
 class MQTTService:
     def __init__(self):
         # Khởi tạo client paho-mqtt
-        self.client = mqtt.Client(client_id="v_monitor_backend")
+        self.client = mqtt.Client(
+            mqtt.CallbackAPIVersion.VERSION2,
+            client_id="v_monitor_backend",
+        )
 
         # Đăng ký các hàm callback xử lý sự kiện của MQTT
         self.client.on_connect = self.on_connect
@@ -27,14 +30,17 @@ class MQTTService:
         # Việc lưu loop giúp đẩy các hàm bất đồng bộ (async db operations) ngược lại luồng chính của FastAPI
         self.loop = None
 
-    def on_connect(self, client, userdata, flags, rc):
-        # rc = 0 nghĩa là kết nối thành công tới broker
-        if rc == 0:
+    def on_connect(self, client, userdata, flags, reason_code, properties):
+        # reason_code không lỗi nghĩa là kết nối thành công tới broker
+        if not reason_code.is_failure:
             logger.info("Đã kết nối thành công tới MQTT broker")
             # Theo dõi tất cả các tin nhắn gửi tới chủ đề (topic) bắt đầu bằng v_monitor/telemetry/
             client.subscribe("v_monitor/telemetry/#", qos=1)
         else:
-            logger.error(f"Kết nối tới MQTT broker thất bại, mã lỗi: {rc}")
+            logger.error(
+                "Kết nối tới MQTT broker thất bại, "
+                f"mã lỗi: {reason_code}"
+            )
 
     def on_message(self, client, userdata, msg):
         # Decode gói tin từ byte sang chuỗi JSON (UTF-8)
@@ -45,7 +51,7 @@ class MQTTService:
         if self.loop and self.loop.is_running():
             asyncio.run_coroutine_threadsafe(self.process_message(msg.topic, payload_str), self.loop)
 
-    def on_disconnect(self, client, userdata, rc):
+    def on_disconnect(self, client, userdata, flags, reason_code, properties):
         logger.info("Đã ngắt kết nối khỏi MQTT broker")
 
     async def process_message(self, topic: str, payload_str: str):
@@ -115,16 +121,24 @@ class MQTTService:
     async def start(self):
         # Lấy event loop hiện tại của FastAPI để chuẩn bị gọi các hàm async từ paho-mqtt
         self.loop = asyncio.get_running_loop()
-        logger.info(f"Bắt đầu khởi động MQTT client kết nối tới {settings.MQTT_HOST}:{settings.MQTT_PORT}")
+        logger.info(
+            "Bắt đầu khởi động MQTT client kết nối tới "
+            f"{settings.mqtt_host}:{settings.mqtt_port}"
+        )
 
-        if getattr(settings, 'MQTT_USERNAME', None):
-            if settings.MQTT_USERNAME and settings.MQTT_PASSWORD:
-                self.client.username_pw_set(settings.MQTT_USERNAME, settings.MQTT_PASSWORD)
+        if settings.mqtt_username:
+            self.client.username_pw_set(
+                settings.mqtt_username,
+                settings.mqtt_password,
+            )
+
+        if settings.mqtt_use_tls:
+            self.client.tls_set()
 
         # Kết nối tới Broker (chạy không đồng bộ để không chặn luồng chính)
         self.client.connect_async(
-            settings.MQTT_HOST,
-            port=settings.MQTT_PORT
+            settings.mqtt_host,
+            port=settings.mqtt_port
         )
 
         # Bắt đầu vòng lặp mạng của MQTT (chạy trên một thread ẩn của paho-mqtt)

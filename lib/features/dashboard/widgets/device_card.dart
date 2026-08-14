@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/utils/device_formatters.dart';
 import '../../../core/widgets/device_icon.dart';
 import '../../../data/models/device_model.dart';
+import '../../../data/models/usage_session_model.dart';
 import '../../../domain/entities/device_status_resolver.dart';
 
 class DeviceCard extends StatelessWidget {
@@ -10,11 +12,13 @@ class DeviceCard extends StatelessWidget {
     super.key,
     required this.device,
     this.address,
+    this.latestUsage,
     required this.onTap,
   });
 
   final DeviceModel device;
   final String? address;
+  final UsageSessionModel? latestUsage;
   final VoidCallback onTap;
 
   @override
@@ -31,10 +35,12 @@ class DeviceCard extends StatelessWidget {
     // Speed
     String speedStr = '—';
     String speedUnit = '';
-    if (device.currentSpeedMps != null && status.movement == MovementStatus.moving) {
+    if (device.currentSpeedMps != null &&
+        status.movement == MovementStatus.moving) {
       speedStr = (device.currentSpeedMps! * 3.6).toStringAsFixed(1);
       speedUnit = 'km/h';
-    } else if (status.movement == MovementStatus.stopped && device.isOnline) {
+    } else if (status.movement == MovementStatus.stopped &&
+        status.connectivity == ConnectivityStatus.online) {
       speedStr = '0';
       speedUnit = 'km/h';
     }
@@ -51,34 +57,50 @@ class DeviceCard extends StatelessWidget {
       } else if (diff.inHours < 24) {
         lastSeenStr = '${diff.inHours} giờ trước';
       } else {
-        lastSeenStr = DateFormat('HH:mm dd/MM').format(device.lastSeenAt!.toLocal());
+        lastSeenStr = DateFormat(
+          'HH:mm dd/MM',
+        ).format(device.lastSeenAt!.toLocal());
       }
     }
 
-    // Location
-    String locationStr = '';
-    if (address != null && address!.isNotEmpty) {
-      locationStr = address!;
-    } else if (device.latitude != null && device.longitude != null) {
-      locationStr =
-          '${device.latitude!.toStringAsFixed(5)}, ${device.longitude!.toStringAsFixed(5)}';
+    final addressText = address?.trim();
+    final gpsText = device.latitude != null && device.longitude != null
+        ? DeviceFormatters.coordinates(device.latitude, device.longitude)
+        : '';
+
+    String usageTimeStr = '';
+    if (latestUsage != null) {
+      final startStr = DateFormat('HH:mm dd/MM').format(latestUsage!.startedAt);
+      if (latestUsage!.endedAt == null || latestUsage!.status == 'ACTIVE') {
+        usageTimeStr = 'Sử dụng từ: $startStr';
+      } else {
+        final endStr = DateFormat('HH:mm dd/MM').format(latestUsage!.endedAt!);
+        usageTimeStr = 'Phiên gần nhất: $startStr - $endStr';
+      }
     }
 
-    final bool hasLocation = locationStr.isNotEmpty;
-    final String displayName =
-        device.name.isNotEmpty ? device.name : device.deviceCode;
+    final bool hasAddress = addressText != null && addressText.isNotEmpty;
+    final bool hasGps = gpsText.isNotEmpty;
+    final String displayName = device.name.isNotEmpty
+        ? device.name
+        : device.deviceCode;
     final String? subCode =
         device.name.isNotEmpty && device.name != device.deviceCode
-            ? device.deviceCode
-            : null;
+        ? device.deviceCode
+        : null;
     final String personName = device.currentPersonName ?? '';
     final bool hasPerson = personName.isNotEmpty;
+    final bool needsAssignment =
+        status.movement == MovementStatus.moving && !hasPerson;
+    final speedColor = status.movement == MovementStatus.moving
+        ? const Color(0xFF2563EB)
+        : theme.colorScheme.onSurface.withValues(alpha: 0.5);
 
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(
@@ -154,27 +176,10 @@ class DeviceCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   // Speed block (right-aligned)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        speedStr,
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: status.movement == MovementStatus.moving
-                              ? const Color(0xFF2563EB)
-                              : theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                          height: 1,
-                        ),
-                      ),
-                      if (speedUnit.isNotEmpty)
-                        Text(
-                          speedUnit,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.outline,
-                          ),
-                        ),
-                    ],
+                  _SpeedReadout(
+                    value: speedStr,
+                    unit: speedUnit,
+                    color: speedColor,
                   ),
                 ],
               ),
@@ -187,9 +192,12 @@ class DeviceCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: _MetaItem(
-                      icon: Icons.person_rounded,
+                      icon: needsAssignment
+                          ? Icons.warning_amber_rounded
+                          : Icons.person_rounded,
                       text: hasPerson ? personName : 'Chưa phân công',
                       faded: !hasPerson,
+                      color: needsAssignment ? const Color(0xFFEA580C) : null,
                     ),
                   ),
                   _MetaItem(
@@ -200,13 +208,32 @@ class DeviceCard extends StatelessWidget {
                 ],
               ),
 
-              // ── Row 3: Location (if available) ──
-              if (hasLocation) ...[
+              // ── Row 3: Usage time ──
+              if (usageTimeStr.isNotEmpty) ...[
                 const SizedBox(height: 6),
                 _MetaItem(
-                  icon: Icons.location_on_rounded,
-                  text: locationStr,
+                  icon: Icons.assignment_ind_rounded,
+                  text: usageTimeStr,
+                  maxLines: 1,
+                ),
+              ],
+
+              // ── Row 4: Address + GPS (if available) ──
+              if (hasAddress) ...[
+                const SizedBox(height: 6),
+                _MetaItem(
+                  icon: Icons.location_city_rounded,
+                  text: addressText,
                   maxLines: 2,
+                ),
+              ],
+              if (hasGps) ...[
+                const SizedBox(height: 5),
+                _MetaItem(
+                  icon: Icons.my_location_rounded,
+                  text: 'GPS $gpsText',
+                  maxLines: 1,
+                  faded: !hasAddress,
                 ),
               ],
             ],
@@ -226,28 +253,86 @@ class _StatusChip extends StatelessWidget {
     final IconData icon;
     if (status.connectivity == ConnectivityStatus.offline) {
       icon = Icons.wifi_off_rounded;
+    } else if (status.freshness == DataFreshnessStatus.stale) {
+      icon = Icons.signal_wifi_statusbar_connected_no_internet_4_rounded;
     } else if (status.movement == MovementStatus.moving) {
       icon = Icons.navigation_rounded;
-    } else if (status.connectivity == ConnectivityStatus.stale) {
-      icon = Icons.signal_wifi_statusbar_connected_no_internet_4_rounded;
     } else {
       icon = Icons.pause_circle_rounded;
     }
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 12, color: status.color),
-        const SizedBox(width: 3),
-        Text(
-          status.label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: status.color,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: status.color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: status.color),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              status.label,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: status.color,
+              ),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SpeedReadout extends StatelessWidget {
+  const _SpeedReadout({
+    required this.value,
+    required this.unit,
+    required this.color,
+  });
+
+  final String value;
+  final String unit;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 48, maxWidth: 66),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          SizedBox(
+            height: 28,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                value,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                  height: 1,
+                ),
+              ),
+            ),
+          ),
+          if (unit.isNotEmpty)
+            Text(
+              unit,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.outline,
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -258,19 +343,23 @@ class _MetaItem extends StatelessWidget {
     required this.text,
     this.faded = false,
     this.maxLines = 1,
+    this.color,
   });
 
   final IconData icon;
   final String text;
   final bool faded;
   final int maxLines;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = faded
-        ? theme.colorScheme.outline.withValues(alpha: 0.6)
-        : theme.colorScheme.onSurfaceVariant;
+    final effectiveColor =
+        color ??
+        (faded
+            ? theme.colorScheme.outline.withValues(alpha: 0.6)
+            : theme.colorScheme.onSurfaceVariant);
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -278,14 +367,14 @@ class _MetaItem extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(top: 1),
-          child: Icon(icon, size: 13, color: color),
+          child: Icon(icon, size: 13, color: effectiveColor),
         ),
         const SizedBox(width: 4),
         Flexible(
           child: Text(
             text,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: color,
+              color: effectiveColor,
               fontWeight: faded ? FontWeight.normal : FontWeight.w500,
             ),
             maxLines: maxLines,

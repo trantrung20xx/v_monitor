@@ -12,9 +12,14 @@ class MapLauncherService {
     return true;
   }
 
-  static Future<bool> openGoogleMaps(double? latitude, double? longitude) async {
+  static Future<bool> openGoogleMaps(
+    double? latitude,
+    double? longitude,
+  ) async {
     if (!isValidCoordinate(latitude, longitude)) return false;
-    final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$latitude,$longitude');
+    final url = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude',
+    );
     try {
       return await launchUrl(url, mode: LaunchMode.externalApplication);
     } catch (e) {
@@ -22,31 +27,39 @@ class MapLauncherService {
     }
   }
 
-static Future<bool> openAppleMaps(
-  double? latitude,
-  double? longitude, {
-  String? label,
-}) async {
-  if (!isValidCoordinate(latitude, longitude)) return false;
+  static Future<bool> openAppleMaps(
+    double? latitude,
+    double? longitude, {
+    String? label,
+  }) async {
+    if (!isValidCoordinate(latitude, longitude)) return false;
 
-  final query = Uri.encodeComponent(label?.isNotEmpty == true ? label! : '$latitude,$longitude');
-  final url = Uri.parse('http://maps.apple.com/?ll=$latitude,$longitude&q=$query');
+    final query = Uri.encodeComponent(
+      label?.isNotEmpty == true ? label! : '$latitude,$longitude',
+    );
+    final url = Uri.parse(
+      'http://maps.apple.com/?ll=$latitude,$longitude&q=$query',
+    );
 
-  try {
-    if (await canLaunchUrl(url)) {
-      return await launchUrl(url, mode: LaunchMode.externalApplication);
+    try {
+      if (await canLaunchUrl(url)) {
+        return await launchUrl(url, mode: LaunchMode.externalApplication);
+      }
+      return false;
+    } catch (e) {
+      return false;
     }
-    return false;
-  } catch (e) {
-    return false;
   }
-}
 
-  static Future<void> copyLocationToClipboard(DeviceModel device, double? lat, double? lng) async {
+  static Future<void> copyLocationToClipboard(
+    DeviceModel device,
+    double? lat,
+    double? lng,
+  ) async {
     if (!isValidCoordinate(lat, lng)) {
       throw Exception("Invalid coordinates");
     }
-    
+
     final url = 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
     await Clipboard.setData(ClipboardData(text: url));
   }

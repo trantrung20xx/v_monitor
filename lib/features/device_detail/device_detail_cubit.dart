@@ -2,17 +2,16 @@ import 'dart:async';
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:geocoding/geocoding.dart';
 
+import '../../data/models/assignment_model.dart';
+import '../../data/models/device_event_model.dart';
 import '../../data/models/device_model.dart';
 import '../../data/models/location_model.dart';
-import '../../data/models/device_event_model.dart';
-import '../../data/models/assignment_model.dart';
 import '../../data/models/usage_session_model.dart';
 import '../../data/repositories/device_repository.dart';
+import '../../data/repositories/geocoding_repository.dart';
 import '../../data/repositories/tracking_repository.dart';
 
-/// Quản lý trạng thái (State) cho màn hình Chi tiết thiết bị.
 class DeviceDetailState extends Equatable {
   const DeviceDetailState({
     this.isLoading = true,
@@ -43,6 +42,7 @@ class DeviceDetailState extends Equatable {
     List<AssignmentModel>? assignments,
     List<UsageSessionModel>? usages,
     String? address,
+    bool clearAddress = false,
   }) {
     return DeviceDetailState(
       isLoading: isLoading ?? this.isLoading,
@@ -52,32 +52,44 @@ class DeviceDetailState extends Equatable {
       locations: locations ?? this.locations,
       assignments: assignments ?? this.assignments,
       usages: usages ?? this.usages,
-      address: address ?? this.address,
+      address: clearAddress ? null : address ?? this.address,
     );
   }
 
   @override
-  List<Object?> get props => [isLoading, error, device, events, locations, assignments, usages, address];
+  List<Object?> get props => [
+    isLoading,
+    error,
+    device,
+    events,
+    locations,
+    assignments,
+    usages,
+    address,
+  ];
 }
 
-/// Cubit phụ trách xử lý logic lấy thông tin chi tiết, sự kiện và lịch sử vị trí của một thiết bị cụ thể.
 class DeviceDetailCubit extends Cubit<DeviceDetailState> {
-  final String deviceId;
-  final DeviceRepository deviceRepo;
-  final TrackingRepository trackingRepo;
-  
-  StreamSubscription<DeviceModel>? _deviceUpdatesSub;
-
   DeviceDetailCubit({
     required this.deviceId,
     required this.deviceRepo,
     required this.trackingRepo,
-  })  : super(const DeviceDetailState()) {
+    required this.geocodingRepo,
+  }) : super(const DeviceDetailState()) {
     load();
     _deviceUpdatesSub = deviceRepo.deviceUpdates
         .where((device) => device.id == deviceId)
         .listen(_onDeviceUpdated);
   }
+
+  final String deviceId;
+  final DeviceRepository deviceRepo;
+  final TrackingRepository trackingRepo;
+  final GeocodingRepository geocodingRepo;
+
+  final Map<String, String> _addressCache = {};
+  String? _activeAddressKey;
+  StreamSubscription<DeviceModel>? _deviceUpdatesSub;
 
   Future<void> load() async {
     emit(state.copyWith(isLoading: true, error: null));
@@ -91,16 +103,19 @@ class DeviceDetailCubit extends Cubit<DeviceDetailState> {
       ]);
 
       final device = results[0] as DeviceModel?;
-      
-      emit(state.copyWith(
-        isLoading: false,
-        device: device,
-        events: results[1] as List<DeviceEventModel>,
-        locations: results[2] as List<LocationModel>,
-        assignments: results[3] as List<AssignmentModel>,
-        usages: results[4] as List<UsageSessionModel>,
-      ));
-      
+
+      emit(
+        state.copyWith(
+          isLoading: false,
+          device: device,
+          events: results[1] as List<DeviceEventModel>,
+          locations: results[2] as List<LocationModel>,
+          assignments: results[3] as List<AssignmentModel>,
+          usages: results[4] as List<UsageSessionModel>,
+          clearAddress: true,
+        ),
+      );
+
       if (device != null) {
         _resolveAddress(device.latitude, device.longitude);
       }
@@ -108,58 +123,67 @@ class DeviceDetailCubit extends Cubit<DeviceDetailState> {
       emit(state.copyWith(isLoading: false, error: e.toString()));
     }
   }
-  
+
   void _onDeviceUpdated(DeviceModel updatedDevice) {
-    emit(state.copyWith(device: updatedDevice));
-    
-    // Only resolve address if location changed significantly, or just resolve it
-    if (state.device?.latitude != updatedDevice.latitude || 
-        state.device?.longitude != updatedDevice.longitude) {
+    final previousKey = _coordinateKey(
+      state.device?.latitude,
+      state.device?.longitude,
+    );
+    final nextKey = _coordinateKey(
+      updatedDevice.latitude,
+      updatedDevice.longitude,
+    );
+
+    emit(
+      state.copyWith(
+        device: updatedDevice,
+        clearAddress: previousKey != nextKey,
+      ),
+    );
+
+    if (previousKey != nextKey) {
       _resolveAddress(updatedDevice.latitude, updatedDevice.longitude);
     }
   }
 
   Future<void> _resolveAddress(double? lat, double? lng) async {
-    if (lat == null || lng == null) return;
-    try {
-      final placemarks = await placemarkFromCoordinates(lat, lng);
-      if (placemarks.isNotEmpty) {
-        final p = placemarks.first;
-        final rawParts = [
-          p.street,
-          p.subLocality,
-          p.locality,
-          p.subAdministrativeArea,
-          p.administrativeArea,
-          p.country,
-        ];
-        
-        final cleanParts = <String>[];
-        for (final part in rawParts) {
-          if (part != null && part.isNotEmpty && part != 'Unnamed Road') {
-            if (cleanParts.isEmpty || cleanParts.last != part) {
-              bool skip = false;
-              for (int i = 0; i < cleanParts.length; i++) {
-                if (cleanParts[i].contains(part) || part.contains(cleanParts[i])) {
-                  if (part.length > cleanParts[i].length) {
-                    cleanParts[i] = part; 
-                  }
-                  skip = true;
-                  break;
-                }
-              }
-              if (!skip) cleanParts.add(part);
-            }
-          }
-        }
-        final address = cleanParts.join(', ');
-        emit(state.copyWith(address: address));
-      }
-    } catch (e) {
-      // Ignore geocoding errors silently
+    final cacheKey = _coordinateKey(lat, lng);
+    if (cacheKey == null || lat == null || lng == null) {
+      _activeAddressKey = null;
+      emit(state.copyWith(clearAddress: true));
+      return;
     }
+
+    if (_activeAddressKey == cacheKey && state.address?.isNotEmpty == true) {
+      return;
+    }
+
+    _activeAddressKey = cacheKey;
+    final cached = _addressCache[cacheKey];
+    if (cached != null) {
+      emit(state.copyWith(address: cached));
+      return;
+    }
+
+    final address = await geocodingRepo.reverseAddress(lat, lng);
+    final normalizedAddress = address?.trim();
+    if (normalizedAddress == null || normalizedAddress.isEmpty) {
+      return;
+    }
+
+    _addressCache[cacheKey] = normalizedAddress;
+    if (_activeAddressKey != cacheKey || isClosed) {
+      return;
+    }
+
+    emit(state.copyWith(address: normalizedAddress));
   }
-  
+
+  String? _coordinateKey(double? lat, double? lng) {
+    if (lat == null || lng == null) return null;
+    return '${lat.toStringAsFixed(4)},${lng.toStringAsFixed(4)}';
+  }
+
   @override
   Future<void> close() {
     _deviceUpdatesSub?.cancel();

@@ -15,11 +15,16 @@ class DeviceEventModel {
 
   String get eventLabel {
     switch (eventType) {
-      case 'STATUS_CHANGE': return 'Thay đổi trạng thái';
-      case 'BATTERY_LOW': return 'Pin yếu';
-      case 'GEOFENCE_EXIT': return 'Ra khỏi vùng an toàn';
-      case 'ERROR': return 'Lỗi thiết bị';
-      default: return 'Sự kiện ($eventType)';
+      case 'STATUS_CHANGE':
+        return 'Thay đổi trạng thái';
+      case 'BATTERY_LOW':
+        return 'Pin yếu';
+      case 'GEOFENCE_EXIT':
+        return 'Ra khỏi vùng an toàn';
+      case 'ERROR':
+        return 'Lỗi thiết bị';
+      default:
+        return 'Sự kiện ($eventType)';
     }
   }
 

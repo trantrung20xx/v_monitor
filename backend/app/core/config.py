@@ -1,22 +1,72 @@
-import os
+from functools import lru_cache
+from pathlib import Path
+
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-class Settings(BaseSettings):
-    # Sử dụng cổng 5432 (mặc định của Postgres) thay vì 55432
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:atl132456@localhost:5432/v_monitor"
-    MQTT_HOST: str = "broker.emqx.io"
-    MQTT_PORT: int = 1883
-    API_HOST: str = "0.0.0.0"
-    API_PORT: int = 8000
-    JWT_SECRET: str = "super-secret-key-change-in-production"
-    MQTT_USERNAME: str = ""
-    MQTT_PASSWORD: str = ""
 
-    # Tự động load từ file .env nếu có
+_BACKEND_DIR = Path(__file__).resolve().parents[2]
+
+
+class Settings(BaseSettings):
+    app_env: str = "development"
+
+    api_prefix: str = "/api/v1"
+    api_host: str = "0.0.0.0"
+    api_port: int = 8000
+
+    database_url: str = ""
+
+    cors_origins: str = "*"
+
+    mqtt_host: str = "localhost"
+    mqtt_port: int = 1883
+    mqtt_username: str | None = None
+    mqtt_password: str | None = None
+    mqtt_use_tls: bool = False
+
+    geocoding_base_url: str = "https://nominatim.openstreetmap.org"
+    geocoding_user_agent: str = "v_monitor/1.0 local-development"
+    geocoding_timeout_seconds: int = 8
+
+    jwt_secret: str = "dev-only-change-me"
+
     model_config = SettingsConfigDict(
-        env_file=os.path.join(os.path.dirname(__file__), "../../.env"),
+        env_file=_BACKEND_DIR / ".env",
         env_file_encoding="utf-8",
-        extra="ignore"
+        extra="ignore",
+        case_sensitive=False,
     )
 
-settings = Settings()
+    @field_validator("api_prefix")
+    @classmethod
+    def _normalize_api_prefix(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            return ""
+        if not value.startswith("/"):
+            value = f"/{value}"
+        return value.rstrip("/")
+
+    @field_validator("database_url")
+    @classmethod
+    def _require_database_url(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("DATABASE_URL is required")
+        return value
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        value = self.cors_origins.strip()
+        if not value or value == "*":
+            return ["*"]
+        return [origin.strip() for origin in value.split(",") if origin.strip()]
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
+
+
+settings = get_settings()

@@ -6,15 +6,15 @@ import 'app_theme.dart';
 import '../core/network/api_client.dart';
 import '../core/network/websocket_client.dart';
 import '../data/repositories/device_repository.dart';
+import '../data/repositories/geocoding_repository.dart';
 import '../data/repositories/tracking_repository.dart';
-import '../features/dashboard/dashboard_cubit.dart';
 
 class VMonitorApp extends StatelessWidget {
   final ApiClient apiClient;
   final WebsocketClient websocketClient;
 
   const VMonitorApp({
-    super.key, 
+    super.key,
     required this.apiClient,
     required this.websocketClient,
   });
@@ -29,27 +29,31 @@ class VMonitorApp extends StatelessWidget {
         RepositoryProvider<TrackingRepository>(
           create: (_) => TrackingRepository(apiClient),
         ),
-        RepositoryProvider<WebsocketClient>.value(
-          value: websocketClient,
+        RepositoryProvider<GeocodingRepository>(
+          create: (_) => GeocodingRepository(apiClient),
         ),
+        RepositoryProvider<WebsocketClient>.value(value: websocketClient),
       ],
-      child: MultiBlocProvider(
-        providers: [
-          BlocProvider<DashboardCubit>(
-            create: (context) => DashboardCubit(
-              deviceRepo: context.read<DeviceRepository>(),
-            )..loadDashboard(),
-          ),
-        ],
-        child: MaterialApp.router(
-          title: 'v_monitor',
-          theme: AppTheme.light,
-          darkTheme: AppTheme.dark,
-          routerConfig: AppRouter.router,
-          debugShowCheckedModeBanner: false,
-          locale: DevicePreview.locale(context),
-          builder: DevicePreview.appBuilder,
-        ),
+      child: MaterialApp.router(
+        title: 'v_monitor',
+        theme: AppTheme.light,
+        darkTheme: AppTheme.dark,
+        routerConfig: AppRouter.router,
+        debugShowCheckedModeBanner: false,
+        locale: DevicePreview.locale(context),
+        builder: (context, child) {
+          final childWidget = DevicePreview.appBuilder(context, child);
+          final data = MediaQuery.of(context);
+          return MediaQuery(
+            data: data.copyWith(
+              textScaler: data.textScaler.clamp(
+                minScaleFactor: 1.0,
+                maxScaleFactor: 1.0,
+              ),
+            ),
+            child: childWidget,
+          );
+        },
       ),
     );
   }

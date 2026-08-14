@@ -37,10 +37,18 @@ class UsageSessionModel {
       deviceId: json['device_id'] ?? '',
       personId: json['person_id'] ?? '',
       startedAt: DateTime.parse(json['started_at']).toLocal(),
-      endedAt: json['ended_at'] != null ? DateTime.parse(json['ended_at']).toLocal() : null,
-      distanceM: json['distance_m'] != null ? (json['distance_m'] as num).toDouble() : null,
-      avgSpeedMps: json['avg_speed_mps'] != null ? (json['avg_speed_mps'] as num).toDouble() : null,
-      maxSpeedMps: json['max_speed_mps'] != null ? (json['max_speed_mps'] as num).toDouble() : null,
+      endedAt: json['ended_at'] != null
+          ? DateTime.parse(json['ended_at']).toLocal()
+          : null,
+      distanceM: json['distance_m'] != null
+          ? (json['distance_m'] as num).toDouble()
+          : null,
+      avgSpeedMps: json['avg_speed_mps'] != null
+          ? (json['avg_speed_mps'] as num).toDouble()
+          : null,
+      maxSpeedMps: json['max_speed_mps'] != null
+          ? (json['max_speed_mps'] as num).toDouble()
+          : null,
       movingDurationS: json['moving_duration_s'],
       stoppedDurationS: json['stopped_duration_s'],
       status: json['status'] ?? 'ACTIVE',

@@ -23,48 +23,63 @@ class StatCard extends StatelessWidget {
     final cardColor = color ?? theme.colorScheme.primary;
 
     return Card(
+      clipBehavior: Clip.antiAlias,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.all(12),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 38,
+              height: 38,
               decoration: BoxDecoration(
-                color: cardColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
+                color: cardColor.withValues(alpha: 0.11),
+                borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icon, color: cardColor, size: 20),
+              child: Icon(icon, color: cardColor, size: 19),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    value,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: theme.colorScheme.onSurface,
-                      height: 1.1,
+                  SizedBox(
+                    height: 23,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        value,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: theme.colorScheme.onSurface,
+                          height: 1,
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 2),
                   Text(
                     label,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                      height: 1.15,
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   if (subtitle != null) ...[
-                    const SizedBox(height: 1),
+                    const SizedBox(height: 2),
                     Text(
                       subtitle!,
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: cardColor.withValues(alpha: 0.8),
-                        fontWeight: FontWeight.w500,
+                        color: cardColor,
+                        fontWeight: FontWeight.w600,
+                        height: 1.05,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ],

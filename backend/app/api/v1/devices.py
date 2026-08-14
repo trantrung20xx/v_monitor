@@ -18,6 +18,11 @@ async def read_devices(skip: int = 0, limit: int = 100, db: AsyncSession = Depen
 async def create_device(device: DeviceCreate, db: AsyncSession = Depends(get_db)):
     return await DeviceService.create_device(db, device)
 
+@router.get("/usages/latest", response_model=List[UsageSessionResponse])
+async def read_latest_device_usages(limit_per_device: int = 1, db: AsyncSession = Depends(get_db)):
+    usages = await DeviceService.get_latest_device_usages(db, limit_per_device)
+    return [DeviceService.format_usage_session(u) for u in usages]
+
 @router.get("/{device_id}", response_model=DeviceResponse)
 async def read_device(device_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     device = await DeviceService.get_device(db, device_id)
@@ -47,23 +52,4 @@ async def read_device_assignments(device_id: uuid.UUID, limit: int = 50, db: Asy
 @router.get("/{device_id}/usages", response_model=List[UsageSessionResponse])
 async def read_device_usages(device_id: uuid.UUID, limit: int = 50, db: AsyncSession = Depends(get_db)):
     usages = await DeviceService.get_device_usages(db, device_id, limit)
-    result = []
-    for u in usages:
-        u_dict = {
-            "id": u.id,
-            "device_id": u.device_id,
-            "person_id": u.person_id,
-            "started_at": u.started_at,
-            "ended_at": u.ended_at,
-            "distance_m": u.distance_m,
-            "avg_speed_mps": u.avg_speed_mps,
-            "max_speed_mps": u.max_speed_mps,
-            "moving_duration_s": u.moving_duration_s,
-            "stopped_duration_s": u.stopped_duration_s,
-            "status": u.status,
-            "end_reason": u.end_reason,
-            "person_name": u.person.full_name if u.person else None,
-            "person_code": u.person.person_code if u.person else None,
-        }
-        result.append(u_dict)
-    return result
+    return [DeviceService.format_usage_session(u) for u in usages]

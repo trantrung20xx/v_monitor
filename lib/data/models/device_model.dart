@@ -4,11 +4,19 @@ class DeviceModel {
   final String name;
   final String type;
   final String status;
+  final String? serialNumber;
+  final String? manufacturer;
+  final String? model;
+  final String? firmwareVersion;
+  final Map<String, dynamic>? metadataJson;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
   final int? controllerBatteryPct;
   final int? uavBatteryPct;
   final bool isOnline;
   final double? latitude;
   final double? longitude;
+  final double? currentAltitudeM;
   final double? currentSpeedMps;
   final double? currentHeadingDeg;
   final DateTime? lastSeenAt;
@@ -20,11 +28,19 @@ class DeviceModel {
     required this.name,
     required this.type,
     required this.status,
+    this.serialNumber,
+    this.manufacturer,
+    this.model,
+    this.firmwareVersion,
+    this.metadataJson,
+    this.createdAt,
+    this.updatedAt,
     this.controllerBatteryPct,
     this.uavBatteryPct,
     this.isOnline = false,
     this.latitude,
     this.longitude,
+    this.currentAltitudeM,
     this.currentSpeedMps,
     this.currentHeadingDeg,
     this.lastSeenAt,
@@ -32,32 +48,76 @@ class DeviceModel {
   });
 
   String get deviceType => type;
+
+  @Deprecated(
+    'Use DeviceStatusResolver.resolve(...) to account for offline and stale GPS.',
+  )
   bool get isMoving => (currentSpeedMps ?? 0) > 0.5;
+
   String get statusLabel {
     switch (status) {
-      case 'ONLINE': return 'Trực tuyến';
-      case 'OFFLINE': return 'Ngoại tuyến';
-      case 'ACTIVE': return 'Đang hoạt động';
-      default: return 'Không xác định';
+      case 'ONLINE':
+        return 'Trực tuyến';
+      case 'OFFLINE':
+        return 'Ngoại tuyến';
+      case 'ACTIVE':
+        return 'Đang hoạt động';
+      default:
+        return 'Không xác định';
     }
   }
 
   factory DeviceModel.fromJson(Map<String, dynamic> json) {
+    final metadata = json['metadata_json'];
     return DeviceModel(
       id: json['id'] ?? '',
       deviceCode: json['device_code'] ?? '',
       name: json['name'] ?? '',
       type: json['device_type'] ?? 'OTHER',
       status: json['status'] ?? 'UNKNOWN',
+      serialNumber: _stringOrNull(json['serial_number']),
+      manufacturer: _stringOrNull(json['manufacturer']),
+      model: _stringOrNull(json['model']),
+      firmwareVersion: _stringOrNull(json['firmware_version']),
+      metadataJson: metadata is Map
+          ? Map<String, dynamic>.from(metadata)
+          : null,
+      createdAt: _dateOrNull(json['created_at']),
+      updatedAt: _dateOrNull(json['updated_at']),
       isOnline: json['is_online'] ?? false,
-      controllerBatteryPct: json['controller_battery_pct'],
-      uavBatteryPct: json['uav_battery_pct'],
-      latitude: json['current_latitude'],
-      longitude: json['current_longitude'],
-      currentSpeedMps: json['current_speed_mps'],
-      currentHeadingDeg: json['current_heading_deg'],
-      lastSeenAt: json['last_seen_at'] != null ? DateTime.tryParse(json['last_seen_at']) : null,
-      currentPersonName: json['current_person_name'],
+      controllerBatteryPct: _intOrNull(json['controller_battery_pct']),
+      uavBatteryPct: _intOrNull(json['uav_battery_pct']),
+      latitude: _doubleOrNull(json['current_latitude']),
+      longitude: _doubleOrNull(json['current_longitude']),
+      currentAltitudeM: _doubleOrNull(json['current_altitude_m']),
+      currentSpeedMps: _doubleOrNull(json['current_speed_mps']),
+      currentHeadingDeg: _doubleOrNull(json['current_heading_deg']),
+      lastSeenAt: _dateOrNull(json['last_seen_at']),
+      currentPersonName: _stringOrNull(json['current_person_name']),
     );
+  }
+
+  static String? _stringOrNull(dynamic value) {
+    if (value == null) return null;
+    final text = value.toString().trim();
+    return text.isEmpty ? null : text;
+  }
+
+  static double? _doubleOrNull(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString());
+  }
+
+  static int? _intOrNull(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
+  }
+
+  static DateTime? _dateOrNull(dynamic value) {
+    if (value == null) return null;
+    return DateTime.tryParse(value.toString());
   }
 }

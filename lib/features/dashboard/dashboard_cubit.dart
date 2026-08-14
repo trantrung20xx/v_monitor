@@ -1,29 +1,35 @@
 import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:geocoding/geocoding.dart';
+
 import '../../data/models/device_model.dart';
+import '../../data/models/usage_session_model.dart';
 import '../../data/repositories/device_repository.dart';
+import '../../data/repositories/geocoding_repository.dart';
+import '../../domain/entities/device_query_filter.dart';
 import '../../domain/entities/device_status_resolver.dart';
 import 'dashboard_state.dart';
 
-/// Cubit quản lý trạng thái của màn hình Dashboard.
 class DashboardCubit extends Cubit<DashboardState> {
-  final DeviceRepository deviceRepo;
-  StreamSubscription<DeviceModel>? _deviceUpdatesSub;
-  final Map<String, String> _addressCache = {};
-
-  DashboardCubit({
-    required this.deviceRepo,
-  }) : super(const DashboardState()) {
+  DashboardCubit({required this.deviceRepo, required this.geocodingRepo})
+    : super(const DashboardState()) {
     _deviceUpdatesSub = deviceRepo.deviceUpdates.listen(_onDeviceUpdated);
   }
 
-  /// Tải danh sách thiết bị ban đầu từ REST API.
+  final DeviceRepository deviceRepo;
+  final GeocodingRepository geocodingRepo;
+  final Map<String, String> _addressCache = {};
+  final Map<String, String> _deviceAddressKeys = {};
+  StreamSubscription<DeviceModel>? _deviceUpdatesSub;
+
   Future<void> loadDashboard() async {
     emit(state.copyWith(isLoading: true, error: null));
     try {
-      final devices = await deviceRepo.getDevices();
-      _updateDevices(devices);
+      final devicesFuture = deviceRepo.getDevices();
+      final latestUsagesFuture = deviceRepo.getLatestDeviceUsages();
+      final devices = await devicesFuture;
+      final latestUsages = await latestUsagesFuture;
+      _updateDevices(devices, latestUsages: latestUsages);
     } catch (e) {
       emit(state.copyWith(isLoading: false, error: e.toString()));
     }
@@ -33,7 +39,10 @@ class DashboardCubit extends Cubit<DashboardState> {
     emit(state.copyWith(searchQuery: query));
   }
 
-  /// Xử lý thiết bị cập nhật từ WebSocket Stream
+  void setStatusFilter(DeviceFilter filter) {
+    emit(state.copyWith(statusFilter: filter));
+  }
+
   void _onDeviceUpdated(DeviceModel device) {
     final updatedDevices = List<DeviceModel>.from(state.devices);
     final index = updatedDevices.indexWhere((d) => d.id == device.id);
@@ -45,14 +54,23 @@ class DashboardCubit extends Cubit<DashboardState> {
     _updateDevices(updatedDevices);
   }
 
-  /// Cập nhật lại danh sách thiết bị và tính toán các chỉ số thống kê
-  void _updateDevices(List<DeviceModel> devices) {
-    int online = 0, offline = 0, moving = 0, stopped = 0, inactive = 0, stale = 0;
+  void _updateDevices(
+    List<DeviceModel> devices, {
+    Map<String, UsageSessionModel>? latestUsages,
+  }) {
+    int online = 0,
+        offline = 0,
+        moving = 0,
+        stopped = 0,
+        inactive = 0,
+        stale = 0,
+        attention = 0;
 
     for (final dev in devices) {
       if (dev.latitude != null && dev.longitude != null) {
         _resolveAddressForDashboard(dev.id, dev.latitude!, dev.longitude!);
       }
+
       final status = DeviceStatusResolver.resolve(
         isOnline: dev.isOnline,
         lastSeenAt: dev.lastSeenAt,
@@ -62,14 +80,20 @@ class DashboardCubit extends Cubit<DashboardState> {
 
       if (status.connectivity == ConnectivityStatus.online) {
         online++;
-      } else if (status.connectivity == ConnectivityStatus.offline) {
+      } else {
         offline++;
-      } else if (status.connectivity == ConnectivityStatus.stale) {
+      }
+
+      if (status.freshness == DataFreshnessStatus.stale) {
         stale++;
       }
 
       if (status.movement == MovementStatus.moving) {
         moving++;
+        final hasPerson = dev.currentPersonName?.trim().isNotEmpty ?? false;
+        if (!hasPerson) {
+          attention++;
+        }
       } else if (status.movement == MovementStatus.stopped) {
         stopped++;
       }
@@ -79,76 +103,65 @@ class DashboardCubit extends Cubit<DashboardState> {
       }
     }
 
-    emit(state.copyWith(
-      isLoading: false,
-      devices: devices,
-      totalDevices: devices.length,
-      onlineCount: online,
-      offlineCount: offline,
-      movingCount: moving,
-      stoppedCount: stopped,
-      inactiveCount: inactive,
-      staleCount: stale,
-    ));
+    emit(
+      state.copyWith(
+        isLoading: false,
+        devices: devices,
+        totalDevices: devices.length,
+        onlineCount: online,
+        offlineCount: offline,
+        movingCount: moving,
+        stoppedCount: stopped,
+        inactiveCount: inactive,
+        staleCount: stale,
+        attentionCount: attention,
+        latestUsages: latestUsages ?? state.latestUsages,
+      ),
+    );
   }
 
-  Future<void> _resolveAddressForDashboard(String deviceId, double lat, double lng) async {
+  Future<void> _resolveAddressForDashboard(
+    String deviceId,
+    double lat,
+    double lng,
+  ) async {
     final cacheKey = '${lat.toStringAsFixed(4)},${lng.toStringAsFixed(4)}';
-    
-    if (state.deviceAddresses[deviceId] == _addressCache[cacheKey] && _addressCache.containsKey(cacheKey)) {
+    final cached = _addressCache[cacheKey];
+    if (_deviceAddressKeys[deviceId] == cacheKey &&
+        cached != null &&
+        state.deviceAddresses[deviceId] == cached) {
       return;
     }
 
-    if (_addressCache.containsKey(cacheKey)) {
+    _deviceAddressKeys[deviceId] = cacheKey;
+
+    if (cached != null) {
       final newAddresses = Map<String, String>.from(state.deviceAddresses);
-      newAddresses[deviceId] = _addressCache[cacheKey]!;
+      newAddresses[deviceId] = cached;
       emit(state.copyWith(deviceAddresses: newAddresses));
       return;
     }
 
-    try {
-      final placemarks = await placemarkFromCoordinates(lat, lng);
-      if (placemarks.isNotEmpty) {
-        final p = placemarks.first;
-        final rawParts = [
-          p.street,
-          p.subLocality,
-          p.locality,
-          p.subAdministrativeArea,
-          p.administrativeArea,
-          p.country,
-        ];
-        
-        final cleanParts = <String>[];
-        for (final part in rawParts) {
-          if (part != null && part.isNotEmpty && part != 'Unnamed Road') {
-            // Prevent consecutive duplicates (e.g. "Hà Nội, Hà Nội")
-            if (cleanParts.isEmpty || cleanParts.last != part) {
-              // Also check if this part is a substring of the previous part or vice versa
-              bool skip = false;
-              for (int i = 0; i < cleanParts.length; i++) {
-                if (cleanParts[i].contains(part) || part.contains(cleanParts[i])) {
-                  if (part.length > cleanParts[i].length) {
-                    cleanParts[i] = part; // Keep the longer more descriptive one
-                  }
-                  skip = true;
-                  break;
-                }
-              }
-              if (!skip) cleanParts.add(part);
-            }
-          }
-        }
-        final address = cleanParts.join(', ');
-        _addressCache[cacheKey] = address;
-        
-        final newAddresses = Map<String, String>.from(state.deviceAddresses);
-        newAddresses[deviceId] = address;
-        emit(state.copyWith(deviceAddresses: newAddresses));
-      }
-    } catch (e) {
-      // Ignore geocoding errors silently
+    if (state.deviceAddresses.containsKey(deviceId)) {
+      final newAddresses = Map<String, String>.from(state.deviceAddresses)
+        ..remove(deviceId);
+      emit(state.copyWith(deviceAddresses: newAddresses));
     }
+
+    final address = await geocodingRepo.reverseAddress(lat, lng);
+    final normalizedAddress = address?.trim();
+    if (normalizedAddress == null || normalizedAddress.isEmpty) {
+      return;
+    }
+
+    _addressCache[cacheKey] = normalizedAddress;
+    if (_deviceAddressKeys[deviceId] != cacheKey || isClosed) {
+      return;
+    }
+
+    final newAddresses = Map<String, String>.from(state.deviceAddresses);
+    newAddresses[deviceId] = normalizedAddress;
+    emit(state.copyWith(deviceAddresses: newAddresses));
   }
 
   @override

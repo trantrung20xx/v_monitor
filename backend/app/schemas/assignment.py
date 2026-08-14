@@ -21,7 +21,7 @@ class DeviceAssignmentResponse(BaseSchema):
 class UsageSessionResponse(BaseSchema):
     id: uuid.UUID
     device_id: uuid.UUID
-    person_id: uuid.UUID
+    person_id: Optional[uuid.UUID] = None
     started_at: datetime
     ended_at: Optional[datetime] = None
     

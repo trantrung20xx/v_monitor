@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../data/repositories/device_repository.dart';
+import '../../data/repositories/geocoding_repository.dart';
+import '../../domain/entities/device_query_filter.dart';
 import 'dashboard_cubit.dart';
 import 'dashboard_state.dart';
 import 'widgets/device_list_panel.dart';
@@ -15,6 +17,7 @@ class DashboardPage extends StatelessWidget {
     return BlocProvider(
       create: (context) => DashboardCubit(
         deviceRepo: context.read<DeviceRepository>(),
+        geocodingRepo: context.read<GeocodingRepository>(),
       )..loadDashboard(),
       child: const _DashboardView(),
     );
@@ -62,6 +65,11 @@ class _DesktopLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final visibleCount = DeviceQueryFilter.filter(
+      state.devices,
+      query: state.searchQuery,
+      statusFilter: state.statusFilter,
+    ).length;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -104,7 +112,10 @@ class _DesktopLayout extends StatelessWidget {
                 const Divider(height: 1),
                 // Quick filters hint
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
                   child: _SidebarLegend(),
                 ),
               ],
@@ -119,19 +130,46 @@ class _DesktopLayout extends StatelessWidget {
               // Header bar
               Container(
                 color: theme.colorScheme.surface,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                child: Row(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 14,
+                ),
+                child: Column(
                   children: [
-                    Expanded(
-                      child: _SearchBar(),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Danh sách thiết bị',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '$visibleCount/${state.totalDevices} thiết bị hiển thị',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.refresh_rounded),
+                          tooltip: 'Tải lại',
+                          onPressed: () =>
+                              context.read<DashboardCubit>().loadDashboard(),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    IconButton(
-                      icon: const Icon(Icons.refresh_rounded),
-                      tooltip: 'Tải lại',
-                      onPressed: () =>
-                          context.read<DashboardCubit>().loadDashboard(),
-                    ),
+                    const SizedBox(height: 12),
+                    Row(children: [Expanded(child: _SearchBar())]),
+                    const SizedBox(height: 10),
+                    _StatusFilterBar(selected: state.statusFilter),
                   ],
                 ),
               ),
@@ -141,7 +179,9 @@ class _DesktopLayout extends StatelessWidget {
                 child: DeviceGrid(
                   devices: state.devices,
                   searchQuery: state.searchQuery,
+                  statusFilter: state.statusFilter,
                   deviceAddresses: state.deviceAddresses,
+                  latestUsages: state.latestUsages,
                 ),
               ),
             ],
@@ -160,11 +200,18 @@ class _MobileLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final visibleCount = DeviceQueryFilter.filter(
+      state.devices,
+      query: state.searchQuery,
+      statusFilter: state.statusFilter,
+    ).length;
     return Scaffold(
       appBar: AppBar(
         title: Text(
           'Dashboard',
-          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
         ),
         actions: [
           IconButton(
@@ -181,10 +228,28 @@ class _MobileLayout extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: _SearchBar(),
           ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: _StatusFilterBar(selected: state.statusFilter),
+          ),
           // Stats wrap
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: StatsOverview(state: state),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: Row(
+              children: [
+                Text(
+                  '$visibleCount/${state.totalDevices} thiết bị hiển thị',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
           const Divider(height: 1),
           // Device list
@@ -192,7 +257,9 @@ class _MobileLayout extends StatelessWidget {
             child: DeviceGrid(
               devices: state.devices,
               searchQuery: state.searchQuery,
+              statusFilter: state.statusFilter,
               deviceAddresses: state.deviceAddresses,
+              latestUsages: state.latestUsages,
             ),
           ),
         ],
@@ -217,7 +284,56 @@ class _SearchBar extends StatelessWidget {
   }
 }
 
-/// Sidebar stat items — compact vertical list for desktop left panel
+/// Shared status filter used by dashboard device lists.
+class _StatusFilterBar extends StatelessWidget {
+  const _StatusFilterBar({required this.selected});
+
+  final DeviceFilter selected;
+
+  static const _options = [
+    _FilterOption(DeviceFilter.all, 'Tất cả'),
+    _FilterOption(DeviceFilter.online, 'Trực tuyến'),
+    _FilterOption(DeviceFilter.offline, 'Ngoại tuyến'),
+    _FilterOption(DeviceFilter.moving, 'Di chuyển'),
+    _FilterOption(DeviceFilter.stopped, 'Đang dừng'),
+    _FilterOption(DeviceFilter.stale, 'Mất tín hiệu'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: _options.map((option) {
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text(option.label),
+                selected: selected == option.filter,
+                showCheckmark: false,
+                visualDensity: VisualDensity.compact,
+                onSelected: (_) => context
+                    .read<DashboardCubit>()
+                    .setStatusFilter(option.filter),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterOption {
+  const _FilterOption(this.filter, this.label);
+
+  final DeviceFilter filter;
+  final String label;
+}
+
+/// Sidebar stat items - compact vertical list for desktop left panel.
 class _SidebarStats extends StatelessWidget {
   const _SidebarStats({required this.state});
   final DashboardState state;
@@ -257,50 +373,60 @@ class _SidebarStats extends StatelessWidget {
         color: const Color(0xFFDC2626),
         icon: Icons.signal_wifi_statusbar_connected_no_internet_4_rounded,
       ),
+      _StatRow(
+        label: 'Cần kiểm tra',
+        value: state.attentionCount,
+        color: const Color(0xFFEA580C),
+        icon: Icons.warning_amber_rounded,
+      ),
     ];
 
     return Column(
       children: items
-          .map((item) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: item.color.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(item.icon, color: item.color, size: 16),
+          .map(
+            (item) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 5),
+              child: Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: item.color.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        item.label,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: item.color.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        '${item.value}',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: item.color,
-                        ),
+                    child: Icon(item.icon, color: item.color, size: 16),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      item.label,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
-                  ],
-                ),
-              ))
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: item.color.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${item.value}',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: item.color,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
           .toList(),
     );
   }
@@ -335,20 +461,40 @@ class _SidebarLegend extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        _LegendItem(color: const Color(0xFF2563EB), icon: Icons.navigation_rounded, label: 'Đang di chuyển'),
+        _LegendItem(
+          color: const Color(0xFF2563EB),
+          icon: Icons.navigation_rounded,
+          label: 'Đang di chuyển',
+        ),
         const SizedBox(height: 5),
-        _LegendItem(color: const Color(0xFFD97706), icon: Icons.pause_circle_rounded, label: 'Đang dừng'),
+        _LegendItem(
+          color: const Color(0xFFD97706),
+          icon: Icons.pause_circle_rounded,
+          label: 'Đang dừng',
+        ),
         const SizedBox(height: 5),
-        _LegendItem(color: Colors.grey.shade500, icon: Icons.wifi_off_rounded, label: 'Ngoại tuyến'),
+        _LegendItem(
+          color: Colors.grey.shade500,
+          icon: Icons.wifi_off_rounded,
+          label: 'Ngoại tuyến',
+        ),
         const SizedBox(height: 5),
-        _LegendItem(color: const Color(0xFFDC2626), icon: Icons.signal_wifi_statusbar_connected_no_internet_4_rounded, label: 'Mất tín hiệu'),
+        _LegendItem(
+          color: const Color(0xFFDC2626),
+          icon: Icons.signal_wifi_statusbar_connected_no_internet_4_rounded,
+          label: 'Mất tín hiệu',
+        ),
       ],
     );
   }
 }
 
 class _LegendItem extends StatelessWidget {
-  const _LegendItem({required this.color, required this.icon, required this.label});
+  const _LegendItem({
+    required this.color,
+    required this.icon,
+    required this.label,
+  });
   final Color color;
   final IconData icon;
   final String label;
@@ -384,16 +530,24 @@ class _ErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.cloud_off_rounded, size: 56, color: theme.colorScheme.error.withValues(alpha: 0.7)),
+            Icon(
+              Icons.cloud_off_rounded,
+              size: 56,
+              color: theme.colorScheme.error.withValues(alpha: 0.7),
+            ),
             const SizedBox(height: 16),
             Text(
               'Không thể kết nối backend',
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 6),
             Text(
               error,
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.outline,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),

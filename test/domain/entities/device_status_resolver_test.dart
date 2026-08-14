@@ -1,5 +1,5 @@
-import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:v_monitor/domain/entities/device_status_resolver.dart';
 
 void main() {
@@ -14,6 +14,7 @@ void main() {
       );
 
       expect(status.connectivity, equals(ConnectivityStatus.online));
+      expect(status.freshness, equals(DataFreshnessStatus.fresh));
       expect(status.movement, equals(MovementStatus.moving));
       expect(status.activity, equals(ActivityStatus.active));
       expect(status.label, equals('Đang di chuyển'));
@@ -25,32 +26,34 @@ void main() {
       final status = DeviceStatusResolver.resolve(
         isOnline: true,
         lastSeenAt: now.subtract(const Duration(seconds: 10)),
-        currentSpeedMps: 0.1,
+        currentSpeedMps: 0,
         baseStatus: 'ACTIVE',
       );
 
       expect(status.connectivity, equals(ConnectivityStatus.online));
+      expect(status.freshness, equals(DataFreshnessStatus.fresh));
       expect(status.movement, equals(MovementStatus.stopped));
       expect(status.label, equals('Đang dừng'));
       expect(status.color, equals(Colors.orange));
     });
 
-    test('resolve() stale because lastSeenAt is too old', () {
+    test('resolve() keeps stale GPS separate from connectivity', () {
       final now = DateTime.now();
       final status = DeviceStatusResolver.resolve(
         isOnline: true,
-        lastSeenAt: now.subtract(const Duration(seconds: 300)),
+        lastSeenAt: now.subtract(const Duration(minutes: 3)),
         currentSpeedMps: 10.0,
         baseStatus: 'ACTIVE',
       );
 
-      expect(status.connectivity, equals(ConnectivityStatus.stale));
+      expect(status.connectivity, equals(ConnectivityStatus.online));
+      expect(status.freshness, equals(DataFreshnessStatus.stale));
       expect(status.movement, equals(MovementStatus.unknown));
-      expect(status.label, equals('Mất tín hiệu (Stale)'));
+      expect(status.label, equals('Mất tín hiệu GPS'));
       expect(status.color, equals(Colors.redAccent));
     });
 
-    test('resolve() stale because lastSeenAt is null', () {
+    test('resolve() unknown freshness and offline when lastSeenAt is null', () {
       final status = DeviceStatusResolver.resolve(
         isOnline: true,
         lastSeenAt: null,
@@ -58,10 +61,12 @@ void main() {
         baseStatus: 'ACTIVE',
       );
 
-      expect(status.connectivity, equals(ConnectivityStatus.stale));
+      expect(status.connectivity, equals(ConnectivityStatus.offline));
+      expect(status.freshness, equals(DataFreshnessStatus.unknown));
+      expect(status.movement, equals(MovementStatus.unknown));
     });
 
-    test('resolve() offline', () {
+    test('resolve() offline does not use old speed as movement', () {
       final now = DateTime.now();
       final status = DeviceStatusResolver.resolve(
         isOnline: false,
@@ -71,12 +76,27 @@ void main() {
       );
 
       expect(status.connectivity, equals(ConnectivityStatus.offline));
+      expect(status.freshness, equals(DataFreshnessStatus.fresh));
       expect(status.movement, equals(MovementStatus.unknown));
       expect(status.label, equals('Ngoại tuyến'));
       expect(status.color, equals(Colors.grey));
     });
 
-    test('resolve() offline and inactive', () {
+    test('resolve() offline when lastSeenAt exceeds online timeout', () {
+      final now = DateTime.now();
+      final status = DeviceStatusResolver.resolve(
+        isOnline: true,
+        lastSeenAt: now.subtract(const Duration(minutes: 6)),
+        currentSpeedMps: 10.0,
+        baseStatus: 'ACTIVE',
+      );
+
+      expect(status.connectivity, equals(ConnectivityStatus.offline));
+      expect(status.freshness, equals(DataFreshnessStatus.stale));
+      expect(status.movement, equals(MovementStatus.unknown));
+    });
+
+    test('resolve() inactive management status remains explicit', () {
       final now = DateTime.now();
       final status = DeviceStatusResolver.resolve(
         isOnline: false,

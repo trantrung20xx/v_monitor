@@ -4,7 +4,7 @@ from typing import List
 import uuid
 
 from app.core.database import get_db
-from app.schemas.tracking import LocationSampleResponse, LocationSampleCreate
+from app.schemas.tracking import DeviceEventResponse, LocationSampleResponse, LocationSampleCreate
 from app.services.tracking_service import TrackingService
 from app.services.device_service import DeviceService
 from app.services.realtime_service import realtime_service
@@ -29,3 +29,18 @@ async def add_location(location: LocationSampleCreate, db: AsyncSession = Depend
 @router.get("/{device_id}/history", response_model=List[LocationSampleResponse])
 async def get_history(device_id: uuid.UUID, limit: int = 100, db: AsyncSession = Depends(get_db)):
     return await TrackingService.get_location_history(db, device_id, limit)
+
+@router.get("/{device_id}/events", response_model=List[DeviceEventResponse])
+async def get_events(device_id: uuid.UUID, limit: int = 100, db: AsyncSession = Depends(get_db)):
+    events = await TrackingService.get_device_events(db, device_id, limit)
+    return [
+        {
+            "id": event.id,
+            "device_id": event.device_id,
+            "event_type": event.event_type,
+            "occurred_at": event.occurred_at,
+            "person_id": event.person_id,
+            "source": event.metadata_.get("source") if event.metadata_ else None,
+        }
+        for event in events
+    ]

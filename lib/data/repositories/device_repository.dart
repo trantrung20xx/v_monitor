@@ -72,10 +72,30 @@ class DeviceRepository {
     }
   }
 
+  Future<Map<String, UsageSessionModel>> getLatestDeviceUsages() async {
+    try {
+      final response = await _apiClient.get('/devices/usages/latest');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data;
+        final usages = data.map((json) => UsageSessionModel.fromJson(json));
+        return {
+          for (final usage in usages)
+            if (usage.deviceId.isNotEmpty) usage.deviceId: usage,
+        };
+      }
+      return {};
+    } catch (e) {
+      debugPrint('Lỗi khi lấy phiên sử dụng mới nhất: $e');
+      return {};
+    }
+  }
+
   /// Lắng nghe dữ liệu realtime từ thiết bị qua WebSocket
   Stream<DeviceModel> get deviceUpdates {
     return _websocketClient.messages
-        .where((data) => data['type'] == 'DEVICE_UPDATE' && data['device'] != null)
+        .where(
+          (data) => data['type'] == 'DEVICE_UPDATE' && data['device'] != null,
+        )
         .map((data) => DeviceModel.fromJson(data['device']));
   }
 }

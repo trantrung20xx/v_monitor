@@ -4,7 +4,7 @@ from app.core.config import settings
 # Khởi tạo engine kết nối bất đồng bộ (async) tới PostgreSQL
 # Tối ưu hóa Connection Pooling (pool_size, max_overflow) để chịu tải cao
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    settings.database_url,
     echo=False, # Tắt in log SQL ra console để tăng hiệu năng production
     future=True,
     pool_size=20,          # Số kết nối tối đa luôn duy trì trong Pool
@@ -27,4 +27,3 @@ async def get_db():
             yield session
         finally:
             await session.close()
-

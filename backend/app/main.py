@@ -32,7 +32,7 @@ app = FastAPI(
 # Cho phép ứng dụng Frontend (Flutter Web/Mobile) gọi API từ các domain khác mà không bị chặn
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Trong môi trường thực tế, nên giới hạn domain cụ thể thay vì "*"
+    allow_origins=settings.cors_origin_list,
     allow_credentials=True,
     allow_methods=["*"], # Cho phép mọi phương thức (GET, POST, PUT, DELETE, v.v.)
     allow_headers=["*"], # Cho phép mọi headers
@@ -40,7 +40,7 @@ app.add_middleware(
 
 # Đăng ký các router (đường dẫn API) từ thư mục api/v1
 from app.api.v1.router import api_router
-app.include_router(api_router, prefix="/api/v1")
+app.include_router(api_router, prefix=settings.api_prefix)
 
 # Endpoint để kiểm tra xem server có đang hoạt động hay không
 @app.get("/health")

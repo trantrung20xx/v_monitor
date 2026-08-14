@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../data/models/device_model.dart';
+import '../../../data/models/usage_session_model.dart';
+import '../../../domain/entities/device_query_filter.dart';
 import 'device_card.dart';
 
 class DeviceGrid extends StatelessWidget {
@@ -9,25 +11,26 @@ class DeviceGrid extends StatelessWidget {
     super.key,
     required this.devices,
     required this.searchQuery,
+    required this.statusFilter,
     required this.deviceAddresses,
+    required this.latestUsages,
   });
 
   final List<DeviceModel> devices;
   final String searchQuery;
+  final DeviceFilter statusFilter;
   final Map<String, String> deviceAddresses;
+  final Map<String, UsageSessionModel> latestUsages;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    // Apply search filter
-    final filteredDevices = devices.where((device) {
-      if (searchQuery.isEmpty) return true;
-      final q = searchQuery.toLowerCase();
-      return device.name.toLowerCase().contains(q) ||
-          device.deviceCode.toLowerCase().contains(q) ||
-          (device.currentPersonName?.toLowerCase().contains(q) ?? false);
-    }).toList();
+    final filteredDevices = DeviceQueryFilter.filter(
+      devices,
+      query: searchQuery,
+      statusFilter: statusFilter,
+    );
 
     if (filteredDevices.isEmpty) {
       return Center(
@@ -35,7 +38,9 @@ class DeviceGrid extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              searchQuery.isEmpty ? Icons.devices_other_rounded : Icons.search_off_rounded,
+              searchQuery.isEmpty
+                  ? Icons.devices_other_rounded
+                  : Icons.search_off_rounded,
               size: 56,
               color: theme.colorScheme.outline.withValues(alpha: 0.5),
             ),
@@ -75,6 +80,7 @@ class DeviceGrid extends StatelessWidget {
               return DeviceCard(
                 device: device,
                 address: deviceAddresses[device.id],
+                latestUsage: latestUsages[device.id],
                 onTap: () => context.pushNamed(
                   'device-detail',
                   pathParameters: {'id': device.id},
@@ -92,7 +98,7 @@ class DeviceGrid extends StatelessWidget {
             maxCrossAxisExtent: maxCrossExtent,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            childAspectRatio: _cardAspectRatio(constraints.maxWidth, maxCrossExtent),
+            mainAxisExtent: _cardExtent(constraints.maxWidth),
           ),
           itemCount: filteredDevices.length,
           itemBuilder: (context, index) {
@@ -100,6 +106,7 @@ class DeviceGrid extends StatelessWidget {
             return DeviceCard(
               device: device,
               address: deviceAddresses[device.id],
+              latestUsage: latestUsages[device.id],
               onTap: () => context.pushNamed(
                 'device-detail',
                 pathParameters: {'id': device.id},
@@ -111,11 +118,10 @@ class DeviceGrid extends StatelessWidget {
     );
   }
 
-  /// Compute a reasonable aspect ratio based on available width.
-  double _cardAspectRatio(double totalWidth, double maxExtent) {
-    final cols = (totalWidth / maxExtent).ceil().clamp(1, 4);
-    final cardW = (totalWidth - 32 - (cols - 1) * 12) / cols;
-    // Card height ~200px is ideal; adjust ratio accordingly
-    return cardW / 200;
+  /// Keep dashboard cards stable so address/status text cannot resize the grid.
+  double _cardExtent(double totalWidth) {
+    if (totalWidth < 640) return 276;
+    if (totalWidth < 960) return 258;
+    return 244;
   }
 }

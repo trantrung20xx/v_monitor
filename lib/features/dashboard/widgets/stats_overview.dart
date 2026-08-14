@@ -42,18 +42,27 @@ class StatsOverview extends StatelessWidget {
         icon: Icons.signal_wifi_statusbar_connected_no_internet_4_rounded,
         color: const Color(0xFFDC2626),
       ),
+      StatCard(
+        label: 'Cần kiểm tra',
+        value: '${state.attentionCount}',
+        icon: Icons.warning_amber_rounded,
+        color: const Color(0xFFEA580C),
+      ),
     ];
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      clipBehavior: Clip.none,
-      child: Row(
-        children: cards.map((c) {
-          return Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: SizedBox(width: 140, child: c),
-          );
-        }).toList(),
+    return SizedBox(
+      height: 82,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
+        child: Row(
+          children: cards.map((card) {
+            return Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: SizedBox(width: 150, height: 82, child: card),
+            );
+          }).toList(),
+        ),
       ),
     );
   }

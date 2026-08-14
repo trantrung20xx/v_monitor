@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 from typing import List
 import uuid
@@ -45,7 +46,12 @@ class DeviceService:
             "device_code": device.device_code,
             "name": device.name,
             "device_type": device.device_type,
+            "serial_number": device.serial_number,
+            "manufacturer": device.manufacturer,
+            "model": device.model,
+            "firmware_version": device.firmware_version,
             "status": device.status,
+            "metadata_json": device.metadata_json,
             "created_at": device.created_at.isoformat(),
             "updated_at": device.updated_at.isoformat(),
         }
@@ -60,6 +66,7 @@ class DeviceService:
                 "is_online": device.latest_state.is_online,
                 "current_latitude": device.latest_state.current_latitude,
                 "current_longitude": device.latest_state.current_longitude,
+                "current_altitude_m": getattr(device.latest_state, "current_altitude_m", None),
                 "current_speed_mps": device.latest_state.current_speed_mps,
                 "current_heading_deg": device.latest_state.current_heading_deg,
                 "uav_battery_pct": device.latest_state.uav_battery_pct,
@@ -98,9 +105,56 @@ class DeviceService:
     async def get_device_usages(db: AsyncSession, device_id: uuid.UUID, limit: int = 50) -> List[UsageSession]:
         result = await db.execute(
             select(UsageSession)
-            .options(selectinload(UsageSession.person))
+            .options(
+                selectinload(UsageSession.person),
+                selectinload(UsageSession.user),
+            )
             .filter(UsageSession.device_id == device_id)
             .order_by(UsageSession.started_at.desc())
             .limit(limit)
         )
         return list(result.scalars().all())
+
+    @staticmethod
+    async def get_latest_device_usages(db: AsyncSession, limit_per_device: int = 1) -> List[UsageSession]:
+        usage_rank = func.row_number().over(
+            partition_by=UsageSession.device_id,
+            order_by=UsageSession.started_at.desc(),
+        ).label("usage_rank")
+
+        ranked_usages = select(
+            UsageSession.id.label("usage_id"),
+            usage_rank,
+        ).subquery()
+
+        result = await db.execute(
+            select(UsageSession)
+            .join(ranked_usages, UsageSession.id == ranked_usages.c.usage_id)
+            .options(
+                selectinload(UsageSession.person),
+                selectinload(UsageSession.user),
+            )
+            .filter(ranked_usages.c.usage_rank <= max(limit_per_device, 1))
+            .order_by(UsageSession.started_at.desc())
+        )
+        return list(result.scalars().all())
+
+    @staticmethod
+    def format_usage_session(usage: UsageSession) -> dict:
+        person = usage.person or usage.user
+        return {
+            "id": usage.id,
+            "device_id": usage.device_id,
+            "person_id": usage.person_id,
+            "started_at": usage.started_at,
+            "ended_at": usage.ended_at,
+            "distance_m": usage.distance_m,
+            "avg_speed_mps": usage.avg_speed_mps,
+            "max_speed_mps": usage.max_speed_mps,
+            "moving_duration_s": usage.moving_duration_s,
+            "stopped_duration_s": usage.stopped_duration_s,
+            "status": usage.status,
+            "end_reason": usage.end_reason,
+            "person_name": person.full_name if person else None,
+            "person_code": person.person_code if person else None,
+        }

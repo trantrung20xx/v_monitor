@@ -7,8 +7,14 @@ void main() {
 
   group('MapLauncherService Coordinate Validation', () {
     test('Valid coordinates return true', () {
-      expect(MapLauncherService.isValidCoordinate(21.028511, 105.804817), isTrue); // Hanoi
-      expect(MapLauncherService.isValidCoordinate(-33.856784, 151.215297), isTrue); // Sydney
+      expect(
+        MapLauncherService.isValidCoordinate(21.028511, 105.804817),
+        isTrue,
+      ); // Hanoi
+      expect(
+        MapLauncherService.isValidCoordinate(-33.856784, 151.215297),
+        isTrue,
+      ); // Sydney
       expect(MapLauncherService.isValidCoordinate(90.0, 180.0), isTrue);
       expect(MapLauncherService.isValidCoordinate(-90.0, -180.0), isTrue);
     });
@@ -43,7 +49,7 @@ void main() {
         isOnline: false,
         lastSeenAt: null,
       );
-      
+
       expect(
         () => MapLauncherService.copyLocationToClipboard(device, null, null),
         throwsException,

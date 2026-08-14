@@ -1,6 +1,8 @@
 import 'package:equatable/equatable.dart';
 
 import '../../data/models/device_model.dart';
+import '../../data/models/usage_session_model.dart';
+import '../../domain/entities/device_query_filter.dart';
 
 /// Dashboard state.
 class DashboardState extends Equatable {
@@ -15,8 +17,11 @@ class DashboardState extends Equatable {
     this.stoppedCount = 0,
     this.inactiveCount = 0,
     this.staleCount = 0,
+    this.attentionCount = 0,
     this.searchQuery = '',
+    this.statusFilter = DeviceFilter.all,
     this.deviceAddresses = const {},
+    this.latestUsages = const {},
   });
 
   final bool isLoading;
@@ -29,8 +34,11 @@ class DashboardState extends Equatable {
   final int stoppedCount;
   final int inactiveCount;
   final int staleCount;
+  final int attentionCount;
   final String searchQuery;
+  final DeviceFilter statusFilter;
   final Map<String, String> deviceAddresses;
+  final Map<String, UsageSessionModel> latestUsages;
 
   DashboardState copyWith({
     bool? isLoading,
@@ -43,8 +51,11 @@ class DashboardState extends Equatable {
     int? stoppedCount,
     int? inactiveCount,
     int? staleCount,
+    int? attentionCount,
     String? searchQuery,
+    DeviceFilter? statusFilter,
     Map<String, String>? deviceAddresses,
+    Map<String, UsageSessionModel>? latestUsages,
   }) {
     return DashboardState(
       isLoading: isLoading ?? this.isLoading,
@@ -57,24 +68,30 @@ class DashboardState extends Equatable {
       stoppedCount: stoppedCount ?? this.stoppedCount,
       inactiveCount: inactiveCount ?? this.inactiveCount,
       staleCount: staleCount ?? this.staleCount,
+      attentionCount: attentionCount ?? this.attentionCount,
       searchQuery: searchQuery ?? this.searchQuery,
+      statusFilter: statusFilter ?? this.statusFilter,
       deviceAddresses: deviceAddresses ?? this.deviceAddresses,
+      latestUsages: latestUsages ?? this.latestUsages,
     );
   }
 
   @override
   List<Object?> get props => [
-        isLoading,
-        error,
-        devices,
-        totalDevices,
-        onlineCount,
-        offlineCount,
-        movingCount,
-        stoppedCount,
-        inactiveCount,
-        staleCount,
-        searchQuery,
-        deviceAddresses,
-      ];
+    isLoading,
+    error,
+    devices,
+    totalDevices,
+    onlineCount,
+    offlineCount,
+    movingCount,
+    stoppedCount,
+    inactiveCount,
+    staleCount,
+    attentionCount,
+    searchQuery,
+    statusFilter,
+    deviceAddresses,
+    latestUsages,
+  ];
 }

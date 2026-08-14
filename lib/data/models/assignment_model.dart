@@ -27,7 +27,9 @@ class AssignmentModel {
       deviceId: json['device_id'] ?? '',
       personId: json['person_id'] ?? '',
       assignedAt: DateTime.parse(json['assigned_at']).toLocal(),
-      unassignedAt: json['unassigned_at'] != null ? DateTime.parse(json['unassigned_at']).toLocal() : null,
+      unassignedAt: json['unassigned_at'] != null
+          ? DateTime.parse(json['unassigned_at']).toLocal()
+          : null,
       assignmentType: json['assignment_type'] ?? 'RESPONSIBLE',
       notes: json['notes'],
       personName: json['person_name'],
