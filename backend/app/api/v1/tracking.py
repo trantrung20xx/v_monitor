@@ -39,7 +39,6 @@ async def get_events(device_id: uuid.UUID, limit: int = 100, db: AsyncSession = 
             "device_id": event.device_id,
             "event_type": event.event_type,
             "occurred_at": event.occurred_at,
-            "person_id": event.person_id,
             "source": event.metadata_.get("source") if event.metadata_ else None,
         }
         for event in events

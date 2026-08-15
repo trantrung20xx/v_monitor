@@ -14,10 +14,6 @@ class DeviceStatus(str, enum.Enum):
     MAINTENANCE = "MAINTENANCE"
     RETIRED = "RETIRED"
 
-class AssignmentType(str, enum.Enum):
-    RESPONSIBLE = "RESPONSIBLE"
-    OPERATOR = "OPERATOR"
-
 class UsageStatus(str, enum.Enum):
     ACTIVE = "ACTIVE"
     COMPLETED = "COMPLETED"

@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../data/models/device_model.dart';
-import '../../data/models/usage_session_model.dart';
 import '../../data/repositories/device_repository.dart';
 import '../../data/repositories/geocoding_repository.dart';
 import '../../domain/entities/device_query_filter.dart';
@@ -25,11 +24,8 @@ class DashboardCubit extends Cubit<DashboardState> {
   Future<void> loadDashboard() async {
     emit(state.copyWith(isLoading: true, error: null));
     try {
-      final devicesFuture = deviceRepo.getDevices();
-      final latestUsagesFuture = deviceRepo.getLatestDeviceUsages();
-      final devices = await devicesFuture;
-      final latestUsages = await latestUsagesFuture;
-      _updateDevices(devices, latestUsages: latestUsages);
+      final devices = await deviceRepo.getDevices();
+      _updateDevices(devices);
     } catch (e) {
       emit(state.copyWith(isLoading: false, error: e.toString()));
     }
@@ -54,10 +50,7 @@ class DashboardCubit extends Cubit<DashboardState> {
     _updateDevices(updatedDevices);
   }
 
-  void _updateDevices(
-    List<DeviceModel> devices, {
-    Map<String, UsageSessionModel>? latestUsages,
-  }) {
+  void _updateDevices(List<DeviceModel> devices) {
     int online = 0,
         offline = 0,
         moving = 0,
@@ -90,10 +83,6 @@ class DashboardCubit extends Cubit<DashboardState> {
 
       if (status.movement == MovementStatus.moving) {
         moving++;
-        final hasPerson = dev.currentPersonName?.trim().isNotEmpty ?? false;
-        if (!hasPerson) {
-          attention++;
-        }
       } else if (status.movement == MovementStatus.stopped) {
         stopped++;
       }
@@ -115,7 +104,6 @@ class DashboardCubit extends Cubit<DashboardState> {
         inactiveCount: inactive,
         staleCount: stale,
         attentionCount: attention,
-        latestUsages: latestUsages ?? state.latestUsages,
       ),
     );
   }

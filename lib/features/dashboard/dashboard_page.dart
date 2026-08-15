@@ -181,7 +181,6 @@ class _DesktopLayout extends StatelessWidget {
                   searchQuery: state.searchQuery,
                   statusFilter: state.statusFilter,
                   deviceAddresses: state.deviceAddresses,
-                  latestUsages: state.latestUsages,
                 ),
               ),
             ],
@@ -259,7 +258,6 @@ class _MobileLayout extends StatelessWidget {
               searchQuery: state.searchQuery,
               statusFilter: state.statusFilter,
               deviceAddresses: state.deviceAddresses,
-              latestUsages: state.latestUsages,
             ),
           ),
         ],
@@ -275,7 +273,7 @@ class _SearchBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextField(
       decoration: const InputDecoration(
-        hintText: 'Tìm kiếm thiết bị, người dùng...',
+        hintText: 'Tìm kiếm phương tiện, mã thiết bị...',
         prefixIcon: Icon(Icons.search_rounded, size: 20),
         isDense: true,
       ),

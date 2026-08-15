@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../data/models/device_model.dart';
-import '../../../data/models/usage_session_model.dart';
 import '../../../domain/entities/device_query_filter.dart';
 import 'device_card.dart';
 
@@ -13,14 +12,12 @@ class DeviceGrid extends StatelessWidget {
     required this.searchQuery,
     required this.statusFilter,
     required this.deviceAddresses,
-    required this.latestUsages,
   });
 
   final List<DeviceModel> devices;
   final String searchQuery;
   final DeviceFilter statusFilter;
   final Map<String, String> deviceAddresses;
-  final Map<String, UsageSessionModel> latestUsages;
 
   @override
   Widget build(BuildContext context) {
@@ -80,7 +77,6 @@ class DeviceGrid extends StatelessWidget {
               return DeviceCard(
                 device: device,
                 address: deviceAddresses[device.id],
-                latestUsage: latestUsages[device.id],
                 onTap: () => context.pushNamed(
                   'device-detail',
                   pathParameters: {'id': device.id},
@@ -106,7 +102,6 @@ class DeviceGrid extends StatelessWidget {
             return DeviceCard(
               device: device,
               address: deviceAddresses[device.id],
-              latestUsage: latestUsages[device.id],
               onTap: () => context.pushNamed(
                 'device-detail',
                 pathParameters: {'id': device.id},
@@ -120,8 +115,8 @@ class DeviceGrid extends StatelessWidget {
 
   /// Keep dashboard cards stable so address/status text cannot resize the grid.
   double _cardExtent(double totalWidth) {
-    if (totalWidth < 640) return 276;
-    if (totalWidth < 960) return 258;
-    return 244;
+    if (totalWidth < 640) return 260;
+    if (totalWidth < 960) return 242;
+    return 230;
   }
 }

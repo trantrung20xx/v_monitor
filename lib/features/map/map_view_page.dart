@@ -80,7 +80,11 @@ class _MapViewBodyState extends State<_MapViewBody> {
     }
   }
 
-  void _openMobileList(BuildContext context, List<DeviceModel> devices) {
+  void _openMobileList(
+    BuildContext context,
+    List<DeviceModel> devices,
+    Map<String, String> addresses,
+  ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -95,6 +99,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
           builder: (context, scrollController) {
             return DeviceListOverlay(
               devices: devices,
+              addresses: addresses,
               scrollController: scrollController,
               onDeviceSelected: (d) {
                 Navigator.pop(context);
@@ -134,7 +139,11 @@ class _MapViewBodyState extends State<_MapViewBody> {
                             _showDesktopList = !_showDesktopList;
                           });
                         } else {
-                          _openMobileList(context, state.devices);
+                          _openMobileList(
+                            context,
+                            state.devices,
+                            state.deviceAddresses,
+                          );
                         }
                       },
                     );
@@ -298,6 +307,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
                     bottom: 16,
                     child: DeviceListOverlay(
                       devices: state.devices,
+                      addresses: state.deviceAddresses,
                       onDeviceSelected: (d) => _onDeviceSelected(context, d),
                       onClose: () => setState(() => _showDesktopList = false),
                     ),

@@ -23,7 +23,7 @@ class DeviceQueryFilter {
     if (query.isEmpty) return true;
     return device.name.toLowerCase().contains(query) ||
         device.deviceCode.toLowerCase().contains(query) ||
-        (device.currentPersonName?.toLowerCase().contains(query) ?? false);
+        device.deviceType.toLowerCase().contains(query);
   }
 
   static bool _matchesStatus(DeviceModel device, DeviceFilter filter) {

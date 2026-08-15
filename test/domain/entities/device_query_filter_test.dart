@@ -4,27 +4,27 @@ import 'package:v_monitor/domain/entities/device_query_filter.dart';
 
 void main() {
   group('DeviceQueryFilter', () {
-    test('matches device name, code, and current person', () {
+    test('matches device name, code, and type', () {
       final devices = [
         _device(
           id: '1',
           name: 'Truck 01',
           code: 'XE-001',
-          person: 'Nguyen Van A',
+          type: 'VEHICLE',
         ),
         _device(
           id: '2',
-          name: 'Truck 02',
-          code: 'XE-002',
-          person: 'Tran Van B',
+          name: 'Flycam Alpha',
+          code: 'UAV-002',
+          type: 'UAV_CONTROLLER',
         ),
       ];
 
       expect(DeviceQueryFilter.filter(devices, query: 'truck 01'), [
         devices[0],
       ]);
-      expect(DeviceQueryFilter.filter(devices, query: 'xe-002'), [devices[1]]);
-      expect(DeviceQueryFilter.filter(devices, query: 'nguyen'), [devices[0]]);
+      expect(DeviceQueryFilter.filter(devices, query: 'uav-002'), [devices[1]]);
+      expect(DeviceQueryFilter.filter(devices, query: 'uav_controller'), [devices[1]]);
     });
 
     test('filters by resolved status', () {
@@ -68,7 +68,7 @@ DeviceModel _device({
   required String id,
   String name = 'Device',
   String code = 'DEV',
-  String? person,
+  String type = 'VEHICLE',
   bool isOnline = true,
   DateTime? lastSeenAt,
   double? speedMps,
@@ -77,11 +77,10 @@ DeviceModel _device({
     id: id,
     deviceCode: code,
     name: name,
-    type: 'VEHICLE',
+    type: type,
     status: 'ACTIVE',
     isOnline: isOnline,
     currentSpeedMps: speedMps,
     lastSeenAt: lastSeenAt ?? DateTime.now(),
-    currentPersonName: person,
   );
 }

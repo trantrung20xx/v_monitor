@@ -57,6 +57,3 @@ class Device(Base, UUIDMixin, TimestampMixin):
 
     # Trạng thái mới nhất của thiết bị
     latest_state = relationship("DeviceLatestState", back_populates="device", uselist=False)
-
-    # Lịch sử phân công thiết bị cho người sử dụng
-    assignments = relationship("DeviceAssignment", back_populates="device")

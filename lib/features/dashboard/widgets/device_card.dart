@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../core/utils/device_formatters.dart';
 import '../../../core/widgets/device_icon.dart';
 import '../../../data/models/device_model.dart';
-import '../../../data/models/usage_session_model.dart';
 import '../../../domain/entities/device_status_resolver.dart';
 
 class DeviceCard extends StatelessWidget {
@@ -11,13 +10,11 @@ class DeviceCard extends StatelessWidget {
     super.key,
     required this.device,
     this.address,
-    this.latestUsage,
     required this.onTap,
   });
 
   final DeviceModel device;
   final String? address;
-  final UsageSessionModel? latestUsage;
   final VoidCallback onTap;
 
   @override
@@ -30,57 +27,49 @@ class DeviceCard extends StatelessWidget {
     );
 
     final theme = Theme.of(context);
+    final isMoving = status.movement == MovementStatus.moving;
 
     // Speed
-    String speedStr = '—';
-    String speedUnit = '';
-    if (device.currentSpeedMps != null &&
-        status.movement == MovementStatus.moving) {
-      speedStr = (device.currentSpeedMps! * 3.6).toStringAsFixed(1);
-      speedUnit = 'km/h';
-    } else if (status.movement == MovementStatus.stopped &&
-        status.connectivity == ConnectivityStatus.online) {
-      speedStr = '0';
-      speedUnit = 'km/h';
-    }
-
-    final lastSeenStr = DeviceFormatters.lastSeen(device.lastSeenAt);
-
-    final addressText = address?.trim();
-    final gpsText = device.latitude != null && device.longitude != null
-        ? DeviceFormatters.coordinates(device.latitude, device.longitude)
+    final speedStr = DeviceFormatters.speedKmh(
+      device.currentSpeedMps,
+      status: status,
+    );
+    final speedUnit = isMoving || status.movement == MovementStatus.stopped
+        ? 'km/h'
         : '';
 
-    String usageTimeStr = '';
-    if (latestUsage != null) {
-      final startStr = DeviceFormatters.dateTime(latestUsage!.startedAt);
-      if (latestUsage!.endedAt == null || latestUsage!.status == 'ACTIVE') {
-        usageTimeStr = 'Sử dụng từ: $startStr';
-      } else {
-        final endStr = DeviceFormatters.dateTime(latestUsage!.endedAt);
-        usageTimeStr = 'Phiên gần nhất: $startStr - $endStr';
-      }
-    }
+    final relativeTimeStr = DeviceFormatters.relativeTime(device.lastSeenAt);
+    final headingText = DeviceFormatters.headingText(
+      device.currentHeadingDeg,
+      status: status,
+    );
 
-    final bool hasAddress = addressText != null && addressText.isNotEmpty;
-    final bool hasGps = gpsText.isNotEmpty;
-    final String displayName = device.name.isNotEmpty
-        ? device.name
-        : device.deviceCode;
+    final (addressLine1, addressLine2) = DeviceFormatters.addressLines(
+      address,
+      latitude: device.latitude,
+      longitude: device.longitude,
+    );
+
+    final String displayName = device.name.trim().isNotEmpty
+        ? device.name.trim()
+        : device.deviceCode.trim();
     final String? subCode =
-        device.name.isNotEmpty && device.name != device.deviceCode
-        ? device.deviceCode
+        device.name.trim().isNotEmpty && device.name.trim() != device.deviceCode.trim()
+        ? device.deviceCode.trim()
         : null;
-    final String personName = device.currentPersonName ?? '';
-    final bool hasPerson = personName.isNotEmpty;
-    final bool needsAssignment =
-        status.movement == MovementStatus.moving && !hasPerson;
-    final speedColor = status.movement == MovementStatus.moving
+
+    final speedColor = isMoving
         ? const Color(0xFF2563EB)
-        : theme.colorScheme.onSurface.withValues(alpha: 0.5);
+        : theme.colorScheme.onSurface;
 
     return Card(
       clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
@@ -149,6 +138,7 @@ class DeviceCard extends StatelessWidget {
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.outline,
                               fontFamily: 'monospace',
+                              fontSize: 11,
                             ),
                           ),
                         const SizedBox(height: 4),
@@ -160,69 +150,88 @@ class DeviceCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   // Speed block (right-aligned)
                   _SpeedReadout(
-                    value: speedStr,
+                    value: speedStr.replaceAll(' km/h', ''),
                     unit: speedUnit,
                     color: speedColor,
                   ),
                 ],
               ),
+
               const SizedBox(height: 12),
               const Divider(height: 1),
               const SizedBox(height: 10),
 
-              // ── Row 2: Person + Last Seen ──
+              // ── Row 2: Heading + Last Seen ──
               Row(
                 children: [
                   Expanded(
                     child: _MetaItem(
-                      icon: needsAssignment
-                          ? Icons.warning_amber_rounded
-                          : Icons.person_rounded,
-                      text: hasPerson ? personName : 'Chưa phân công',
-                      faded: !hasPerson,
-                      color: needsAssignment ? const Color(0xFFEA580C) : null,
+                      icon: Icons.explore_outlined,
+                      text: 'Hướng: $headingText',
+                      faded: headingText == '--',
                     ),
                   ),
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: _MetaItem(
-                        icon: Icons.access_time_rounded,
-                        text: lastSeenStr,
-                        faded: device.lastSeenAt == null,
-                        maxLines: 2,
-                      ),
-                    ),
+                  const SizedBox(width: 8),
+                  _MetaItem(
+                    icon: status.freshness == DataFreshnessStatus.stale
+                        ? Icons.warning_amber_rounded
+                        : Icons.schedule_rounded,
+                    text: relativeTimeStr,
+                    faded: device.lastSeenAt == null,
+                    color: status.freshness == DataFreshnessStatus.stale
+                        ? const Color(0xFFDC2626)
+                        : null,
                   ),
                 ],
               ),
 
-              // ── Row 3: Usage time ──
-              if (usageTimeStr.isNotEmpty) ...[
+              // ── Row 3: Telemetry (Battery / Altitude if available) ──
+              if (device.uavBatteryPct != null ||
+                  device.controllerBatteryPct != null ||
+                  device.currentAltitudeM != null) ...[
                 const SizedBox(height: 6),
-                _MetaItem(
-                  icon: Icons.assignment_ind_rounded,
-                  text: usageTimeStr,
-                  maxLines: 2,
+                Row(
+                  children: [
+                    if (device.uavBatteryPct != null) ...[
+                      _MetaItem(
+                        icon: Icons.battery_charging_full_rounded,
+                        text: 'Pin UAV: ${device.uavBatteryPct}%',
+                        color: (device.uavBatteryPct! < 20)
+                            ? const Color(0xFFDC2626)
+                            : null,
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    if (device.currentAltitudeM != null) ...[
+                      _MetaItem(
+                        icon: Icons.flight_takeoff_rounded,
+                        text: 'Độ cao: ${device.currentAltitudeM!.toStringAsFixed(1)}m',
+                      ),
+                    ],
+                  ],
                 ),
               ],
 
-              // ── Row 4: Address + GPS (if available) ──
-              if (hasAddress) ...[
-                const SizedBox(height: 6),
-                _MetaItem(
-                  icon: Icons.location_city_rounded,
-                  text: addressText,
-                  maxLines: 2,
-                ),
-              ],
-              if (hasGps) ...[
-                const SizedBox(height: 5),
-                _MetaItem(
-                  icon: Icons.my_location_rounded,
-                  text: 'GPS $gpsText',
-                  maxLines: 1,
-                  faded: !hasAddress,
+              // ── Row 4: Address ──
+              const SizedBox(height: 6),
+              _MetaItem(
+                icon: Icons.location_on_outlined,
+                text: addressLine1,
+                maxLines: 1,
+              ),
+              if (addressLine2.isNotEmpty) ...[
+                const SizedBox(height: 3),
+                Padding(
+                  padding: const EdgeInsets.only(left: 17),
+                  child: Text(
+                    addressLine2,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontSize: 11,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ],
@@ -254,7 +263,7 @@ class _StatusChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
         color: status.color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

@@ -25,11 +25,8 @@ class DeviceCreate(DeviceBase):
 
 class DeviceResponse(DeviceBase):
     id: uuid.UUID                                          # ID duy nhất trong database
-    created_at: datetime                                   # Thời điểm tạo bản ghi
-    updated_at: datetime                                   # Thời điểm cập nhật bản ghi
-
-    # Current assignee (nếu có)
-    current_person_name: Optional[str] = None              # Tên người đang phụ trách
+    created_at: Optional[datetime] = None                  # Thời điểm tạo bản ghi
+    updated_at: Optional[datetime] = None                  # Thời điểm cập nhật bản ghi
 
     # Latest state
     is_online: Optional[bool] = False                      # Trạng thái online hiện tại

@@ -11,12 +11,14 @@ class DeviceListOverlay extends StatefulWidget {
   const DeviceListOverlay({
     super.key,
     required this.devices,
+    this.addresses = const {},
     required this.onDeviceSelected,
     this.onClose,
     this.scrollController,
   });
 
   final List<DeviceModel> devices;
+  final Map<String, String> addresses;
   final void Function(DeviceModel) onDeviceSelected;
   final VoidCallback? onClose;
   final ScrollController? scrollController;
@@ -106,7 +108,7 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
               child: TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
-                  hintText: 'Tìm thiết bị, mã, người phụ trách...',
+                  hintText: 'Tìm theo tên, mã thiết bị, loại...',
                   prefixIcon: const Icon(Icons.search_rounded, size: 20),
                   suffixIcon: _searchQuery.isEmpty
                       ? null
@@ -171,16 +173,15 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
                     );
                   }
 
-                  return ListView.separated(
+                  return ListView.builder(
                     controller: widget.scrollController,
-                    padding: EdgeInsets.zero,
+                    padding: const EdgeInsets.symmetric(vertical: 6),
                     itemCount: filteredDevices.length,
-                    separatorBuilder: (context, index) =>
-                        const Divider(height: 1),
                     itemBuilder: (context, index) {
                       final device = filteredDevices[index];
-                      return _DeviceListItem(
+                      return _DeviceMapCard(
                         device: device,
+                        address: widget.addresses[device.id],
                         onTap: () => widget.onDeviceSelected(device),
                       );
                     },
@@ -240,10 +241,22 @@ class _FilterOption {
   final String label;
 }
 
-class _DeviceListItem extends StatelessWidget {
-  const _DeviceListItem({required this.device, required this.onTap});
+/// Card thiết bị hiển thị trong panel Bản đồ
+/// Cung cấp phân cấp thị giác rõ ràng cho người vận hành nhận biết nhanh trong 2-3s:
+/// 1. Định danh (Tên, Mã, Loại phương tiện)
+/// 2. Trạng thái kết nối (Trực tuyến / Ngoại tuyến)
+/// 3. Trạng thái di chuyển + GPS freshness (Đang di chuyển / Đang dừng / Không xác định · GPS mới / cũ)
+/// 4. Metrics nổi bật (Tốc độ km/h, Hướng di chuyển)
+/// 5. Vị trí hiện tại hoặc Vị trí gần nhất kèm thời gian cập nhật
+class _DeviceMapCard extends StatelessWidget {
+  const _DeviceMapCard({
+    required this.device,
+    this.address,
+    required this.onTap,
+  });
 
   final DeviceModel device;
+  final String? address;
   final VoidCallback onTap;
 
   @override
@@ -257,225 +270,384 @@ class _DeviceListItem extends StatelessWidget {
       baseStatus: device.status,
     );
 
-    var speedText = '--';
-    var speedUnit = '';
-    if (status.movement == MovementStatus.moving &&
-        device.currentSpeedMps != null) {
-      speedText = (device.currentSpeedMps! * 3.6).toStringAsFixed(1);
-      speedUnit = 'km/h';
-    } else if (status.movement == MovementStatus.stopped) {
-      speedText = '0';
-      speedUnit = 'km/h';
+    final isOnline = status.connectivity == ConnectivityStatus.online;
+    final isMoving = status.movement == MovementStatus.moving;
+    final isStale = status.freshness == DataFreshnessStatus.stale;
+
+    // 1. Định danh
+    final displayName = device.name.trim().isNotEmpty
+        ? device.name.trim()
+        : device.deviceCode.trim();
+    final typeLabel = DeviceFormatters.deviceTypeLabel(device.deviceType);
+    final subIdentity = '${device.deviceCode} · $typeLabel';
+
+    // 2. Connectivity
+    final connectivityColor = isOnline
+        ? const Color(0xFF16A34A)
+        : Colors.grey.shade500;
+    final connectivityLabel = isOnline ? 'Trực tuyến' : 'Ngoại tuyến';
+
+    // 3. Movement state & GPS freshness
+    final String movementBadgeText;
+    final IconData movementBadgeIcon;
+    final Color movementBadgeColor;
+
+    if (!isOnline) {
+      movementBadgeText = 'Trạng thái di chuyển không xác định';
+      movementBadgeIcon = Icons.help_outline_rounded;
+      movementBadgeColor = Colors.grey.shade600;
+    } else if (isStale) {
+      movementBadgeText = isMoving ? 'Đang di chuyển · GPS cũ' : 'Đang dừng · GPS cũ';
+      movementBadgeIcon = Icons.warning_amber_rounded;
+      movementBadgeColor = const Color(0xFFD97706);
+    } else if (isMoving) {
+      movementBadgeText = 'Đang di chuyển · GPS mới';
+      movementBadgeIcon = Icons.near_me_rounded;
+      movementBadgeColor = const Color(0xFF2563EB);
+    } else {
+      movementBadgeText = 'Đang dừng · GPS mới';
+      movementBadgeIcon = Icons.pause_circle_rounded;
+      movementBadgeColor = const Color(0xFF16A34A);
     }
 
-    final displayName = device.name.isNotEmpty
-        ? device.name
-        : device.deviceCode;
-
-    final lastSeenText = device.lastSeenAt != null
-        ? DeviceFormatters.dateTime(device.lastSeenAt)
-        : 'Không xác định';
-
-    final personName =
-        (device.currentPersonName != null &&
-            device.currentPersonName!.isNotEmpty)
-        ? device.currentPersonName!
-        : 'Chưa giao thiết bị';
-    final needsAssignment =
-        status.movement == MovementStatus.moving &&
-        (device.currentPersonName?.trim().isNotEmpty ?? false) == false;
-    final speedColor = status.movement == MovementStatus.moving
+    // 4. Speed & Heading
+    final speedText = DeviceFormatters.speedKmh(
+      device.currentSpeedMps,
+      status: status,
+    );
+    final speedColor = isMoving
         ? const Color(0xFF2563EB)
-        : theme.colorScheme.onSurface.withValues(alpha: 0.5);
+        : theme.colorScheme.onSurface;
 
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Avatar & Status Badge
-            Stack(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: status.color.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    DeviceIcon.iconFor(device.deviceType),
-                    color: status.color,
-                    size: 22,
-                  ),
-                ),
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: status.color,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: theme.colorScheme.surface,
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 16),
-            // Identity & Details
-            Expanded(
-              child: Column(
+    final headingText = DeviceFormatters.headingText(
+      device.currentHeadingDeg,
+      status: status,
+    );
+
+    // 5. Thời gian cập nhật
+    final relativeTimeText = DeviceFormatters.relativeTime(device.lastSeenAt);
+
+    // 6. Vị trí
+    final (locationLine1, locationLine2) = DeviceFormatters.addressLines(
+      address,
+      latitude: device.latitude,
+      longitude: device.longitude,
+    );
+    final isLocationStaleOrOffline = !isOnline || isStale;
+    final locationHeader = isLocationStaleOrOffline ? 'Vị trí gần nhất' : null;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ─── Header: Icon + Name + SubIdentity + Connectivity ───
+              Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    displayName,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: status.color.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    child: Icon(
+                      DeviceIcon.iconFor(device.deviceType),
+                      color: status.color,
+                      size: 20,
+                    ),
                   ),
-                  const SizedBox(height: 5),
-                  _OverlayStatusChip(status: status),
-                  const SizedBox(height: 5),
-                  Row(
-                    children: [
-                      Icon(
-                        needsAssignment
-                            ? Icons.warning_amber_rounded
-                            : Icons.person_rounded,
-                        size: 14,
-                        color: needsAssignment
-                            ? const Color(0xFFEA580C)
-                            : theme.colorScheme.outline,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          personName,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: needsAssignment
-                                ? const Color(0xFFEA580C)
-                                : theme.colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w500,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          displayName,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            height: 1.15,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.access_time_rounded,
-                        size: 14,
-                        color: theme.colorScheme.outline,
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          lastSeenText,
+                        const SizedBox(height: 2),
+                        Text(
+                          subIdentity,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.outline,
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontSize: 11,
+                            height: 1.1,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Connectivity badge (top right)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: connectivityColor.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: connectivityColor.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: connectivityColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          connectivityLabel,
+                          style: TextStyle(
+                            color: connectivityColor,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 6),
+
+              // ─── Movement & GPS Freshness line ───
+              Row(
+                children: [
+                  Icon(
+                    movementBadgeIcon,
+                    size: 13,
+                    color: movementBadgeColor,
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      movementBadgeText,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: movementBadgeColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 10),
+
+              // ─── Metrics Block: Speed & Heading ───
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.4,
+                  ),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: theme.colorScheme.outlineVariant.withValues(
+                      alpha: 0.3,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    // Speed
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            speedText,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: speedColor,
+                              height: 1.1,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Tốc độ',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      height: 26,
+                      color: theme.colorScheme.outlineVariant.withValues(
+                        alpha: 0.5,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Heading
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            headingText,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: isOnline && device.currentHeadingDeg != null
+                                  ? theme.colorScheme.onSurface
+                                  : theme.colorScheme.outline,
+                              height: 1.1,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Hướng',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              // ─── Location & Last Update ───
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 1),
+                    child: Icon(
+                      Icons.location_on_outlined,
+                      size: 15,
+                      color: isLocationStaleOrOffline
+                          ? theme.colorScheme.outline
+                          : const Color(0xFF1677FF),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (locationHeader != null) ...[
+                          Text(
+                            locationHeader,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontSize: 10.5,
+                            ),
+                          ),
+                          const SizedBox(height: 1),
+                        ],
+                        Text(
+                          locationLine1,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: theme.colorScheme.onSurface,
+                            fontSize: 11.5,
+                            height: 1.15,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (locationLine2.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            locationLine2,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontSize: 11,
+                              height: 1.15,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Last seen / update time
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isStale
+                            ? Icons.warning_amber_rounded
+                            : Icons.schedule_rounded,
+                        size: 13,
+                        color: isStale
+                            ? const Color(0xFFDC2626)
+                            : theme.colorScheme.outline,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        relativeTimeText,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: isStale
+                              ? const Color(0xFFDC2626)
+                              : theme.colorScheme.onSurfaceVariant,
+                          fontWeight: isStale
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          fontSize: 11,
                         ),
                       ),
                     ],
                   ),
                 ],
               ),
-            ),
-            const SizedBox(width: 12),
-            // Speed
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SizedBox(
-                  width: 52,
-                  height: 26,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      speedText,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: speedColor,
-                        height: 1,
-                      ),
-                    ),
-                  ),
-                ),
-                if (speedUnit.isNotEmpty)
-                  Text(
-                    speedUnit,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.outline,
-                      fontWeight: FontWeight.w600,
-                      height: 0.8,
-                    ),
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _OverlayStatusChip extends StatelessWidget {
-  const _OverlayStatusChip({required this.status});
-
-  final ResolvedDeviceStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    final icon = status.connectivity == ConnectivityStatus.offline
-        ? Icons.wifi_off_rounded
-        : status.freshness == DataFreshnessStatus.stale
-        ? Icons.signal_wifi_statusbar_connected_no_internet_4_rounded
-        : status.movement == MovementStatus.moving
-        ? Icons.navigation_rounded
-        : Icons.pause_circle_rounded;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: status.color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: status.color),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              status.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: status.color,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

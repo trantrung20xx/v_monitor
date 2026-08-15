@@ -8,7 +8,6 @@ import 'package:v_monitor/app/app_theme.dart';
 import 'package:v_monitor/core/network/api_client.dart';
 import 'package:v_monitor/core/network/websocket_client.dart';
 import 'package:v_monitor/data/models/device_model.dart';
-import 'package:v_monitor/data/models/usage_session_model.dart';
 import 'package:v_monitor/data/repositories/device_repository.dart';
 import 'package:v_monitor/data/repositories/geocoding_repository.dart';
 import 'package:v_monitor/features/map/map_view_page.dart';
@@ -96,14 +95,10 @@ class _FakeDeviceRepository extends DeviceRepository {
         longitude: 105.80776,
         currentSpeedMps: 8.5,
         currentHeadingDeg: 45,
-        currentPersonName: 'Nguyen Van A',
         lastSeenAt: now.subtract(const Duration(seconds: 20)),
       ),
     ];
   }
-
-  @override
-  Future<Map<String, UsageSessionModel>> getLatestDeviceUsages() async => {};
 
   void dispose() {
     _updates.close();

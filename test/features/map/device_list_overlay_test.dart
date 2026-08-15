@@ -22,7 +22,6 @@ void main() {
         name: 'Xe Bravo',
         code: 'XE-BRAVO',
         speedMps: 0,
-        person: 'Tran Van B',
         lastSeenAt: now.subtract(const Duration(seconds: 40)),
       ),
       _device(
@@ -67,7 +66,6 @@ DeviceModel _device({
   required String code,
   required double speedMps,
   required DateTime lastSeenAt,
-  String? person,
 }) {
   return DeviceModel(
     id: id,
@@ -80,7 +78,6 @@ DeviceModel _device({
     lastSeenAt: lastSeenAt,
     latitude: 21.0,
     longitude: 105.0,
-    currentPersonName: person,
   );
 }
 

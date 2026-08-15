@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import String
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP, JSONB
 from sqlalchemy import func
 from typing import Optional
@@ -15,9 +15,8 @@ class AuditLog(Base, UUIDMixin):
 
     actor_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("people.id"),
         nullable=True
-    )                                                         # ID người thực hiện thao tác
+    )                                                         # ID người/hệ thống thực hiện thao tác
 
     action: Mapped[str] = mapped_column(
         String,
@@ -61,8 +60,3 @@ class AuditLog(Base, UUIDMixin):
         default=func.now(),
         nullable=False
     )                                                         # Thời điểm bản ghi audit được tạo
-
-    # Relationships
-    actor = relationship(
-        "Person"
-    )                                                         # Liên kết tới người thực hiện thao tác

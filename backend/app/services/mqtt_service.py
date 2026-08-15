@@ -99,7 +99,7 @@ class MQTTService:
 
                         await TrackingService.add_location(db, location_data)
                         
-                        # Lấy bản ghi thiết bị mới nhất (kèm latest_state và current_person) để đẩy qua WebSocket
+                        # Lấy bản ghi thiết bị mới nhất (kèm latest_state) để đẩy qua WebSocket
                         from app.services.device_service import DeviceService
                         from app.schemas.device import DeviceResponse
                         from app.services.realtime_service import realtime_service

@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 
 import '../../data/models/device_event_model.dart';
 import '../../data/models/device_model.dart';
-import '../../data/models/usage_session_model.dart';
 import '../../domain/entities/device_status_resolver.dart';
 
 class DeviceFormatters {
@@ -111,12 +110,6 @@ class DeviceFormatters {
     return '--';
   }
 
-  static String currentUser(DeviceModel device) {
-    final name = device.currentPersonName?.trim();
-    if (name != null && name.isNotEmpty) return name;
-    return 'Chưa phân công';
-  }
-
   static String coordinates(double? latitude, double? longitude) {
     if (latitude == null || longitude == null) return '--';
     return '${latitudeText(latitude)}, ${longitudeText(longitude)}';
@@ -141,6 +134,69 @@ class DeviceFormatters {
     final value = address?.trim();
     if (value != null && value.isNotEmpty) return value;
     return coordinates(device.latitude, device.longitude);
+  }
+
+  static String speedKmh(
+    double? speedMps, {
+    required ResolvedDeviceStatus status,
+  }) {
+    if (status.connectivity == ConnectivityStatus.offline) return '--';
+    if (status.movement == MovementStatus.stopped) return '0 km/h';
+    if (status.movement != MovementStatus.moving || speedMps == null) {
+      return '--';
+    }
+    final kmh = speedMps * 3.6;
+    if (kmh < 0.5) return '0 km/h';
+    if (kmh >= 10 || kmh == kmh.roundToDouble()) {
+      return '${kmh.toStringAsFixed(0)} km/h';
+    }
+    return '${kmh.toStringAsFixed(1)} km/h';
+  }
+
+  static String headingText(
+    double? degrees, {
+    required ResolvedDeviceStatus status,
+  }) {
+    if (status.connectivity == ConnectivityStatus.offline || degrees == null) {
+      return '--';
+    }
+    return heading(degrees);
+  }
+
+  static (String, String) addressLines(
+    String? rawAddress, {
+    double? latitude,
+    double? longitude,
+  }) {
+    final value = rawAddress?.trim();
+    if (value != null && value.isNotEmpty) {
+      final parts = value
+          .split(',')
+          .map((part) => part.trim())
+          .where((part) => part.isNotEmpty)
+          .toList();
+      if (parts.length <= 1) return (value, '');
+      if (parts.length == 2) return (parts.first, parts.last);
+      final firstLine = parts.take(2).join(', ');
+      final secondLine = parts.skip(2).join(', ');
+      return (firstLine, secondLine);
+    }
+    if (latitude != null && longitude != null) {
+      return ('${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}', '');
+    }
+    return ('Chưa có dữ liệu vị trí', '');
+  }
+
+  static String relativeTime(DateTime? value) {
+    if (value == null) return '--';
+    final local = value.toLocal();
+    final diff = DateTime.now().difference(local);
+    if (diff.isNegative || diff.inSeconds < 5) return 'Vừa xong';
+    if (diff.inSeconds < 60) return '${diff.inSeconds} giây trước';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} phút trước';
+    if (diff.inHours < 24) return '${diff.inHours} giờ trước';
+    if (diff.inDays < 30) return '${diff.inDays} ngày trước';
+    return _shortDateTime.format(local);
   }
 
   static String lastSeen(DateTime? value) {
@@ -203,20 +259,6 @@ class DeviceFormatters {
     if (meters == null) return '--';
     if (meters < 1000) return '${meters.toStringAsFixed(0)} m';
     return '${(meters / 1000).toStringAsFixed(2)} km';
-  }
-
-  static String usageStatus(UsageSessionModel usage) {
-    if (usage.endedAt == null || usage.status == 'ACTIVE') {
-      return 'Đang diễn ra';
-    }
-    switch (usage.status) {
-      case 'COMPLETED':
-        return 'Hoàn tất';
-      case 'CANCELLED':
-        return 'Đã hủy';
-      default:
-        return usage.status;
-    }
   }
 
   static String eventLabel(DeviceEventModel event) {

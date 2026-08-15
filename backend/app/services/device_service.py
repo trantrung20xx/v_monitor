@@ -1,13 +1,10 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 from typing import List
 import uuid
 from app.models.device import Device
 from app.models.device_latest_state import DeviceLatestState
-from app.models.device_assignment import DeviceAssignment
-from app.models.usage_session import UsageSession
 from app.schemas.device import DeviceCreate
 
 class DeviceService:
@@ -16,8 +13,7 @@ class DeviceService:
         result = await db.execute(
             select(Device)
             .options(
-                selectinload(Device.latest_state),
-                selectinload(Device.assignments).selectinload(DeviceAssignment.person)
+                selectinload(Device.latest_state)
             )
             .offset(skip).limit(limit)
         )
@@ -29,8 +25,7 @@ class DeviceService:
         result = await db.execute(
             select(Device)
             .options(
-                selectinload(Device.latest_state),
-                selectinload(Device.assignments).selectinload(DeviceAssignment.person)
+                selectinload(Device.latest_state)
             )
             .filter(Device.id == device_id)
         )
@@ -52,14 +47,9 @@ class DeviceService:
             "firmware_version": device.firmware_version,
             "status": device.status,
             "metadata_json": device.metadata_json,
-            "created_at": device.created_at.isoformat(),
-            "updated_at": device.updated_at.isoformat(),
+            "created_at": device.created_at.isoformat() if device.created_at else None,
+            "updated_at": device.updated_at.isoformat() if device.updated_at else None,
         }
-        
-        # Lấy person hiện tại nếu có
-        current_assignment = next((a for a in device.assignments if a.unassigned_at is None), None)
-        if current_assignment and current_assignment.person:
-            data["current_person_name"] = current_assignment.person.full_name
 
         if device.latest_state:
             data.update({
@@ -89,72 +79,3 @@ class DeviceService:
 
         device.latest_state = latest_state
         return DeviceService._format_device(device)
-
-    @staticmethod
-    async def get_device_assignments(db: AsyncSession, device_id: uuid.UUID, limit: int = 50) -> List[DeviceAssignment]:
-        result = await db.execute(
-            select(DeviceAssignment)
-            .options(selectinload(DeviceAssignment.person))
-            .filter(DeviceAssignment.device_id == device_id)
-            .order_by(DeviceAssignment.assigned_at.desc())
-            .limit(limit)
-        )
-        return list(result.scalars().all())
-
-    @staticmethod
-    async def get_device_usages(db: AsyncSession, device_id: uuid.UUID, limit: int = 50) -> List[UsageSession]:
-        result = await db.execute(
-            select(UsageSession)
-            .options(
-                selectinload(UsageSession.person),
-                selectinload(UsageSession.user),
-            )
-            .filter(UsageSession.device_id == device_id)
-            .order_by(UsageSession.started_at.desc())
-            .limit(limit)
-        )
-        return list(result.scalars().all())
-
-    @staticmethod
-    async def get_latest_device_usages(db: AsyncSession, limit_per_device: int = 1) -> List[UsageSession]:
-        usage_rank = func.row_number().over(
-            partition_by=UsageSession.device_id,
-            order_by=UsageSession.started_at.desc(),
-        ).label("usage_rank")
-
-        ranked_usages = select(
-            UsageSession.id.label("usage_id"),
-            usage_rank,
-        ).subquery()
-
-        result = await db.execute(
-            select(UsageSession)
-            .join(ranked_usages, UsageSession.id == ranked_usages.c.usage_id)
-            .options(
-                selectinload(UsageSession.person),
-                selectinload(UsageSession.user),
-            )
-            .filter(ranked_usages.c.usage_rank <= max(limit_per_device, 1))
-            .order_by(UsageSession.started_at.desc())
-        )
-        return list(result.scalars().all())
-
-    @staticmethod
-    def format_usage_session(usage: UsageSession) -> dict:
-        person = usage.person or usage.user
-        return {
-            "id": usage.id,
-            "device_id": usage.device_id,
-            "person_id": usage.person_id,
-            "started_at": usage.started_at,
-            "ended_at": usage.ended_at,
-            "distance_m": usage.distance_m,
-            "avg_speed_mps": usage.avg_speed_mps,
-            "max_speed_mps": usage.max_speed_mps,
-            "moving_duration_s": usage.moving_duration_s,
-            "stopped_duration_s": usage.stopped_duration_s,
-            "status": usage.status,
-            "end_reason": usage.end_reason,
-            "person_name": person.full_name if person else None,
-            "person_code": person.person_code if person else None,
-        }

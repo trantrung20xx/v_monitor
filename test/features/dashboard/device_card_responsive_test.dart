@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v_monitor/app/app_theme.dart';
 import 'package:v_monitor/data/models/device_model.dart';
-import 'package:v_monitor/data/models/usage_session_model.dart';
 import 'package:v_monitor/features/dashboard/widgets/device_card.dart';
 
 void main() {
@@ -19,16 +18,8 @@ void main() {
       latitude: 21.028511,
       longitude: 105.804817,
       currentSpeedMps: 8.4,
+      currentHeadingDeg: 45.0,
       lastSeenAt: DateTime.now().subtract(const Duration(seconds: 20)),
-    );
-    final usage = UsageSessionModel(
-      id: 'usage-1',
-      deviceId: device.id,
-      personId: 'person-1',
-      startedAt: DateTime.now().subtract(const Duration(minutes: 42)),
-      status: 'ACTIVE',
-      personName: 'Nguyen Van A',
-      personCode: 'NV001',
     );
 
     await _pumpAtSize(
@@ -36,16 +27,15 @@ void main() {
       const Size(320, 640),
       DeviceCard(
         device: device,
-        latestUsage: usage,
         address:
             '123 đường kiểm thử responsive, phường mô phỏng, thành phố Hà Nội',
         onTap: () {},
       ),
     );
 
-    expect(find.text('Di chuyển chưa gán người'), findsNothing);
-    expect(find.text('Chưa phân công'), findsOneWidget);
-    expect(find.text('GPS 21.028511° N, 105.804817° E'), findsOneWidget);
+    expect(find.text('Xe tuần tra khu vực trung tâm'), findsOneWidget);
+    expect(find.text('VM-ALPHA-0001'), findsOneWidget);
+    expect(find.text('Hướng: Đông Bắc · 45°'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await _pumpAtSize(
@@ -53,7 +43,6 @@ void main() {
       const Size(1024, 768),
       DeviceCard(
         device: device,
-        latestUsage: usage,
         address:
             '123 đường kiểm thử responsive, phường mô phỏng, thành phố Hà Nội',
         onTap: () {},

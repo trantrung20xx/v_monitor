@@ -1,7 +1,6 @@
 import 'package:equatable/equatable.dart';
 
 import '../../data/models/device_model.dart';
-import '../../data/models/usage_session_model.dart';
 import '../../domain/entities/device_query_filter.dart';
 
 /// Dashboard state.
@@ -21,7 +20,6 @@ class DashboardState extends Equatable {
     this.searchQuery = '',
     this.statusFilter = DeviceFilter.all,
     this.deviceAddresses = const {},
-    this.latestUsages = const {},
   });
 
   final bool isLoading;
@@ -38,7 +36,6 @@ class DashboardState extends Equatable {
   final String searchQuery;
   final DeviceFilter statusFilter;
   final Map<String, String> deviceAddresses;
-  final Map<String, UsageSessionModel> latestUsages;
 
   DashboardState copyWith({
     bool? isLoading,
@@ -55,7 +52,6 @@ class DashboardState extends Equatable {
     String? searchQuery,
     DeviceFilter? statusFilter,
     Map<String, String>? deviceAddresses,
-    Map<String, UsageSessionModel>? latestUsages,
   }) {
     return DashboardState(
       isLoading: isLoading ?? this.isLoading,
@@ -72,7 +68,6 @@ class DashboardState extends Equatable {
       searchQuery: searchQuery ?? this.searchQuery,
       statusFilter: statusFilter ?? this.statusFilter,
       deviceAddresses: deviceAddresses ?? this.deviceAddresses,
-      latestUsages: latestUsages ?? this.latestUsages,
     );
   }
 
@@ -92,6 +87,5 @@ class DashboardState extends Equatable {
     searchQuery,
     statusFilter,
     deviceAddresses,
-    latestUsages,
   ];
 }

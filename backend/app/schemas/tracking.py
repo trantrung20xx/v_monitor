@@ -33,5 +33,4 @@ class DeviceEventResponse(BaseSchema):
     device_id: uuid.UUID
     event_type: str
     occurred_at: datetime
-    person_id: Optional[uuid.UUID] = None
     source: Optional[str] = None

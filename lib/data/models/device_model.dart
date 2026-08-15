@@ -20,7 +20,6 @@ class DeviceModel {
   final double? currentSpeedMps;
   final double? currentHeadingDeg;
   final DateTime? lastSeenAt;
-  final String? currentPersonName;
 
   DeviceModel({
     required this.id,
@@ -44,7 +43,6 @@ class DeviceModel {
     this.currentSpeedMps,
     this.currentHeadingDeg,
     this.lastSeenAt,
-    this.currentPersonName,
   });
 
   String get deviceType => type;
@@ -93,7 +91,6 @@ class DeviceModel {
       currentSpeedMps: _doubleOrNull(json['current_speed_mps']),
       currentHeadingDeg: _doubleOrNull(json['current_heading_deg']),
       lastSeenAt: _dateOrNull(json['last_seen_at']),
-      currentPersonName: _stringOrNull(json['current_person_name']),
     );
   }
 

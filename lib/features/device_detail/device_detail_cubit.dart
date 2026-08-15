@@ -3,11 +3,9 @@ import 'dart:async';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../data/models/assignment_model.dart';
 import '../../data/models/device_event_model.dart';
 import '../../data/models/device_model.dart';
 import '../../data/models/location_model.dart';
-import '../../data/models/usage_session_model.dart';
 import '../../data/repositories/device_repository.dart';
 import '../../data/repositories/geocoding_repository.dart';
 import '../../data/repositories/tracking_repository.dart';
@@ -19,8 +17,6 @@ class DeviceDetailState extends Equatable {
     this.device,
     this.events = const [],
     this.locations = const [],
-    this.assignments = const [],
-    this.usages = const [],
     this.address,
   });
 
@@ -29,8 +25,6 @@ class DeviceDetailState extends Equatable {
   final DeviceModel? device;
   final List<DeviceEventModel> events;
   final List<LocationModel> locations;
-  final List<AssignmentModel> assignments;
-  final List<UsageSessionModel> usages;
   final String? address;
 
   DeviceDetailState copyWith({
@@ -39,8 +33,6 @@ class DeviceDetailState extends Equatable {
     DeviceModel? device,
     List<DeviceEventModel>? events,
     List<LocationModel>? locations,
-    List<AssignmentModel>? assignments,
-    List<UsageSessionModel>? usages,
     String? address,
     bool clearAddress = false,
   }) {
@@ -50,8 +42,6 @@ class DeviceDetailState extends Equatable {
       device: device ?? this.device,
       events: events ?? this.events,
       locations: locations ?? this.locations,
-      assignments: assignments ?? this.assignments,
-      usages: usages ?? this.usages,
       address: clearAddress ? null : address ?? this.address,
     );
   }
@@ -63,8 +53,6 @@ class DeviceDetailState extends Equatable {
     device,
     events,
     locations,
-    assignments,
-    usages,
     address,
   ];
 }
@@ -98,8 +86,6 @@ class DeviceDetailCubit extends Cubit<DeviceDetailState> {
         deviceRepo.getDevice(deviceId),
         trackingRepo.getEvents(deviceId),
         trackingRepo.getLocationHistory(deviceId),
-        deviceRepo.getDeviceAssignments(deviceId),
-        deviceRepo.getDeviceUsages(deviceId),
       ]);
 
       final device = results[0] as DeviceModel?;
@@ -110,8 +96,6 @@ class DeviceDetailCubit extends Cubit<DeviceDetailState> {
           device: device,
           events: results[1] as List<DeviceEventModel>,
           locations: results[2] as List<LocationModel>,
-          assignments: results[3] as List<AssignmentModel>,
-          usages: results[4] as List<UsageSessionModel>,
           clearAddress: true,
         ),
       );
