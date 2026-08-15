@@ -76,6 +76,53 @@ void main() {
       expect(tester.takeException(), isNull);
     }
   });
+
+  testWidgets('DeviceDetailPage map controls zoom and recenter safely', (
+    tester,
+  ) async {
+    final deviceRepo = _FakeDeviceRepository();
+    final trackingRepo = _FakeTrackingRepository();
+    final geocodingRepo = _FakeGeocodingRepository();
+    final flutterErrors = <FlutterErrorDetails>[];
+    final previousOnError = FlutterError.onError;
+    FlutterError.onError = (details) {
+      flutterErrors.add(details);
+      previousOnError?.call(details);
+    };
+    addTearDown(deviceRepo.dispose);
+    addTearDown(() => FlutterError.onError = previousOnError);
+
+    await _pumpDetailAtSize(
+      tester,
+      const _ViewportScenario(Size(1280, 800), 1),
+      deviceRepo: deviceRepo,
+      trackingRepo: trackingRepo,
+      geocodingRepo: geocodingRepo,
+    );
+
+    expect(find.byTooltip('Phóng to bản đồ'), findsOneWidget);
+    expect(find.byTooltip('Thu nhỏ bản đồ'), findsOneWidget);
+    expect(find.byTooltip('Căn giữa thiết bị'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Phóng to bản đồ'));
+    await tester.pump();
+    await tester.tap(find.byTooltip('Thu nhỏ bản đồ'));
+    await tester.pump();
+    await tester.tap(find.byTooltip('Căn giữa thiết bị'));
+    await tester.pump();
+
+    expect(
+      flutterErrors
+          .where(
+            (details) =>
+                details.exceptionAsString().contains('overflowed by') ||
+                details.exceptionAsString().contains('A RenderFlex overflowed'),
+          )
+          .toList(),
+      isEmpty,
+    );
+    expect(tester.takeException(), isNull);
+  });
 }
 
 class _ViewportScenario {

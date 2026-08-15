@@ -125,7 +125,7 @@ class DashboardCubit extends Cubit<DashboardState> {
     double lat,
     double lng,
   ) async {
-    final cacheKey = '${lat.toStringAsFixed(4)},${lng.toStringAsFixed(4)}';
+    final cacheKey = '${lat.toStringAsFixed(5)},${lng.toStringAsFixed(5)}';
     final cached = _addressCache[cacheKey];
     if (_deviceAddressKeys[deviceId] == cacheKey &&
         cached != null &&

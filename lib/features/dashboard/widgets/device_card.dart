@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/utils/device_formatters.dart';
 import '../../../core/widgets/device_icon.dart';
@@ -45,23 +44,7 @@ class DeviceCard extends StatelessWidget {
       speedUnit = 'km/h';
     }
 
-    // Last seen
-    String lastSeenStr = '—';
-    if (device.lastSeenAt != null) {
-      final now = DateTime.now();
-      final diff = now.difference(device.lastSeenAt!.toLocal());
-      if (diff.inSeconds < 60) {
-        lastSeenStr = 'Vừa xong';
-      } else if (diff.inMinutes < 60) {
-        lastSeenStr = '${diff.inMinutes} phút trước';
-      } else if (diff.inHours < 24) {
-        lastSeenStr = '${diff.inHours} giờ trước';
-      } else {
-        lastSeenStr = DateFormat(
-          'HH:mm dd/MM',
-        ).format(device.lastSeenAt!.toLocal());
-      }
-    }
+    final lastSeenStr = DeviceFormatters.lastSeen(device.lastSeenAt);
 
     final addressText = address?.trim();
     final gpsText = device.latitude != null && device.longitude != null
@@ -70,11 +53,11 @@ class DeviceCard extends StatelessWidget {
 
     String usageTimeStr = '';
     if (latestUsage != null) {
-      final startStr = DateFormat('HH:mm dd/MM').format(latestUsage!.startedAt);
+      final startStr = DeviceFormatters.dateTime(latestUsage!.startedAt);
       if (latestUsage!.endedAt == null || latestUsage!.status == 'ACTIVE') {
         usageTimeStr = 'Sử dụng từ: $startStr';
       } else {
-        final endStr = DateFormat('HH:mm dd/MM').format(latestUsage!.endedAt!);
+        final endStr = DeviceFormatters.dateTime(latestUsage!.endedAt);
         usageTimeStr = 'Phiên gần nhất: $startStr - $endStr';
       }
     }
@@ -200,10 +183,16 @@ class DeviceCard extends StatelessWidget {
                       color: needsAssignment ? const Color(0xFFEA580C) : null,
                     ),
                   ),
-                  _MetaItem(
-                    icon: Icons.access_time_rounded,
-                    text: lastSeenStr,
-                    faded: device.lastSeenAt == null,
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: _MetaItem(
+                        icon: Icons.access_time_rounded,
+                        text: lastSeenStr,
+                        faded: device.lastSeenAt == null,
+                        maxLines: 2,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -214,7 +203,7 @@ class DeviceCard extends StatelessWidget {
                 _MetaItem(
                   icon: Icons.assignment_ind_rounded,
                   text: usageTimeStr,
-                  maxLines: 1,
+                  maxLines: 2,
                 ),
               ],
 
@@ -376,6 +365,7 @@ class _MetaItem extends StatelessWidget {
             style: theme.textTheme.bodySmall?.copyWith(
               color: effectiveColor,
               fontWeight: faded ? FontWeight.normal : FontWeight.w500,
+              height: 1.16,
             ),
             maxLines: maxLines,
             overflow: TextOverflow.ellipsis,

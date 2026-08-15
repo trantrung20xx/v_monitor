@@ -36,7 +36,7 @@ class GeocodingServiceTest(unittest.TestCase):
 
         async def run_test():
             first = await service.reverse(21.147, 105.8048)
-            second = await service.reverse(21.14701, 105.80479)
+            second = await service.reverse(21.147004, 105.804804)
             return first, second
 
         first, second = asyncio.run(run_test())
@@ -47,6 +47,26 @@ class GeocodingServiceTest(unittest.TestCase):
         )
         self.assertEqual(second, first)
         self.assertEqual(len(calls), 1)
+
+    def test_format_address_supports_international_components(self):
+        service = GeocodingService()
+
+        formatted = service._format_address(
+            {
+                "building": "Central Station",
+                "road": "Main Street",
+                "neighbourhood": "Midtown",
+                "borough": "Manhattan",
+                "city": "New York",
+                "state": "New York",
+                "country": "United States",
+            }
+        )
+
+        self.assertEqual(
+            formatted,
+            "Central Station, Main Street, Midtown, Manhattan, New York, United States",
+        )
 
 
 if __name__ == "__main__":

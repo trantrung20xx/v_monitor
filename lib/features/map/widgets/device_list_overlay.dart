@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import '../../../data/models/device_model.dart';
 import '../../../domain/entities/device_query_filter.dart';
 import '../../../domain/entities/device_status_resolver.dart';
+import '../../../core/utils/device_formatters.dart';
 import '../../../core/widgets/device_icon.dart';
-import 'package:intl/intl.dart';
 
 class DeviceListOverlay extends StatefulWidget {
   const DeviceListOverlay({
@@ -273,7 +273,7 @@ class _DeviceListItem extends StatelessWidget {
         : device.deviceCode;
 
     final lastSeenText = device.lastSeenAt != null
-        ? DateFormat('HH:mm dd/MM').format(device.lastSeenAt!.toLocal())
+        ? DeviceFormatters.dateTime(device.lastSeenAt)
         : 'Không xác định';
 
     final personName =

@@ -15,7 +15,7 @@ class GeocodingService:
         self._cache: dict[str, dict[str, str | None]] = {}
 
     async def reverse(self, latitude: float, longitude: float) -> dict[str, str | None]:
-        cache_key = f"{latitude:.4f},{longitude:.4f}"
+        cache_key = f"{latitude:.5f},{longitude:.5f}"
         cached = self._cache.get(cache_key)
         if cached is not None:
             return cached
@@ -55,6 +55,7 @@ class GeocodingService:
                 "lon": f"{longitude:.7f}",
                 "addressdetails": 1,
                 "accept-language": "vi,en",
+                "zoom": 18,
             }
         )
         request = Request(
@@ -76,10 +77,24 @@ class GeocodingService:
         if not isinstance(address, dict):
             return None
 
+        poi = self._first_text(
+            address,
+            [
+                "amenity",
+                "building",
+                "office",
+                "shop",
+                "tourism",
+                "leisure",
+                "historic",
+                "place",
+            ],
+        )
         road = self._first_text(
             address,
             [
                 "road",
+                "street",
                 "pedestrian",
                 "footway",
                 "path",
@@ -92,11 +107,33 @@ class GeocodingService:
             road = f"{house_number} {road}"
 
         parts = [
+            poi,
             road,
-            self._first_text(address, ["suburb", "city_district", "quarter"]),
-            self._first_text(address, ["village", "town", "city"]),
-            self._clean_text(address.get("county")),
-            self._clean_text(address.get("state")),
+            self._first_text(
+                address,
+                [
+                    "neighbourhood",
+                    "quarter",
+                    "suburb",
+                    "ward",
+                ],
+            ),
+            self._first_text(
+                address,
+                [
+                    "city_district",
+                    "district",
+                    "borough",
+                ],
+            ),
+            self._first_text(
+                address,
+                ["village", "town", "municipality", "city", "county"],
+            ),
+            self._first_text(
+                address,
+                ["state_district", "province", "state", "region"],
+            ),
             self._clean_text(address.get("country")),
         ]
 
@@ -104,9 +141,14 @@ class GeocodingService:
         for part in parts:
             if not part or part.lower() == "unnamed road":
                 continue
-            if any(part == existing or part in existing for existing in cleaned):
+            normalized_part = part.casefold()
+            if any(normalized_part == existing.casefold() for existing in cleaned):
                 continue
-            cleaned = [existing for existing in cleaned if existing not in part]
+            cleaned = [
+                existing
+                for existing in cleaned
+                if existing.casefold() not in normalized_part
+            ]
             cleaned.append(part)
 
         return ", ".join(cleaned) if cleaned else None

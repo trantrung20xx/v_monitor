@@ -7,8 +7,11 @@ import '../../data/models/usage_session_model.dart';
 import '../../domain/entities/device_status_resolver.dart';
 
 class DeviceFormatters {
-  static final DateFormat _shortDateTime = DateFormat('HH:mm dd/MM');
+  static final DateFormat _shortDateTime = DateFormat('dd/MM/yyyy HH:mm');
   static final DateFormat _longDateTime = DateFormat('dd/MM/yyyy HH:mm');
+  static final DateFormat _longDateTimeSeconds = DateFormat(
+    'dd/MM/yyyy HH:mm:ss',
+  );
 
   static String displayName(DeviceModel device) {
     if (device.name.trim().isNotEmpty) return device.name.trim();
@@ -168,6 +171,11 @@ class DeviceFormatters {
   static String dateTime(DateTime? value) {
     if (value == null) return '--';
     return _longDateTime.format(value.toLocal());
+  }
+
+  static String dateTimeSeconds(DateTime? value) {
+    if (value == null) return '--';
+    return _longDateTimeSeconds.format(value.toLocal());
   }
 
   static String duration(DateTime start, DateTime? end) {

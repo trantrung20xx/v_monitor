@@ -181,7 +181,7 @@ class DeviceDetailCubit extends Cubit<DeviceDetailState> {
 
   String? _coordinateKey(double? lat, double? lng) {
     if (lat == null || lng == null) return null;
-    return '${lat.toStringAsFixed(4)},${lng.toStringAsFixed(4)}';
+    return '${lat.toStringAsFixed(5)},${lng.toStringAsFixed(5)}';
   }
 
   @override
