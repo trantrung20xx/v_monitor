@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import ForeignKey, String, Float, Integer
+from sqlalchemy import ForeignKey, String, Float, Integer, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
 from sqlalchemy import func
@@ -10,6 +10,9 @@ from app.models.base import Base, UUIDMixin
 
 class LocationSample(Base, UUIDMixin):
     __tablename__ = "location_samples"
+    __table_args__ = (
+        Index("ix_location_samples_device_measured", "device_id", "measured_at"),
+    )
     
     device_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("devices.id"), index=True, nullable=False)
     

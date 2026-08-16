@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 import uuid
 
@@ -26,6 +26,15 @@ class LocationSampleResponse(LocationSampleBase):
     id: uuid.UUID
     received_at: datetime
     created_at: datetime
+
+
+class LocationHistoryResponse(BaseSchema):
+    device_id: uuid.UUID
+    from_time: datetime
+    to_time: datetime
+    samples: List[LocationSampleResponse]
+    total_count: int
+    truncated: bool = False
 
 
 class DeviceEventResponse(BaseSchema):

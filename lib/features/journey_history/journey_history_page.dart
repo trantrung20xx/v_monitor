@@ -1,0 +1,523 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+
+import '../../data/models/device_model.dart';
+import '../../data/models/location_model.dart';
+import '../../data/repositories/device_repository.dart';
+import '../../data/repositories/tracking_repository.dart';
+import 'journey_history_cubit.dart';
+import 'journey_history_state.dart';
+import 'widgets/history_map_layers.dart';
+import 'widgets/history_time_selector.dart';
+import 'widgets/playback_controls.dart';
+import 'widgets/point_info_popup.dart';
+import 'widgets/route_summary_band.dart';
+
+class JourneyHistoryPage extends StatefulWidget {
+  final String? initialDeviceId;
+
+  const JourneyHistoryPage({super.key, this.initialDeviceId});
+
+  @override
+  State<JourneyHistoryPage> createState() => _JourneyHistoryPageState();
+}
+
+class _JourneyHistoryPageState extends State<JourneyHistoryPage> {
+  late JourneyHistoryCubit _cubit;
+  List<DeviceModel> _devices = [];
+  bool _isLoadingDevices = false;
+
+  late DateTime _fromTime;
+  late DateTime _toTime;
+
+  @override
+  void initState() {
+    super.initState();
+    _cubit = JourneyHistoryCubit(
+      trackingRepo: context.read<TrackingRepository>(),
+      deviceRepo: context.read<DeviceRepository>(),
+    );
+
+    // Mặc định khoảng thời gian: Hôm nay từ 00:00 đến thời điểm hiện tại
+    final now = DateTime.now();
+    _fromTime = DateTime(now.year, now.month, now.day, 0, 0, 0);
+    _toTime = now;
+
+    _loadDevices();
+  }
+
+  Future<void> _loadDevices() async {
+    setState(() => _isLoadingDevices = true);
+    try {
+      final devices = await context.read<DeviceRepository>().getDevices();
+      if (!mounted) return;
+      setState(() {
+        _devices = devices;
+        _isLoadingDevices = false;
+      });
+
+      if (devices.isNotEmpty) {
+        DeviceModel? target;
+        if (widget.initialDeviceId != null) {
+          target = devices.cast<DeviceModel?>().firstWhere(
+                (d) => d?.id == widget.initialDeviceId,
+                orElse: () => null,
+              );
+        }
+        target ??= devices.first;
+        _cubit.selectDevice(target);
+        _onQuery();
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingDevices = false);
+    }
+  }
+
+  void _onQuery() {
+    final dev = _cubit.state.selectedDevice;
+    if (dev == null) return;
+
+    if (_fromTime.isAfter(_toTime) || _fromTime.isAtSameMomentAs(_toTime)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Thời điểm bắt đầu phải nhỏ hơn thời điểm kết thúc.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    _cubit.loadHistory(
+      deviceId: dev.id,
+      from: _fromTime,
+      to: _toTime,
+    );
+  }
+
+  @override
+  void dispose() {
+    _cubit.close();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider.value(
+      value: _cubit,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Lịch sử hành trình'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh_rounded),
+              tooltip: 'Tải lại',
+              onPressed: _onQuery,
+            ),
+          ],
+        ),
+        body: BlocConsumer<JourneyHistoryCubit, JourneyHistoryState>(
+          listener: (context, state) {
+            if (state.errorMessage != null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.errorMessage!),
+                  backgroundColor: Colors.redAccent,
+                ),
+              );
+            }
+          },
+          builder: (context, state) {
+            final isDesktop = MediaQuery.of(context).size.width >= 800;
+
+            return Column(
+              children: [
+                // 1. Header chọn thiết bị & thời gian
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                  child: HistoryTimeSelector(
+                    devices: _devices,
+                    selectedDevice: state.selectedDevice,
+                    fromTime: _fromTime,
+                    toTime: _toTime,
+                    gapThreshold: state.gapThreshold,
+                    isLoading: state.isLoading || _isLoadingDevices,
+                    onDeviceChanged: (d) {
+                      if (d != null) {
+                        _cubit.selectDevice(d);
+                        _onQuery();
+                      }
+                    },
+                    onFromTimeChanged: (t) => setState(() => _fromTime = t),
+                    onToTimeChanged: (t) => setState(() => _toTime = t),
+                    onGapThresholdChanged: (g) => _cubit.setGapThreshold(g),
+                    onQuery: _onQuery,
+                  ),
+                ),
+
+                // 2. Summary Band (Tổng quan quãng đường, vận tốc, mẫu GPS)
+                if (state.validSamples.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                    child: RouteSummaryBand(state: state),
+                  ),
+
+                // 3. Map Viewport & Replay Controls
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                    child: Stack(
+                      children: [
+                        // Map
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: _HistoryMapView(
+                            state: state,
+                            onPointSelected: (point) => _cubit.selectPoint(point),
+                          ),
+                        ),
+
+                        // Popup chi tiết điểm GPS khi tap
+                        if (state.selectedPoint != null)
+                          Positioned(
+                            top: 16,
+                            right: 16,
+                            child: PointInfoPopup(
+                              point: state.selectedPoint!,
+                              onClose: () => _cubit.selectPoint(null),
+                            ),
+                          ),
+
+                        // Thanh điều khiển Playback Controls (nằm ở phía dưới bản đồ)
+                        if (state.validSamples.isNotEmpty)
+                          Positioned(
+                            left: isDesktop ? 16 : 8,
+                            right: isDesktop ? 16 : 8,
+                            bottom: isDesktop ? 16 : 8,
+                            child: PlaybackControls(
+                              state: state,
+                              onPlay: () => _cubit.play(),
+                              onPause: () => _cubit.pause(),
+                              onResume: () => _cubit.resume(),
+                              onReset: () => _cubit.reset(),
+                              onSeekProgress: (p) => _cubit.seekToProgress(p),
+                              onSpeedChanged: (s) => _cubit.setPlaybackSpeed(s),
+                              onFollowChanged: (f) => _cubit.toggleFollowCamera(f),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _HistoryMapView extends StatefulWidget {
+  final JourneyHistoryState state;
+  final ValueChanged<LocationModel> onPointSelected;
+
+  const _HistoryMapView({
+    required this.state,
+    required this.onPointSelected,
+  });
+
+  @override
+  State<_HistoryMapView> createState() => _HistoryMapViewState();
+}
+
+class _HistoryMapViewState extends State<_HistoryMapView> {
+  final MapController _mapController = MapController();
+  bool _mapReady = false;
+  double _currentZoom = 14.0;
+  static const LatLng _defaultCenter = LatLng(21.0285, 105.8542);
+
+  @override
+  void didUpdateWidget(covariant _HistoryMapView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (!_mapReady) return;
+
+    // Khi có danh sách lộ trình mới -> tự động fit bounds
+    final oldSamples = oldWidget.state.validSamples;
+    final newSamples = widget.state.validSamples;
+
+    if (oldSamples != newSamples && newSamples.isNotEmpty) {
+      _fitRouteBounds(newSamples);
+    }
+
+    // Khi đang replay và bật follow camera -> di chuyển map center mượt mà
+    if (widget.state.followCamera && widget.state.currentPosition != null) {
+      if (widget.state.isPlaying || widget.state.isCompleted) {
+        _mapController.move(widget.state.currentPosition!, _currentZoom);
+      }
+    }
+  }
+
+  void _fitRouteBounds(List<LocationModel> samples) {
+    if (samples.isEmpty || !_mapReady) return;
+
+    if (samples.length == 1) {
+      _mapController.move(LatLng(samples.first.latitude, samples.first.longitude), 15.0);
+      return;
+    }
+
+    final points = samples.map((s) => LatLng(s.latitude, s.longitude)).toList();
+    final bounds = LatLngBounds.fromPoints(points);
+
+    _mapController.fitCamera(
+      CameraFit.bounds(
+        bounds: bounds,
+        padding: const EdgeInsets.only(left: 40, right: 40, top: 40, bottom: 120),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _mapController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final state = widget.state;
+
+    final initialCenter = state.validSamples.isNotEmpty
+        ? LatLng(state.validSamples.first.latitude, state.validSamples.first.longitude)
+        : _defaultCenter;
+
+    return Stack(
+      children: [
+        FlutterMap(
+          mapController: _mapController,
+          options: MapOptions(
+            initialCenter: initialCenter,
+            initialZoom: _currentZoom,
+            minZoom: 4,
+            maxZoom: 19,
+            onMapReady: () {
+              _mapReady = true;
+              if (state.validSamples.isNotEmpty) {
+                _fitRouteBounds(state.validSamples);
+              }
+            },
+            onPositionChanged: (camera, hasGesture) {
+              if (camera.zoom != _currentZoom) {
+                setState(() => _currentZoom = camera.zoom);
+              }
+            },
+          ),
+          children: [
+            // Map Tiles
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.vmonitor.app',
+              minZoom: 4,
+              maxZoom: 19,
+              maxNativeZoom: 19,
+              tileProvider: NetworkTileProvider(silenceExceptions: true),
+              errorImage: MemoryImage(TileProvider.transparentImage),
+            ),
+
+            // Polyline Layer cho lộ trình
+            if (state.segments.isNotEmpty)
+              PolylineLayer(
+                polylines: HistoryMapLayers.buildPolylines(
+                  segments: state.segments,
+                  primaryColor: theme.colorScheme.primary,
+                ),
+              ),
+
+            // Mũi tên chỉ hướng di chuyển
+            if (state.segments.isNotEmpty)
+              MarkerLayer(
+                markers: HistoryMapLayers.buildDirectionArrows(
+                  segments: state.segments,
+                  currentZoom: _currentZoom,
+                  arrowColor: const Color(0xFF0F172A),
+                ),
+              ),
+
+            // Các mốc GPS: Start, End, trung gian
+            if (state.validSamples.isNotEmpty)
+              MarkerLayer(
+                markers: HistoryMapLayers.buildSamplePoints(
+                  validSamples: state.validSamples,
+                  onPointSelected: widget.onPointSelected,
+                  theme: theme,
+                  currentZoom: _currentZoom,
+                ),
+              ),
+
+            // Replay Device Marker
+            if (state.currentPosition != null)
+              MarkerLayer(
+                markers: [
+                  HistoryMapLayers.buildReplayMarker(
+                    state: state,
+                    theme: theme,
+                  )!,
+                ],
+              ),
+          ],
+        ),
+
+        // Zoom in/out controls góc trái
+        Positioned(
+          left: 16,
+          top: 16,
+          child: _MapZoomControls(
+            onZoomIn: () {
+              if (!_mapReady) return;
+              _mapController.move(_mapController.camera.center, _currentZoom + 1);
+            },
+            onZoomOut: () {
+              if (!_mapReady) return;
+              _mapController.move(_mapController.camera.center, _currentZoom - 1);
+            },
+            onFitBounds: () {
+              if (state.validSamples.isNotEmpty) {
+                _fitRouteBounds(state.validSamples);
+              }
+            },
+          ),
+        ),
+
+        // Trạng thái Loading
+        if (state.isLoading)
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withValues(alpha: 0.15),
+              child: const Center(
+                child: Card(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(strokeWidth: 3),
+                        SizedBox(width: 16),
+                        Text('Đang truy xuất dữ liệu lịch sử GPS...', style: TextStyle(fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+        // Trạng thái Empty / 1 điểm
+        if (!state.isLoading && state.isEmpty)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Center(
+                child: Container(
+                  margin: const EdgeInsets.all(32),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface.withValues(alpha: 0.95),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 16)],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.route_outlined, size: 48, color: theme.colorScheme.outline),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Không có dữ liệu vị trí trong khoảng thời gian đã chọn.',
+                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Vui lòng chọn khoảng thời gian khác hoặc kiểm tra lại thiết bị.',
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          )
+        else if (!state.isLoading && state.hasSinglePoint)
+          Positioned(
+            top: 16,
+            left: 70,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: theme.colorScheme.outlineVariant),
+              ),
+              child: Text(
+                'Chỉ có 1 mốc vị trí trong khoảng thời gian này.',
+                style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _MapZoomControls extends StatelessWidget {
+  final VoidCallback onZoomIn;
+  final VoidCallback onZoomOut;
+  final VoidCallback onFitBounds;
+
+  const _MapZoomControls({
+    required this.onZoomIn,
+    required this.onZoomOut,
+    required this.onFitBounds,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.add_rounded, size: 20),
+            tooltip: 'Phóng to',
+            onPressed: onZoomIn,
+            visualDensity: VisualDensity.compact,
+          ),
+          const SizedBox(width: 32, child: Divider(height: 1)),
+          IconButton(
+            icon: const Icon(Icons.remove_rounded, size: 20),
+            tooltip: 'Thu nhỏ',
+            onPressed: onZoomOut,
+            visualDensity: VisualDensity.compact,
+          ),
+          const SizedBox(width: 32, child: Divider(height: 1)),
+          IconButton(
+            icon: const Icon(Icons.fit_screen_rounded, size: 18),
+            tooltip: 'Vừa toàn bộ lộ trình',
+            onPressed: onFitBounds,
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
+    );
+  }
+}

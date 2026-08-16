@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     geocoding_user_agent: str = "v_monitor/1.0 local-development"
     geocoding_timeout_seconds: int = 8
 
+    # Tracking history settings
+    default_timezone: str = "UTC"                         # Display timezone (e.g. Asia/Ho_Chi_Minh)
+    tracking_gap_threshold_seconds: int = 300             # Gap > this = tracking gap (configurable)
+    tracking_outlier_speed_kmh: float = 500.0             # Implied speed > this = outlier
+    tracking_max_history_samples: int = 100000            # Max samples per history request
+
     jwt_secret: str = "dev-only-change-me"
 
     model_config = SettingsConfigDict(
