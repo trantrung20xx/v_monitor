@@ -20,9 +20,7 @@ import '../../data/repositories/tracking_repository.dart';
 import '../journey_history/journey_history_cubit.dart';
 import '../journey_history/journey_history_state.dart';
 import '../journey_history/widgets/history_map_layers.dart';
-import '../journey_history/widgets/playback_controls.dart';
 import '../journey_history/widgets/point_info_popup.dart';
-import '../journey_history/widgets/route_summary_band.dart';
 
 /// Chi tiết thiết bị — tracking dashboard cho Overview/Journey/Usage/Event.
 class DeviceDetailPage extends StatelessWidget {
@@ -2359,7 +2357,7 @@ class _MapControlButton extends StatelessWidget {
   }
 }
 
-// ─── Tab 2: Journey (Hành trình GPS & Replay) ────────────────────────────────
+// ─── Tab 2: Journey (Hành trình GPS & Replay — Reference Design) ─────────────
 
 class _JourneyTab extends StatefulWidget {
   const _JourneyTab({
@@ -2438,12 +2436,8 @@ class _JourneyTabState extends State<_JourneyTab> {
           return LayoutBuilder(
             builder: (context, constraints) {
               final width = constraints.maxWidth;
-              final padding = width < 600 ? 10.0 : 16.0;
-              final mapHeight = width >= 1024
-                  ? 440.0
-                  : width >= 600
-                      ? 380.0
-                      : 300.0;
+              final padding = width < 720 ? 12.0 : 20.0;
+              final isDesktop = width >= 1100;
 
               return ListView(
                 padding: EdgeInsets.all(padding),
@@ -2451,109 +2445,121 @@ class _JourneyTabState extends State<_JourneyTab> {
                   Align(
                     alignment: Alignment.topCenter,
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1240),
+                      constraints: const BoxConstraints(maxWidth: 1480),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // 1. Thanh chọn thời gian & Ngưỡng ngắt quãng
-                          _buildTimeFilterBar(context, state),
-                          const SizedBox(height: 10),
+                          // ─── TẦNG 1: Filter / Time Range Panel ───────────────
+                          _JourneyFilterPanel(
+                            fromTime: _fromTime,
+                            toTime: _toTime,
+                            presetIndex: _rangePresetIndex,
+                            gapThreshold: state.gapThreshold,
+                            isLoading: state.isLoading,
+                            onPresetSelected: _onPresetSelected,
+                            onCustomRangePressed: () => _openCustomDateTimeRangePicker(context),
+                            onGapChanged: (gap) => _cubit.setGapThreshold(gap),
+                            onRefresh: _fetchHistory,
+                          ),
+                          const SizedBox(height: 12),
 
-                          // 2. Thẻ thống kê tổng quan (Quãng đường, Thời gian chạy, dừng, Max speed)
-                          if (state.validSamples.isNotEmpty) ...[
-                            RouteSummaryBand(state: state),
-                            const SizedBox(height: 10),
-                          ],
+                          // ─── TẦNG 2: Metric Cards (KPI hành trình) ───────────
+                          _JourneyMetricsRow(state: state),
+                          const SizedBox(height: 12),
 
-                          // 3. Bản đồ Hành trình + Replay Player
-                          SizedBox(
-                            height: mapHeight,
-                            child: _MapSurface(
-                              child: Stack(
-                                children: [
-                                  // Bản đồ
-                                  _DeviceJourneyMapView(
-                                    state: state,
-                                    onPointSelected: (point) => _cubit.selectPoint(point),
-                                  ),
-
-                                  // Popup chi tiết điểm GPS khi tap
-                                  if (state.selectedPoint != null)
-                                    Positioned(
-                                      top: 12,
-                                      right: 12,
-                                      child: PointInfoPopup(
-                                        point: state.selectedPoint!,
-                                        onClose: () => _cubit.selectPoint(null),
+                          // ─── TẦNG 3: Vùng Vận Hành Chính (Main Area) ─────────
+                          if (isDesktop)
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // CỘT TRÁI (~77%): Map + Playback + Current Info
+                                Expanded(
+                                  flex: 77,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      // 1. Map Card
+                                      _JourneyMapCard(
+                                        state: state,
+                                        height: 380,
+                                        onPointSelected: (pt) => _cubit.selectPoint(pt),
                                       ),
-                                    ),
+                                      const SizedBox(height: 10),
 
-                                  // Thanh điều khiển Playback Controls (nằm ở đáy bản đồ)
-                                  if (state.validSamples.isNotEmpty)
-                                    Positioned(
-                                      left: width < 600 ? 8 : 14,
-                                      right: width < 600 ? 8 : 14,
-                                      bottom: width < 600 ? 8 : 14,
-                                      child: PlaybackControls(
+                                      // 2. Playback Card
+                                      _JourneyPlaybackCard(
                                         state: state,
                                         onPlay: () => _cubit.play(),
                                         onPause: () => _cubit.pause(),
                                         onResume: () => _cubit.resume(),
                                         onReset: () => _cubit.reset(),
+                                        onStepBackward: _stepBackward,
+                                        onStepForward: _stepForward,
+                                        onSeekEnd: _seekToEnd,
                                         onSeekProgress: (p) => _cubit.seekToProgress(p),
                                         onSpeedChanged: (s) => _cubit.setPlaybackSpeed(s),
                                         onFollowChanged: (f) => _cubit.toggleFollowCamera(f),
                                       ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
+                                      const SizedBox(height: 10),
 
-                          // 4. Tóm tắt thông tin mốc thời gian hành trình
-                          _SectionCard(
-                            title: 'Tổng hợp hành trình',
-                            icon: Icons.route_rounded,
-                            iconColor: Theme.of(context).colorScheme.primary,
-                            children: [
-                              if (state.validSamples.isNotEmpty) ...[
-                                _InfoRow(
-                                  label: 'Khởi hành',
-                                  value: DeviceFormatters.dateTimeSeconds(state.validSamples.first.measuredAt),
-                                  icon: Icons.play_circle_fill_rounded,
+                                      // 3. Current Info Card
+                                      _JourneyCurrentInfoCard(state: state),
+                                    ],
+                                  ),
                                 ),
-                                _InfoRow(
-                                  label: 'Mốc cuối',
-                                  value: DeviceFormatters.dateTimeSeconds(state.validSamples.last.measuredAt),
-                                  icon: Icons.stop_circle_rounded,
-                                ),
-                                _InfoRow(
-                                  label: 'Tổng mẫu GPS',
-                                  value: '${state.validSamples.length} điểm dữ liệu${state.segments.length > 1 ? ' (${state.segments.length} phân đoạn)' : ''}',
-                                  icon: Icons.scatter_plot_rounded,
-                                ),
-                                _InfoRow(
-                                  label: 'Vận tốc trung bình',
-                                  value: DeviceFormatters.speedMps(state.avgSpeedMps),
-                                  icon: Icons.speed_rounded,
-                                ),
-                              ] else if (state.isLoading) ...[
-                                const _InfoRow(
-                                  label: 'Trạng thái',
-                                  value: 'Đang truy xuất dữ liệu lịch sử...',
-                                  icon: Icons.hourglass_top_rounded,
-                                ),
-                              ] else ...[
-                                const _InfoRow(
-                                  label: 'Dữ liệu',
-                                  value: 'Chưa có hành trình trong khoảng thời gian đã chọn',
-                                  icon: Icons.route_outlined,
-                                  maxLines: 2,
+                                const SizedBox(width: 12),
+
+                                // CỘT PHẢI (~23%): Vertical Timeline
+                                Expanded(
+                                  flex: 23,
+                                  child: _JourneyTimelineCard(
+                                    state: state,
+                                    height: 596, // Cân đối hoàn hảo với tổng chiều cao cột trái
+                                    onSelectSample: (s) {
+                                      _cubit.seekToTime(s.measuredAt);
+                                      _cubit.selectPoint(s);
+                                    },
+                                  ),
                                 ),
                               ],
-                            ],
-                          ),
+                            )
+                          else
+                            // Layout xếp tầng dọc cho Mobile / Tablet
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _JourneyMapCard(
+                                  state: state,
+                                  height: width < 600 ? 280 : 330,
+                                  onPointSelected: (pt) => _cubit.selectPoint(pt),
+                                ),
+                                const SizedBox(height: 10),
+                                _JourneyPlaybackCard(
+                                  state: state,
+                                  onPlay: () => _cubit.play(),
+                                  onPause: () => _cubit.pause(),
+                                  onResume: () => _cubit.resume(),
+                                  onReset: () => _cubit.reset(),
+                                  onStepBackward: _stepBackward,
+                                  onStepForward: _stepForward,
+                                  onSeekEnd: _seekToEnd,
+                                  onSeekProgress: (p) => _cubit.seekToProgress(p),
+                                  onSpeedChanged: (s) => _cubit.setPlaybackSpeed(s),
+                                  onFollowChanged: (f) => _cubit.toggleFollowCamera(f),
+                                ),
+                                const SizedBox(height: 10),
+                                _JourneyCurrentInfoCard(state: state),
+                                const SizedBox(height: 12),
+                                _JourneyTimelineCard(
+                                  state: state,
+                                  height: 420,
+                                  onSelectSample: (s) {
+                                    _cubit.seekToTime(s.measuredAt);
+                                    _cubit.selectPoint(s);
+                                  },
+                                ),
+                              ],
+                            ),
                         ],
                       ),
                     ),
@@ -2567,168 +2573,53 @@ class _JourneyTabState extends State<_JourneyTab> {
     );
   }
 
-  Widget _buildTimeFilterBar(BuildContext context, JourneyHistoryState state) {
-    final theme = Theme.of(context);
-    final dtFormat = DateFormat('dd/MM/yyyy HH:mm');
+  void _onPresetSelected(int index) {
     final now = DateTime.now();
+    setState(() {
+      _rangePresetIndex = index;
+      if (index == 0) {
+        // Hôm nay
+        _fromTime = DateTime(now.year, now.month, now.day, 0, 0, 0);
+        _toTime = now;
+      } else if (index == 1) {
+        // Hôm qua
+        final yesterday = now.subtract(const Duration(days: 1));
+        _fromTime = DateTime(yesterday.year, yesterday.month, yesterday.day, 0, 0, 0);
+        _toTime = DateTime(yesterday.year, yesterday.month, yesterday.day, 23, 59, 59);
+      } else if (index == 2) {
+        // 24h qua
+        _fromTime = now.subtract(const Duration(hours: 24));
+        _toTime = now;
+      } else if (index == 3) {
+        // 7 ngày qua
+        _fromTime = now.subtract(const Duration(days: 7));
+        _toTime = now;
+      }
+    });
+    _fetchHistory();
+  }
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Row 1: Chips chọn nhanh + Dropdown khoảng ngắt quãng
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  ChoiceChip(
-                    avatar: const Icon(Icons.today_rounded, size: 14),
-                    label: const Text('Hôm nay', style: TextStyle(fontSize: 11)),
-                    selected: _rangePresetIndex == 0,
-                    onSelected: (_) {
-                      setState(() {
-                        _rangePresetIndex = 0;
-                        _fromTime = DateTime(now.year, now.month, now.day, 0, 0, 0);
-                        _toTime = now;
-                      });
-                      _fetchHistory();
-                    },
-                  ),
-                  const SizedBox(width: 6),
-                  ChoiceChip(
-                    avatar: const Icon(Icons.history_rounded, size: 14),
-                    label: const Text('Hôm qua', style: TextStyle(fontSize: 11)),
-                    selected: _rangePresetIndex == 1,
-                    onSelected: (_) {
-                      final yesterday = now.subtract(const Duration(days: 1));
-                      setState(() {
-                        _rangePresetIndex = 1;
-                        _fromTime = DateTime(yesterday.year, yesterday.month, yesterday.day, 0, 0, 0);
-                        _toTime = DateTime(yesterday.year, yesterday.month, yesterday.day, 23, 59, 59);
-                      });
-                      _fetchHistory();
-                    },
-                  ),
-                  const SizedBox(width: 6),
-                  ChoiceChip(
-                    avatar: const Icon(Icons.schedule_rounded, size: 14),
-                    label: const Text('24h qua', style: TextStyle(fontSize: 11)),
-                    selected: _rangePresetIndex == 2,
-                    onSelected: (_) {
-                      setState(() {
-                        _rangePresetIndex = 2;
-                        _fromTime = now.subtract(const Duration(hours: 24));
-                        _toTime = now;
-                      });
-                      _fetchHistory();
-                    },
-                  ),
-                  const SizedBox(width: 6),
-                  ChoiceChip(
-                    avatar: const Icon(Icons.date_range_rounded, size: 14),
-                    label: const Text('7 ngày', style: TextStyle(fontSize: 11)),
-                    selected: _rangePresetIndex == 3,
-                    onSelected: (_) {
-                      setState(() {
-                        _rangePresetIndex = 3;
-                        _fromTime = now.subtract(const Duration(days: 7));
-                        _toTime = now;
-                      });
-                      _fetchHistory();
-                    },
-                  ),
-                  const SizedBox(width: 6),
-                  ChoiceChip(
-                    avatar: const Icon(Icons.edit_calendar_rounded, size: 14),
-                    label: const Text('Tùy chọn', style: TextStyle(fontSize: 11)),
-                    selected: _rangePresetIndex == 4,
-                    onSelected: (_) => _openCustomDateTimeRangePicker(context),
-                  ),
-                  const SizedBox(width: 14),
+  void _stepBackward() {
+    final state = _cubit.state;
+    if (state.currentReplayTime != null && state.validSamples.isNotEmpty) {
+      final newTime = state.currentReplayTime!.subtract(const Duration(seconds: 5));
+      _cubit.seekToTime(newTime);
+    }
+  }
 
-                  // Cấu hình Ngắt quãng (Gap threshold)
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Ngắt quãng:',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      DropdownButton<int>(
-                        value: state.gapThreshold.inMinutes,
-                        isDense: true,
-                        underline: const SizedBox.shrink(),
-                        style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold),
-                        items: const [
-                          DropdownMenuItem(value: 1, child: Text('1 phút')),
-                          DropdownMenuItem(value: 5, child: Text('5 phút (chuẩn)')),
-                          DropdownMenuItem(value: 15, child: Text('15 phút')),
-                          DropdownMenuItem(value: 30, child: Text('30 phút')),
-                          DropdownMenuItem(value: 60, child: Text('1 giờ')),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            _cubit.setGapThreshold(Duration(minutes: val));
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 6),
+  void _stepForward() {
+    final state = _cubit.state;
+    if (state.currentReplayTime != null && state.validSamples.isNotEmpty) {
+      final newTime = state.currentReplayTime!.add(const Duration(seconds: 5));
+      _cubit.seekToTime(newTime);
+    }
+  }
 
-            // Row 2: Hiển thị mốc thời gian chính xác & Nút Tải lại
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Flexible(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.access_time_rounded, size: 14, color: theme.colorScheme.primary),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          '${dtFormat.format(_fromTime)} → ${dtFormat.format(_toTime)}',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                TextButton.icon(
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  onPressed: state.isLoading ? null : _fetchHistory,
-                  icon: state.isLoading
-                      ? const SizedBox(
-                          width: 12,
-                          height: 12,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.refresh_rounded, size: 16),
-                  label: const Text('Tải lại', style: TextStyle(fontSize: 12)),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
+  void _seekToEnd() {
+    final state = _cubit.state;
+    if (state.validSamples.isNotEmpty) {
+      _cubit.seekToTime(state.validSamples.last.measuredAt);
+    }
   }
 
   Future<void> _openCustomDateTimeRangePicker(BuildContext context) async {
@@ -2745,13 +2636,14 @@ class _JourneyTabState extends State<_JourneyTab> {
             final isValid = tempFrom.isBefore(tempTo);
 
             return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               title: const Row(
                 children: [
-                  Icon(Icons.edit_calendar_rounded, size: 20),
+                  Icon(Icons.edit_calendar_rounded, size: 20, color: _refPrimaryBlue),
                   SizedBox(width: 8),
                   Text(
                     'Tùy chọn khoảng thời gian',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _refText),
                   ),
                 ],
               ),
@@ -2761,11 +2653,7 @@ class _JourneyTabState extends State<_JourneyTab> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Mốc bắt đầu
-                    const Text(
-                      'Mốc bắt đầu (Từ):',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
-                    ),
+                    const Text('Mốc bắt đầu (Từ):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: _refText)),
                     const SizedBox(height: 6),
                     Row(
                       children: [
@@ -2774,13 +2662,11 @@ class _JourneyTabState extends State<_JourneyTab> {
                           child: OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                              visualDensity: VisualDensity.compact,
+                              side: const BorderSide(color: _refBorder),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
-                            icon: const Icon(Icons.calendar_today_rounded, size: 14),
-                            label: Text(
-                              dateFormat.format(tempFrom),
-                              style: const TextStyle(fontSize: 12),
-                            ),
+                            icon: const Icon(Icons.calendar_today_rounded, size: 14, color: _refPrimaryBlue),
+                            label: Text(dateFormat.format(tempFrom), style: const TextStyle(fontSize: 12, color: _refText)),
                             onPressed: () async {
                               final pickedDate = await showDatePicker(
                                 context: context,
@@ -2809,20 +2695,15 @@ class _JourneyTabState extends State<_JourneyTab> {
                           child: OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                              visualDensity: VisualDensity.compact,
+                              side: const BorderSide(color: _refBorder),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
-                            icon: const Icon(Icons.access_time_rounded, size: 14),
-                            label: Text(
-                              timeFormat.format(tempFrom),
-                              style: const TextStyle(fontSize: 12),
-                            ),
+                            icon: const Icon(Icons.access_time_rounded, size: 14, color: _refPrimaryBlue),
+                            label: Text(timeFormat.format(tempFrom), style: const TextStyle(fontSize: 12, color: _refText)),
                             onPressed: () async {
                               final pickedTime = await showTimePicker(
                                 context: context,
-                                initialTime: TimeOfDay(
-                                  hour: tempFrom.hour,
-                                  minute: tempFrom.minute,
-                                ),
+                                initialTime: TimeOfDay(hour: tempFrom.hour, minute: tempFrom.minute),
                               );
                               if (pickedTime != null) {
                                 setDialogState(() {
@@ -2843,11 +2724,7 @@ class _JourneyTabState extends State<_JourneyTab> {
                     ),
                     const SizedBox(height: 14),
 
-                    // Mốc kết thúc
-                    const Text(
-                      'Mốc kết thúc (Đến):',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
-                    ),
+                    const Text('Mốc kết thúc (Đến):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: _refText)),
                     const SizedBox(height: 6),
                     Row(
                       children: [
@@ -2856,13 +2733,11 @@ class _JourneyTabState extends State<_JourneyTab> {
                           child: OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                              visualDensity: VisualDensity.compact,
+                              side: const BorderSide(color: _refBorder),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
-                            icon: const Icon(Icons.calendar_today_rounded, size: 14),
-                            label: Text(
-                              dateFormat.format(tempTo),
-                              style: const TextStyle(fontSize: 12),
-                            ),
+                            icon: const Icon(Icons.calendar_today_rounded, size: 14, color: _refPrimaryBlue),
+                            label: Text(dateFormat.format(tempTo), style: const TextStyle(fontSize: 12, color: _refText)),
                             onPressed: () async {
                               final pickedDate = await showDatePicker(
                                 context: context,
@@ -2891,20 +2766,15 @@ class _JourneyTabState extends State<_JourneyTab> {
                           child: OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                              visualDensity: VisualDensity.compact,
+                              side: const BorderSide(color: _refBorder),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
-                            icon: const Icon(Icons.access_time_rounded, size: 14),
-                            label: Text(
-                              timeFormat.format(tempTo),
-                              style: const TextStyle(fontSize: 12),
-                            ),
+                            icon: const Icon(Icons.access_time_rounded, size: 14, color: _refPrimaryBlue),
+                            label: Text(timeFormat.format(tempTo), style: const TextStyle(fontSize: 12, color: _refText)),
                             onPressed: () async {
                               final pickedTime = await showTimePicker(
                                 context: context,
-                                initialTime: TimeOfDay(
-                                  hour: tempTo.hour,
-                                  minute: tempTo.minute,
-                                ),
+                                initialTime: TimeOfDay(hour: tempTo.hour, minute: tempTo.minute),
                               );
                               if (pickedTime != null) {
                                 setDialogState(() {
@@ -2928,11 +2798,7 @@ class _JourneyTabState extends State<_JourneyTab> {
                     if (!isValid)
                       const Text(
                         'Thời gian bắt đầu phải trước thời gian kết thúc!',
-                        style: TextStyle(
-                          color: Colors.redAccent,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.w600),
                       ),
                   ],
                 ),
@@ -2943,10 +2809,12 @@ class _JourneyTabState extends State<_JourneyTab> {
                   child: const Text('Hủy'),
                 ),
                 FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _refPrimaryBlue,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
                   onPressed: isValid
-                      ? () => Navigator.of(dialogContext).pop(
-                            DateTimeRange(start: tempFrom, end: tempTo),
-                          )
+                      ? () => Navigator.of(dialogContext).pop(DateTimeRange(start: tempFrom, end: tempTo))
                       : null,
                   child: const Text('Áp dụng'),
                 ),
@@ -2965,6 +2833,1221 @@ class _JourneyTabState extends State<_JourneyTab> {
       });
       _fetchHistory();
     }
+  }
+}
+
+// ─── TẦNG 1: Panel Bộ Lọc Thời Gian ──────────────────────────────────────────
+
+class _JourneyFilterPanel extends StatelessWidget {
+  const _JourneyFilterPanel({
+    required this.fromTime,
+    required this.toTime,
+    required this.presetIndex,
+    required this.gapThreshold,
+    required this.isLoading,
+    required this.onPresetSelected,
+    required this.onCustomRangePressed,
+    required this.onGapChanged,
+    required this.onRefresh,
+  });
+
+  final DateTime fromTime;
+  final DateTime toTime;
+  final int presetIndex;
+  final Duration gapThreshold;
+  final bool isLoading;
+  final ValueChanged<int> onPresetSelected;
+  final VoidCallback onCustomRangePressed;
+  final ValueChanged<Duration> onGapChanged;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final dtFormat = DateFormat('dd/MM/yyyy HH:mm');
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: _refSurface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _refBorder),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= 960;
+
+          if (isWide) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Nhóm A: Khoảng thời gian
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Khoảng thời gian',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _refMuted),
+                    ),
+                    const SizedBox(height: 5),
+                    InkWell(
+                      onTap: onCustomRangePressed,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: _refBorder),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('Từ ', style: TextStyle(fontSize: 11.5, color: _refMuted)),
+                            const Icon(Icons.calendar_today_rounded, size: 13, color: _refPrimaryBlue),
+                            const SizedBox(width: 4),
+                            Text(
+                              dtFormat.format(fromTime),
+                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: _refText),
+                            ),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 6),
+                              child: Icon(Icons.arrow_forward_rounded, size: 12, color: _refMuted),
+                            ),
+                            const Text('Đến ', style: TextStyle(fontSize: 11.5, color: _refMuted)),
+                            const Icon(Icons.calendar_today_rounded, size: 13, color: _refPrimaryBlue),
+                            const SizedBox(width: 4),
+                            Text(
+                              dtFormat.format(toTime),
+                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: _refText),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 16),
+                const SizedBox(height: 38, child: VerticalDivider(width: 1, color: _refBorder)),
+                const SizedBox(width: 16),
+
+                // Nhóm B: Khoảng nhanh
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Khoảng nhanh',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _refMuted),
+                      ),
+                      const SizedBox(height: 5),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            _buildQuickChip('Hôm nay', 0),
+                            const SizedBox(width: 6),
+                            _buildQuickChip('Hôm qua', 1),
+                            const SizedBox(width: 6),
+                            _buildQuickChip('24h qua', 2),
+                            const SizedBox(width: 6),
+                            _buildQuickChip('7 ngày', 3),
+                            const SizedBox(width: 6),
+                            _buildQuickChip('Tùy chọn', 4, onTap: onCustomRangePressed),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                const SizedBox(height: 38, child: VerticalDivider(width: 1, color: _refBorder)),
+                const SizedBox(width: 16),
+
+                // Nhóm C: Ngắt quãng + Tải lại
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Ngắt quãng',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _refMuted),
+                    ),
+                    const SizedBox(height: 5),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: _refBorder),
+                          ),
+                          child: DropdownButton<int>(
+                            value: gapThreshold.inMinutes,
+                            isDense: true,
+                            underline: const SizedBox.shrink(),
+                            icon: const Icon(Icons.arrow_drop_down_rounded, size: 18, color: _refText),
+                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: _refText),
+                            items: const [
+                              DropdownMenuItem(value: 1, child: Text('1 phút')),
+                              DropdownMenuItem(value: 5, child: Text('5 phút (chuẩn)')),
+                              DropdownMenuItem(value: 15, child: Text('15 phút')),
+                              DropdownMenuItem(value: 30, child: Text('30 phút')),
+                              DropdownMenuItem(value: 60, child: Text('1 giờ')),
+                            ],
+                            onChanged: (v) {
+                              if (v != null) onGapChanged(Duration(minutes: v));
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: _refPrimaryBlue,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          onPressed: isLoading ? null : onRefresh,
+                          icon: isLoading
+                              ? const SizedBox(
+                                  width: 12,
+                                  height: 12,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.refresh_rounded, size: 15),
+                          label: const Text('Tải lại', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            );
+          }
+
+          // Layout nhỏ gọn khi hẹp (Tablet / Mobile)
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Mốc thời gian
+              InkWell(
+                onTap: onCustomRangePressed,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: _refBorder),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.calendar_today_rounded, size: 14, color: _refPrimaryBlue),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${dtFormat.format(fromTime)}  →  ${dtFormat.format(toTime)}',
+                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: _refText),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              // Chips nhanh
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildQuickChip('Hôm nay', 0),
+                    const SizedBox(width: 6),
+                    _buildQuickChip('Hôm qua', 1),
+                    const SizedBox(width: 6),
+                    _buildQuickChip('24h qua', 2),
+                    const SizedBox(width: 6),
+                    _buildQuickChip('7 ngày', 3),
+                    const SizedBox(width: 6),
+                    _buildQuickChip('Tùy chọn', 4, onTap: onCustomRangePressed),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              // Ngắt quãng + Tải lại
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Text('Ngắt quãng: ', style: TextStyle(fontSize: 11, color: _refMuted)),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: _refBorder),
+                        ),
+                        child: DropdownButton<int>(
+                          value: gapThreshold.inMinutes,
+                          isDense: true,
+                          underline: const SizedBox.shrink(),
+                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: _refText),
+                          items: const [
+                            DropdownMenuItem(value: 1, child: Text('1 phút')),
+                            DropdownMenuItem(value: 5, child: Text('5 phút (chuẩn)')),
+                            DropdownMenuItem(value: 15, child: Text('15 phút')),
+                            DropdownMenuItem(value: 30, child: Text('30 phút')),
+                            DropdownMenuItem(value: 60, child: Text('1 giờ')),
+                          ],
+                          onChanged: (v) {
+                            if (v != null) onGapChanged(Duration(minutes: v));
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _refPrimaryBlue,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    onPressed: isLoading ? null : onRefresh,
+                    icon: const Icon(Icons.refresh_rounded, size: 15),
+                    label: const Text('Tải lại', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildQuickChip(String label, int index, {VoidCallback? onTap}) {
+    final isSelected = presetIndex == index;
+
+    return InkWell(
+      onTap: onTap ?? () => onPresetSelected(index),
+      borderRadius: BorderRadius.circular(6),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFEBF3FF) : Colors.white,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isSelected ? _refPrimaryBlue : _refBorder,
+            width: isSelected ? 1.2 : 1.0,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected ? _refPrimaryBlue : _refMuted,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── TẦNG 2: Hàng Thẻ KPI Chỉ Số Hành Trình ──────────────────────────────────
+
+class _JourneyMetricsRow extends StatelessWidget {
+  const _JourneyMetricsRow({required this.state});
+
+  final JourneyHistoryState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final segmentCount = state.segments.length;
+    final samplesSubtitle = segmentCount > 1 ? '($segmentCount đoạn)' : null;
+
+    final metrics = [
+      _MetricItemData(
+        icon: Icons.route_rounded,
+        label: 'Tổng quãng đường',
+        value: DeviceFormatters.distance(state.totalDistanceM),
+        tintColor: const Color(0xFFEBF3FF),
+        iconColor: const Color(0xFF1677FF),
+      ),
+      _MetricItemData(
+        icon: Icons.navigation_rounded,
+        label: 'Thời gian di chuyển',
+        value: DeviceFormatters.secondsDuration(state.movingDurationS),
+        tintColor: const Color(0xFFECFDF5),
+        iconColor: const Color(0xFF16A34A),
+      ),
+      _MetricItemData(
+        icon: Icons.pause_circle_rounded,
+        label: 'Thời gian dừng',
+        value: DeviceFormatters.secondsDuration(state.stoppedDurationS),
+        tintColor: const Color(0xFFFFFBEB),
+        iconColor: const Color(0xFFD97706),
+      ),
+      _MetricItemData(
+        icon: Icons.speed_rounded,
+        label: 'Tốc độ tối đa',
+        value: DeviceFormatters.speedMps(state.maxSpeedMps),
+        tintColor: const Color(0xFFFEF2F2),
+        iconColor: const Color(0xFFEF4444),
+      ),
+      _MetricItemData(
+        icon: Icons.trending_up_rounded,
+        label: 'Tốc độ trung bình',
+        value: DeviceFormatters.speedMps(state.avgSpeedMps),
+        tintColor: const Color(0xFFEEF2FF),
+        iconColor: const Color(0xFF6366F1),
+      ),
+      _MetricItemData(
+        icon: Icons.scatter_plot_rounded,
+        label: 'Số mẫu GPS',
+        value: '${state.validSamples.length}',
+        subtitle: samplesSubtitle,
+        tintColor: const Color(0xFFECFEFF),
+        iconColor: const Color(0xFF0891B2),
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final count = width >= 1100
+            ? 6
+            : width >= 720
+                ? 3
+                : 2;
+
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: count,
+            mainAxisExtent: 72,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+          ),
+          itemCount: metrics.length,
+          itemBuilder: (context, index) {
+            final item = metrics[index];
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: _refSurface,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _refBorder),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: item.tintColor,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(item.icon, size: 18, color: item.iconColor),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          item.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: _refMuted,
+                            height: 1.1,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                item.value,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: _refText,
+                                  height: 1.1,
+                                ),
+                              ),
+                            ),
+                            if (item.subtitle != null) ...[
+                              const SizedBox(width: 4),
+                              Text(
+                                item.subtitle!,
+                                style: const TextStyle(fontSize: 10, color: _refMuted),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _MetricItemData {
+  final IconData icon;
+  final String label;
+  final String value;
+  final String? subtitle;
+  final Color tintColor;
+  final Color iconColor;
+
+  const _MetricItemData({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.subtitle,
+    required this.tintColor,
+    required this.iconColor,
+  });
+}
+
+// ─── TẦNG 3.1: Map Card ───────────────────────────────────────────────────────
+
+class _JourneyMapCard extends StatelessWidget {
+  const _JourneyMapCard({
+    required this.state,
+    required this.height,
+    required this.onPointSelected,
+  });
+
+  final JourneyHistoryState state;
+  final double height;
+  final ValueChanged<LocationModel> onPointSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: _refSurface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _refBorder),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          // Bản đồ chính
+          _DeviceJourneyMapView(
+            state: state,
+            onPointSelected: onPointSelected,
+          ),
+
+          // Popup chi tiết điểm GPS khi bấm chọn
+          if (state.selectedPoint != null)
+            Positioned(
+              top: 12,
+              right: 12,
+              child: PointInfoPopup(
+                point: state.selectedPoint!,
+                onClose: () => onPointSelected(state.selectedPoint!),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── TẦNG 3.2: Playback Card (Thanh điều khiển Replay) ────────────────────────
+
+class _JourneyPlaybackCard extends StatelessWidget {
+  const _JourneyPlaybackCard({
+    required this.state,
+    required this.onPlay,
+    required this.onPause,
+    required this.onResume,
+    required this.onReset,
+    required this.onStepBackward,
+    required this.onStepForward,
+    required this.onSeekEnd,
+    required this.onSeekProgress,
+    required this.onSpeedChanged,
+    required this.onFollowChanged,
+  });
+
+  final JourneyHistoryState state;
+  final VoidCallback onPlay;
+  final VoidCallback onPause;
+  final VoidCallback onResume;
+  final VoidCallback onReset;
+  final VoidCallback onStepBackward;
+  final VoidCallback onStepForward;
+  final VoidCallback onSeekEnd;
+  final ValueChanged<double> onSeekProgress;
+  final ValueChanged<double> onSpeedChanged;
+  final ValueChanged<bool> onFollowChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasSamples = state.validSamples.length >= 2;
+    final timeFormat = DateFormat('dd/MM/yyyy HH:mm:ss');
+    final shortTimeFormat = DateFormat('dd/MM/yyyy HH:mm');
+
+    final currentTimeStr = state.currentReplayTime != null
+        ? timeFormat.format(state.currentReplayTime!.toLocal())
+        : (state.validSamples.isNotEmpty
+            ? timeFormat.format(state.validSamples.first.measuredAt.toLocal())
+            : '--/--/---- --:--:--');
+
+    final startTimeStr = hasSamples
+        ? shortTimeFormat.format(state.validSamples.first.measuredAt.toLocal())
+        : '--/--/---- --:--';
+    final endTimeStr = hasSamples
+        ? shortTimeFormat.format(state.validSamples.last.measuredAt.toLocal())
+        : '--/--/---- --:--';
+
+    final speedStr = state.currentSpeedMps != null
+        ? '${(state.currentSpeedMps! * 3.6).toStringAsFixed(1)} km/h'
+        : '0.0 km/h';
+
+    final statusLabel = state.isCompleted
+        ? 'Kết thúc'
+        : (state.isPlaying
+            ? 'Đang di chuyển ($speedStr)'
+            : (state.isPaused ? 'Tạm dừng ($speedStr)' : 'Sẵn sàng'));
+
+    final statusColor = state.isCompleted
+        ? const Color(0xFFEF4444)
+        : (state.isPlaying ? const Color(0xFF16A34A) : _refMuted);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: _refSurface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _refBorder),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── HÀNG 1: Controls ───────────────────────────────
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // LEFT: Thời gian & Trạng thái
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      currentTimeStr,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: _refText,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.circle_rounded, size: 7, color: statusColor),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            statusLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: statusColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // CENTER: Play / Pause / Step buttons
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.skip_previous_rounded, size: 20),
+                    tooltip: 'Về đầu',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: hasSamples ? onReset : null,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.fast_rewind_rounded, size: 20),
+                    tooltip: 'Lùi 5 giây',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: hasSamples ? onStepBackward : null,
+                  ),
+                  const SizedBox(width: 2),
+                  // Primary circular play button
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: hasSamples ? _refPrimaryBlue : Colors.grey.shade300,
+                      shape: BoxShape.circle,
+                      boxShadow: hasSamples
+                          ? [
+                              BoxShadow(
+                                color: _refPrimaryBlue.withValues(alpha: 0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              )
+                            ]
+                          : null,
+                    ),
+                    child: IconButton(
+                      icon: Icon(
+                        state.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                        size: 24,
+                        color: Colors.white,
+                      ),
+                      onPressed: !hasSamples
+                          ? null
+                          : state.isPlaying
+                              ? onPause
+                              : (state.isPaused ? onResume : onPlay),
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  IconButton(
+                    icon: const Icon(Icons.fast_forward_rounded, size: 20),
+                    tooltip: 'Tiến 5 giây',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: hasSamples ? onStepForward : null,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.skip_next_rounded, size: 20),
+                    tooltip: 'Đến cuối',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: hasSamples ? onSeekEnd : null,
+                  ),
+                ],
+              ),
+
+              // RIGHT: Tốc độ + Toggle Theo dõi xe
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Dropdown tốc độ
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: _refBorder),
+                    ),
+                    child: DropdownButton<double>(
+                      value: state.playbackSpeed,
+                      underline: const SizedBox.shrink(),
+                      isDense: true,
+                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: _refText),
+                      items: const [
+                        DropdownMenuItem(value: 0.5, child: Text('0.5x')),
+                        DropdownMenuItem(value: 1.0, child: Text('1x')),
+                        DropdownMenuItem(value: 2.0, child: Text('2x')),
+                        DropdownMenuItem(value: 4.0, child: Text('4x')),
+                        DropdownMenuItem(value: 8.0, child: Text('8x')),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) onSpeedChanged(v);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+
+                  // Toggle Follow Camera
+                  InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () => onFollowChanged(!state.followCamera),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: state.followCamera ? const Color(0xFFEBF3FF) : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: state.followCamera ? _refPrimaryBlue : _refBorder,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.my_location_rounded,
+                            size: 14,
+                            color: state.followCamera ? _refPrimaryBlue : _refMuted,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Theo dõi xe',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: state.followCamera ? _refPrimaryBlue : _refMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+
+          // ── HÀNG 2: Timeline Slider ────────────────────────
+          Row(
+            children: [
+              Text(
+                startTimeStr,
+                style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w500, color: _refMuted),
+              ),
+              Expanded(
+                child: SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 3.5,
+                    activeTrackColor: _refPrimaryBlue,
+                    inactiveTrackColor: const Color(0xFFE2E8F0),
+                    thumbColor: _refPrimaryBlue,
+                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.5),
+                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                  ),
+                  child: Slider(
+                    value: state.playbackProgress,
+                    onChanged: hasSamples ? onSeekProgress : null,
+                  ),
+                ),
+              ),
+              Text(
+                endTimeStr,
+                style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w500, color: _refMuted),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── TẦNG 3.3: Current Information Panel (Dữ liệu mốc hiện tại) ───────────────
+
+class _JourneyCurrentInfoCard extends StatelessWidget {
+  const _JourneyCurrentInfoCard({required this.state});
+
+  final JourneyHistoryState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final sample = (state.currentSampleIndex >= 0 && state.currentSampleIndex < state.validSamples.length)
+        ? state.validSamples[state.currentSampleIndex]
+        : (state.validSamples.isNotEmpty ? state.validSamples.first : null);
+
+    final latStr = state.currentPosition != null
+        ? state.currentPosition!.latitude.toStringAsFixed(6)
+        : (sample != null ? sample.latitude.toStringAsFixed(6) : '--');
+    final lngStr = state.currentPosition != null
+        ? state.currentPosition!.longitude.toStringAsFixed(6)
+        : (sample != null ? sample.longitude.toStringAsFixed(6) : '--');
+
+    final altStr = sample?.altitudeM != null ? '${sample!.altitudeM!.toStringAsFixed(1)} m' : '--';
+    final speedStr = DeviceFormatters.speedMps(state.currentSpeedMps);
+    final headingStr = DeviceFormatters.heading(state.currentHeadingDeg);
+    final isMoving = (state.currentSpeedMps ?? 0) >= 0.5;
+
+    final timeStr = state.currentReplayTime != null
+        ? DateFormat('dd/MM/yyyy HH:mm:ss').format(state.currentReplayTime!.toLocal())
+        : '--';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: _refSurface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _refBorder),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= 780;
+
+          if (isWide) {
+            return Row(
+              children: [
+                // 1. Vị trí hiện tại
+                Expanded(
+                  flex: 36,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Vị trí hiện tại',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _refMuted),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '$latStr, $lngStr',
+                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: _refText),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        'Độ cao: $altStr  ·  Độ chính xác GPS: ±4 m',
+                        style: const TextStyle(fontSize: 10, color: _refMuted),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 34, child: VerticalDivider(width: 20, color: _refBorder)),
+
+                // 2. Tốc độ
+                Expanded(
+                  flex: 16,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('Tốc độ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _refMuted)),
+                      const SizedBox(height: 3),
+                      Text(speedStr, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: _refText)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 34, child: VerticalDivider(width: 20, color: _refBorder)),
+
+                // 3. Hướng
+                Expanded(
+                  flex: 16,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('Hướng', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _refMuted)),
+                      const SizedBox(height: 3),
+                      Text(headingStr, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _refText)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 34, child: VerticalDivider(width: 20, color: _refBorder)),
+
+                // 4. Trạng thái
+                Expanded(
+                  flex: 16,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('Trạng thái', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _refMuted)),
+                      const SizedBox(height: 3),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.circle_rounded,
+                            size: 7,
+                            color: isMoving ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            isMoving ? 'Đang di chuyển' : 'Đang dừng',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: isMoving ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 34, child: VerticalDivider(width: 20, color: _refBorder)),
+
+                // 5. Thời điểm
+                Expanded(
+                  flex: 16,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('Thời điểm', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _refMuted)),
+                      const SizedBox(height: 3),
+                      Text(
+                        timeStr,
+                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: _refText),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          }
+
+          // Wrap cho màn hình hẹp
+          return Wrap(
+            spacing: 16,
+            runSpacing: 10,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Vị trí hiện tại', style: TextStyle(fontSize: 11, color: _refMuted)),
+                  Text('$latStr, $lngStr · Độ cao: $altStr', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Tốc độ', style: TextStyle(fontSize: 11, color: _refMuted)),
+                  Text(speedStr, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Hướng', style: TextStyle(fontSize: 11, color: _refMuted)),
+                  Text(headingStr, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Trạng thái', style: TextStyle(fontSize: 11, color: _refMuted)),
+                  Text(
+                    isMoving ? 'Đang di chuyển' : 'Đang dừng',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: isMoving ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ─── TẦNG 3.4: Right Timeline Card (Lịch trình chi tiết) ─────────────────────
+
+class _JourneyTimelineCard extends StatelessWidget {
+  const _JourneyTimelineCard({
+    required this.state,
+    required this.height,
+    required this.onSelectSample,
+  });
+
+  final JourneyHistoryState state;
+  final double height;
+  final ValueChanged<LocationModel> onSelectSample;
+
+  @override
+  Widget build(BuildContext context) {
+    final samples = state.validSamples;
+    final timeFormat = DateFormat('HH:mm:ss');
+
+    return Container(
+      height: height,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _refSurface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _refBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Lịch trình chi tiết',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _refText),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEBF3FF),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '${state.segments.length} đoạn',
+                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: _refPrimaryBlue),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '${samples.length} mốc thời gian đã ghi nhận',
+            style: const TextStyle(fontSize: 11, color: _refMuted),
+          ),
+          const SizedBox(height: 10),
+          const Divider(height: 1, color: _refBorder),
+          const SizedBox(height: 8),
+
+          // List timeline cuộn độc lập
+          Expanded(
+            child: samples.isEmpty
+                ? const Center(
+                    child: Text(
+                      'Chưa có dữ liệu lịch trình',
+                      style: TextStyle(fontSize: 12, color: _refMuted),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: samples.length,
+                    itemBuilder: (context, index) {
+                      final s = samples[index];
+                      final isFirst = index == 0;
+                      final isLast = index == samples.length - 1;
+                      final isStopped = (s.speedMps ?? 0) < 0.5;
+
+                      // Dot color
+                      final dotColor = isFirst
+                          ? const Color(0xFF16A34A)
+                          : (isLast
+                              ? const Color(0xFFEF4444)
+                              : (isStopped ? const Color(0xFFD97706) : const Color(0xFF1677FF)));
+
+                      final titleLabel = isFirst
+                          ? 'Bắt đầu'
+                          : (isLast
+                              ? 'Kết thúc'
+                              : (isStopped ? 'Điểm dừng' : 'Di chuyển'));
+
+                      final speedLabel = s.speedMps != null
+                          ? '${(s.speedMps! * 3.6).toStringAsFixed(0)} km/h'
+                          : '';
+
+                      return InkWell(
+                        onTap: () => onSelectSample(s),
+                        borderRadius: BorderRadius.circular(6),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Timeline vertical line + dot
+                              SizedBox(
+                                width: 20,
+                                child: Column(
+                                  children: [
+                                    Container(
+                                      width: 8,
+                                      height: 8,
+                                      margin: const EdgeInsets.only(top: 3),
+                                      decoration: BoxDecoration(
+                                        color: dotColor,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: Colors.white, width: 1.5),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: dotColor.withValues(alpha: 0.3),
+                                            blurRadius: 3,
+                                          )
+                                        ],
+                                      ),
+                                    ),
+                                    if (!isLast)
+                                      Container(
+                                        width: 1.5,
+                                        height: 28,
+                                        color: const Color(0xFFE2E8F0),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+
+                              // Content
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          timeFormat.format(s.measuredAt.toLocal()),
+                                          style: const TextStyle(
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w700,
+                                            color: _refText,
+                                          ),
+                                        ),
+                                        if (speedLabel.isNotEmpty && !isFirst && !isLast)
+                                          Text(
+                                            speedLabel,
+                                            style: const TextStyle(fontSize: 11, color: _refMuted),
+                                          ),
+                                      ],
+                                    ),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          titleLabel,
+                                          style: TextStyle(
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.w600,
+                                            color: dotColor,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${s.latitude.toStringAsFixed(4)}, ${s.longitude.toStringAsFixed(4)}',
+                                          style: const TextStyle(fontSize: 9.5, color: _refMuted),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -3021,7 +4104,7 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
     _mapController.fitCamera(
       CameraFit.bounds(
         bounds: bounds,
-        padding: const EdgeInsets.only(left: 36, right: 36, top: 36, bottom: 100),
+        padding: const EdgeInsets.only(left: 36, right: 36, top: 36, bottom: 36),
       ),
     );
   }
@@ -3081,7 +4164,7 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
               PolylineLayer(
                 polylines: HistoryMapLayers.buildPolylines(
                   segments: state.segments,
-                  primaryColor: theme.colorScheme.primary,
+                  primaryColor: _refPrimaryBlue,
                 ),
               ),
 
@@ -3095,7 +4178,7 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
                 ),
               ),
 
-            // Các mốc GPS: Start, End, Waypoints chống chồng chéo Google Maps style
+            // Các mốc GPS: Start, End, Waypoints chống chồng chéo Google Maps style (đầy đủ ngày tháng năm)
             if (state.validSamples.isNotEmpty)
               MarkerLayer(
                 markers: HistoryMapLayers.buildSamplePoints(
@@ -3172,7 +4255,7 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
                   margin: const EdgeInsets.all(24),
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surface.withValues(alpha: 0.95),
+                    color: Colors.white.withValues(alpha: 0.95),
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 12)],
                   ),
@@ -3181,15 +4264,15 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
                     children: [
                       Icon(Icons.route_outlined, size: 40, color: theme.colorScheme.outline),
                       const SizedBox(height: 8),
-                      Text(
+                      const Text(
                         'Không có dữ liệu vị trí trong khoảng thời gian đã chọn.',
-                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: _refText),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 4),
-                      Text(
+                      const Text(
                         'Hãy chọn khoảng thời gian khác hoặc kiểm tra lại thiết bị.',
-                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+                        style: TextStyle(fontSize: 12, color: _refMuted),
                         textAlign: TextAlign.center,
                       ),
                     ],
@@ -3205,13 +4288,13 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surface.withValues(alpha: 0.92),
+                color: Colors.white.withValues(alpha: 0.92),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: theme.colorScheme.outlineVariant),
+                border: Border.all(color: _refBorder),
               ),
-              child: Text(
+              child: const Text(
                 'Chỉ có 1 mốc vị trí trong khoảng này.',
-                style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _refText),
               ),
             ),
           ),
