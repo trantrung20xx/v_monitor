@@ -102,11 +102,11 @@ class DeviceGrid extends StatelessWidget {
 
         // Multi-column responsive grid: at least 3+ cards on desktop
         final int columnCount;
-        if (totalWidth >= 1380) {
+        if (totalWidth >= 1200) {
           columnCount = 4;
-        } else if (totalWidth >= 750) {
+        } else if (totalWidth >= 800) {
           columnCount = 3;
-        } else if (totalWidth >= 480) {
+        } else if (totalWidth >= 520) {
           columnCount = 2;
         } else {
           columnCount = 1;

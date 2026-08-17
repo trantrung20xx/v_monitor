@@ -145,7 +145,7 @@ class DeviceCard extends StatelessWidget {
                             Icon(
                               Icons.bolt_rounded,
                               size: 12,
-                              color: Color(0xFF2563EB),
+                              color: Color(0xFF1677FF),
                             ),
                             SizedBox(width: 2),
                             Text(
@@ -223,9 +223,9 @@ class DeviceCard extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 1. Kết nối (flex 10)
+                    // 1. Kết nối (flex 11)
                     Expanded(
-                      flex: 10,
+                      flex: 11,
                       child: _MetricItem(
                         icon: connIcon,
                         iconColor: connColor,
@@ -235,9 +235,9 @@ class DeviceCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    // 2. Cập nhật (flex 11)
+                    // 2. Cập nhật (flex 10)
                     Expanded(
-                      flex: 11,
+                      flex: 10,
                       child: _MetricItem(
                         icon: isStale
                             ? Icons.warning_amber_rounded
@@ -258,7 +258,7 @@ class DeviceCard extends StatelessWidget {
                       flex: 9,
                       child: _MetricItem(
                         icon: Icons.explore_outlined,
-                        iconColor: const Color(0xFF3976D9),
+                        iconColor: const Color(0xFF1677FF),
                         label: 'Hướng',
                         value: headingText,
                         valueColor: const Color(0xFF18212A),
@@ -373,33 +373,35 @@ class _MetricItem extends StatelessWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 13, color: iconColor),
-            const SizedBox(width: 4),
+            Icon(icon, size: 12.5, color: iconColor),
+            const SizedBox(width: 3.5),
             Flexible(
               child: Text(
                 label,
                 style: const TextStyle(
-                  fontSize: 11,
+                  fontSize: 10.5,
                   fontWeight: FontWeight.w500,
                   color: Color(0xFF66727D),
                 ),
                 maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
         ),
         const SizedBox(height: 2),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w600,
-            color: valueColor,
-            height: 1.2,
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: valueColor,
+              height: 1.15,
+            ),
+            maxLines: 1,
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
         ),
       ],
     );
