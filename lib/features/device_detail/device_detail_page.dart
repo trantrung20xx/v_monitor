@@ -3342,7 +3342,7 @@ class _JourneyMapCard extends StatelessWidget {
 
   final JourneyHistoryState state;
   final double height;
-  final ValueChanged<LocationModel> onPointSelected;
+  final ValueChanged<LocationModel?> onPointSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -3369,7 +3369,7 @@ class _JourneyMapCard extends StatelessWidget {
               right: 12,
               child: PointInfoPopup(
                 point: state.selectedPoint!,
-                onClose: () => onPointSelected(state.selectedPoint!),
+                onClose: () => onPointSelected(null),
               ),
             ),
         ],
@@ -4053,7 +4053,7 @@ class _JourneyTimelineCard extends StatelessWidget {
 
 class _DeviceJourneyMapView extends StatefulWidget {
   final JourneyHistoryState state;
-  final ValueChanged<LocationModel> onPointSelected;
+  final ValueChanged<LocationModel?> onPointSelected;
 
   const _DeviceJourneyMapView({
     required this.state,
@@ -4135,6 +4135,7 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
             initialZoom: _currentZoom,
             minZoom: 4,
             maxZoom: 19,
+            onTap: (tapPosition, point) => widget.onPointSelected(null),
             onMapReady: () {
               _mapReady = true;
               if (state.validSamples.isNotEmpty) {

@@ -221,7 +221,7 @@ class _JourneyHistoryPageState extends State<JourneyHistoryPage> {
 
 class _HistoryMapView extends StatefulWidget {
   final JourneyHistoryState state;
-  final ValueChanged<LocationModel> onPointSelected;
+  final ValueChanged<LocationModel?> onPointSelected;
 
   const _HistoryMapView({
     required this.state,
@@ -303,6 +303,7 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
             initialZoom: _currentZoom,
             minZoom: 4,
             maxZoom: 19,
+            onTap: (tapPosition, point) => widget.onPointSelected(null),
             onMapReady: () {
               _mapReady = true;
               if (state.validSamples.isNotEmpty) {

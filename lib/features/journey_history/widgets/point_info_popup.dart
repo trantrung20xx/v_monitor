@@ -16,58 +16,64 @@ class PointInfoPopup extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 320),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withValues(alpha: 0.96),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+    return TapRegion(
+      onTapOutside: (_) => onClose(),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 320),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface.withValues(alpha: 0.96),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.15),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.location_on_rounded, size: 16, color: theme.colorScheme.primary),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Chi tiết mốc GPS',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.onPrimaryContainer,
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.location_on_rounded, size: 16, color: theme.colorScheme.primary),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Chi tiết mốc GPS',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onPrimaryContainer,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                InkWell(
-                  onTap: onClose,
-                  borderRadius: BorderRadius.circular(12),
-                  child: const Padding(
-                    padding: EdgeInsets.all(2),
-                    child: Icon(Icons.close_rounded, size: 18),
+                    ],
                   ),
-                ),
-              ],
+                  IconButton(
+                    onPressed: onClose,
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    tooltip: 'Đóng',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                    splashRadius: 16,
+                  ),
+                ],
+              ),
             ),
-          ),
 
           // Body
           Padding(
@@ -135,8 +141,9 @@ class PointInfoPopup extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildInfoRow(ThemeData theme, IconData icon, String label, String value) {
     return Row(
