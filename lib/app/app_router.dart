@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 
 import '../features/dashboard/dashboard_page.dart';
 import '../features/device_detail/device_detail_page.dart';
-import '../features/journey_history/journey_history_page.dart';
 import '../features/map/map_view_page.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
@@ -28,14 +27,6 @@ class AppRouter {
             path: '/map',
             name: 'map',
             builder: (context, state) => const MapViewPage(),
-          ),
-          GoRoute(
-            path: '/history',
-            name: 'history',
-            builder: (context, state) {
-              final deviceId = state.uri.queryParameters['device_id'];
-              return JourneyHistoryPage(initialDeviceId: deviceId);
-            },
           ),
         ],
       ),
@@ -75,11 +66,6 @@ class _AppShellState extends State<_AppShell> {
       selectedIcon: Icon(Icons.map),
       label: Text('Bản đồ'),
     ),
-    NavigationRailDestination(
-      icon: Icon(Icons.route_outlined),
-      selectedIcon: Icon(Icons.route_rounded),
-      label: Text('Lịch sử'),
-    ),
   ];
 
   void _onDestinationSelected(int index) {
@@ -89,8 +75,6 @@ class _AppShellState extends State<_AppShell> {
         context.goNamed('dashboard');
       case 1:
         context.goNamed('map');
-      case 2:
-        context.goNamed('history');
     }
   }
 
@@ -98,11 +82,7 @@ class _AppShellState extends State<_AppShell> {
   Widget build(BuildContext context) {
     // Determine current index from location
     final location = GoRouterState.of(context).uri.toString();
-    final currentIndex = location.startsWith('/history')
-        ? 2
-        : location.startsWith('/map')
-            ? 1
-            : 0;
+    final currentIndex = location.startsWith('/map') ? 1 : 0;
     if (currentIndex != _selectedIndex) {
       _selectedIndex = currentIndex;
     }
@@ -143,11 +123,6 @@ class _AppShellState extends State<_AppShell> {
             icon: Icon(Icons.map_outlined),
             selectedIcon: Icon(Icons.map),
             label: 'Bản đồ',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.route_outlined),
-            selectedIcon: Icon(Icons.route_rounded),
-            label: 'Lịch sử',
           ),
         ],
       ),
