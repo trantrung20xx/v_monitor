@@ -50,6 +50,15 @@ void main() {
     expect(find.byIcon(Icons.add_rounded), findsOneWidget);
     expect(find.byIcon(Icons.remove_rounded), findsOneWidget);
     expect(find.byIcon(Icons.my_location_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.satellite_alt_rounded), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.satellite_alt_rounded));
+    await tester.pump();
+    expect(find.byIcon(Icons.map_rounded), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.map_rounded));
+    await tester.pump();
+    expect(find.byIcon(Icons.satellite_alt_rounded), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.add_rounded));
     await tester.pump();

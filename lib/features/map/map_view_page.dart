@@ -6,6 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../core/config/map_tile_providers.dart';
 import '../../core/widgets/device_icon.dart';
 import '../../data/models/device_model.dart';
 import '../../domain/entities/device_status_resolver.dart';
@@ -67,6 +68,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
   bool _showDesktopList = false;
   bool _mapReady = false;
   double _currentZoom = _initialZoom;
+  bool _isSatellite = false;
 
   void _onDeviceSelected(BuildContext context, DeviceModel device) {
     if (device.latitude != null && device.longitude != null) {
@@ -120,41 +122,48 @@ class _MapViewBodyState extends State<_MapViewBody> {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = MediaQuery.of(context).size.width > 800;
+
     return BlocBuilder<DashboardCubit, DashboardState>(
       builder: (context, state) {
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Bản đồ'),
+            title: const Text('Bản đồ giám sát'),
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_rounded),
+              tooltip: 'Quay lại',
+              onPressed: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/dashboard');
+                }
+              },
+            ),
             actions: [
               if (!state.isLoading && state.devices.isNotEmpty)
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isDesktop = MediaQuery.of(context).size.width > 800;
-                    return IconButton(
-                      icon: const Icon(Icons.list_alt),
-                      tooltip: 'Danh sách thiết bị',
-                      onPressed: () {
-                        if (isDesktop) {
-                          setState(() {
-                            _showDesktopList = !_showDesktopList;
-                          });
-                        } else {
-                          _openMobileList(
-                            context,
-                            state.devices,
-                            state.deviceAddresses,
-                          );
-                        }
-                      },
-                    );
+                IconButton(
+                  icon: const Icon(Icons.list_alt_rounded),
+                  tooltip: 'Danh sách thiết bị',
+                  onPressed: () {
+                    if (isDesktop) {
+                      setState(() {
+                        _showDesktopList = !_showDesktopList;
+                      });
+                    } else {
+                      _openMobileList(
+                        context,
+                        state.devices,
+                        state.deviceAddresses,
+                      );
+                    }
                   },
                 ),
               IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: () {
-                  context.read<DashboardCubit>().loadDashboard();
-                },
-                tooltip: 'Tải lại',
+                icon: const Icon(Icons.refresh_rounded),
+                tooltip: 'Làm mới dữ liệu',
+                onPressed: () => context.read<DashboardCubit>().loadDashboard(),
               ),
             ],
           ),
@@ -172,10 +181,9 @@ class _MapViewBodyState extends State<_MapViewBody> {
                 ? LatLng(located.first.latitude!, located.first.longitude!)
                 : defaultCenter;
 
-            final isDesktop = MediaQuery.of(context).size.width > 800;
             if (!isDesktop && _showDesktopList) {
-              // Auto hide when resized to mobile
               WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) return;
                 setState(() {
                   _showDesktopList = false;
                 });
@@ -205,19 +213,25 @@ class _MapViewBodyState extends State<_MapViewBody> {
                       ),
                       children: [
                         TileLayer(
-                          urlTemplate:
-                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          urlTemplate: MapTileProviders.getUrl(
+                            _isSatellite
+                                ? AppMapType.satellite
+                                : AppMapType.standard,
+                          ),
                           userAgentPackageName: 'com.vmonitor.app',
                           minZoom: _minZoom,
                           maxZoom: _maxZoom,
-                          maxNativeZoom: 19,
+                          maxNativeZoom: MapTileProviders.getMaxZoom(
+                            _isSatellite
+                                ? AppMapType.satellite
+                                : AppMapType.standard,
+                          ),
                           tileProvider: NetworkTileProvider(
                             silenceExceptions: true,
                           ),
                           errorImage: MemoryImage(
                             TileProvider.transparentImage,
                           ),
-                          tileBuilder: _softMapTileBuilder,
                         ),
                         MarkerLayer(
                           markers: located
@@ -237,6 +251,9 @@ class _MapViewBodyState extends State<_MapViewBody> {
                       onZoomIn: () => _zoomBy(_zoomStep),
                       onZoomOut: () => _zoomBy(-_zoomStep),
                       onCenter: () => _centerOn(center),
+                      onToggleMapType: () =>
+                          setState(() => _isSatellite = !_isSatellite),
+                      isSatellite: _isSatellite,
                     ),
                   ),
                 ),
@@ -419,20 +436,6 @@ class _MapViewBodyState extends State<_MapViewBody> {
     if (!_mapReady) return;
     _mapController.move(center, _currentZoom, id: 'map-center');
   }
-
-  Widget _softMapTileBuilder(
-    BuildContext context,
-    Widget tileWidget,
-    TileImage tile,
-  ) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Opacity(opacity: 0.78, child: tileWidget),
-        ColoredBox(color: Colors.white.withValues(alpha: 0.14)),
-      ],
-    );
-  }
 }
 
 class _ArrowPainter extends CustomPainter {
@@ -459,17 +462,22 @@ class _MapControls extends StatelessWidget {
     required this.onZoomIn,
     required this.onZoomOut,
     required this.onCenter,
+    required this.onToggleMapType,
+    required this.isSatellite,
   });
 
   final VoidCallback onZoomIn;
   final VoidCallback onZoomOut;
   final VoidCallback onCenter;
+  final VoidCallback onToggleMapType;
+  final bool isSatellite;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Cụm 1: Phóng to, thu nhỏ, căn giữa bản đồ
         DecoratedBox(
           decoration: _decoration(),
           child: Column(
@@ -486,16 +494,28 @@ class _MapControls extends StatelessWidget {
                 tooltip: 'Thu nhỏ bản đồ',
                 onPressed: onZoomOut,
               ),
+              const SizedBox(width: 34, child: Divider(height: 1)),
+              _MapControlButton(
+                icon: Icons.my_location_rounded,
+                tooltip: 'Căn giữa bản đồ',
+                onPressed: onCenter,
+              ),
             ],
           ),
         ),
         const SizedBox(height: 8),
+        // Cụm 2: Chuyển đổi mode bản đồ (đường phố / vệ tinh) riêng biệt
         DecoratedBox(
           decoration: _decoration(),
           child: _MapControlButton(
-            icon: Icons.my_location_rounded,
-            tooltip: 'Căn giữa bản đồ',
-            onPressed: onCenter,
+            icon: isSatellite ? Icons.map_rounded : Icons.satellite_alt_rounded,
+            tooltip: isSatellite
+                ? 'Chuyển sang bản đồ đường phố'
+                : 'Chuyển sang bản đồ vệ tinh',
+            iconColor: isSatellite
+                ? const Color(0xFF1677FF)
+                : const Color(0xFF475569),
+            onPressed: onToggleMapType,
           ),
         ),
       ],
@@ -507,12 +527,8 @@ class _MapControls extends StatelessWidget {
       color: Colors.white.withValues(alpha: 0.96),
       borderRadius: BorderRadius.circular(8),
       border: Border.all(color: const Color(0xFFE2E8F0)),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.08),
-          blurRadius: 12,
-          offset: const Offset(0, 4),
-        ),
+      boxShadow: const [
+        BoxShadow(color: Colors.black12, blurRadius: 12, offset: Offset(0, 4)),
       ],
     );
   }
@@ -523,11 +539,13 @@ class _MapControlButton extends StatelessWidget {
     required this.icon,
     required this.tooltip,
     required this.onPressed,
+    this.iconColor,
   });
 
   final IconData icon;
   final String tooltip;
   final VoidCallback onPressed;
+  final Color? iconColor;
 
   @override
   Widget build(BuildContext context) {
@@ -541,7 +559,11 @@ class _MapControlButton extends StatelessWidget {
           padding: EdgeInsets.zero,
           visualDensity: VisualDensity.compact,
           splashRadius: 18,
-          icon: Icon(icon, size: 20, color: const Color(0xFF475569)),
+          icon: Icon(
+            icon,
+            size: 20,
+            color: iconColor ?? const Color(0xFF475569),
+          ),
         ),
       ),
     );

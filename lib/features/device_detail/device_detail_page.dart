@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../core/config/map_tile_providers.dart';
 import '../../core/widgets/device_icon.dart';
 import '../../core/utils/map_launcher_service.dart';
 import '../../core/utils/device_formatters.dart';
@@ -1919,6 +1920,7 @@ class _MapWidgetState extends State<_MapWidget> {
   late LatLng _targetCenter;
   var _zoom = _initialZoom;
   var _mapReady = false;
+  var _isSatellite = false;
 
   @override
   void initState() {
@@ -2006,14 +2008,17 @@ class _MapWidgetState extends State<_MapWidget> {
               ),
               children: [
                 TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  urlTemplate: MapTileProviders.getUrl(
+                    _isSatellite ? AppMapType.satellite : AppMapType.standard,
+                  ),
                   userAgentPackageName: 'com.vmonitor.app',
                   minZoom: _minZoom,
                   maxZoom: _maxZoom,
-                  maxNativeZoom: 19,
+                  maxNativeZoom: MapTileProviders.getMaxZoom(
+                    _isSatellite ? AppMapType.satellite : AppMapType.standard,
+                  ),
                   tileProvider: NetworkTileProvider(silenceExceptions: true),
                   errorImage: MemoryImage(TileProvider.transparentImage),
-                  tileBuilder: _softMapTileBuilder,
                 ),
                 if (routePoints.length >= 2)
                   PolylineLayer(
@@ -2083,6 +2088,9 @@ class _MapWidgetState extends State<_MapWidget> {
               onZoomIn: () => _zoomBy(_zoomStep),
               onZoomOut: () => _zoomBy(-_zoomStep),
               onCenter: _centerOnTarget,
+              onToggleMapType: () =>
+                  setState(() => _isSatellite = !_isSatellite),
+              isSatellite: _isSatellite,
             ),
           ),
         ),
@@ -2116,20 +2124,6 @@ class _MapWidgetState extends State<_MapWidget> {
   void _centerOnTarget() {
     if (!_mapReady) return;
     _mapController.move(_targetCenter, _zoom, id: 'map-center-device');
-  }
-
-  Widget _softMapTileBuilder(
-    BuildContext context,
-    Widget tileWidget,
-    TileImage tile,
-  ) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Opacity(opacity: 0.78, child: tileWidget),
-        ColoredBox(color: Colors.white.withValues(alpha: 0.14)),
-      ],
-    );
   }
 
   Color _markerColor(ResolvedDeviceStatus status) {
@@ -2208,17 +2202,22 @@ class _MapControls extends StatelessWidget {
     required this.onZoomIn,
     required this.onZoomOut,
     required this.onCenter,
+    required this.onToggleMapType,
+    required this.isSatellite,
   });
 
   final VoidCallback onZoomIn;
   final VoidCallback onZoomOut;
   final VoidCallback onCenter;
+  final VoidCallback onToggleMapType;
+  final bool isSatellite;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Cụm 1: Phóng to, thu nhỏ, căn giữa thiết bị
         DecoratedBox(
           decoration: _mapControlDecoration(),
           child: Column(
@@ -2235,16 +2234,28 @@ class _MapControls extends StatelessWidget {
                 tooltip: 'Thu nhỏ bản đồ',
                 onPressed: onZoomOut,
               ),
+              const SizedBox(width: 34, child: Divider(height: 1)),
+              _MapControlButton(
+                icon: Icons.my_location_rounded,
+                tooltip: 'Căn giữa thiết bị',
+                onPressed: onCenter,
+              ),
             ],
           ),
         ),
         const SizedBox(height: 8),
+        // Cụm 2: Chuyển đổi mode bản đồ riêng biệt
         DecoratedBox(
           decoration: _mapControlDecoration(),
           child: _MapControlButton(
-            icon: Icons.my_location_rounded,
-            tooltip: 'Căn giữa thiết bị',
-            onPressed: onCenter,
+            icon: isSatellite ? Icons.map_rounded : Icons.satellite_alt_rounded,
+            tooltip: isSatellite
+                ? 'Chuyển sang bản đồ đường phố'
+                : 'Chuyển sang bản đồ vệ tinh',
+            iconColor: isSatellite
+                ? const Color(0xFF1677FF)
+                : const Color(0xFF475569),
+            onPressed: onToggleMapType,
           ),
         ),
       ],
@@ -2256,12 +2267,8 @@ class _MapControls extends StatelessWidget {
       color: Colors.white.withValues(alpha: 0.96),
       borderRadius: BorderRadius.circular(8),
       border: Border.all(color: _refBorder),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.08),
-          blurRadius: 12,
-          offset: const Offset(0, 4),
-        ),
+      boxShadow: const [
+        BoxShadow(color: Colors.black12, blurRadius: 12, offset: Offset(0, 4)),
       ],
     );
   }
@@ -2272,11 +2279,13 @@ class _MapControlButton extends StatelessWidget {
     required this.icon,
     required this.tooltip,
     required this.onPressed,
+    this.iconColor,
   });
 
   final IconData icon;
   final String tooltip;
   final VoidCallback onPressed;
+  final Color? iconColor;
 
   @override
   Widget build(BuildContext context) {
@@ -4688,6 +4697,7 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
   final MapController _mapController = MapController();
   bool _mapReady = false;
   double _currentZoom = 14.0;
+  bool _isSatellite = false;
   static const LatLng _defaultCenter = LatLng(21.0285, 105.8542);
 
   @override
@@ -4786,11 +4796,15 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
           children: [
             // Map Tiles
             TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              urlTemplate: MapTileProviders.getUrl(
+                _isSatellite ? AppMapType.satellite : AppMapType.standard,
+              ),
               userAgentPackageName: 'com.vmonitor.app',
               minZoom: 4,
               maxZoom: 19,
-              maxNativeZoom: 19,
+              maxNativeZoom: MapTileProviders.getMaxZoom(
+                _isSatellite ? AppMapType.satellite : AppMapType.standard,
+              ),
               tileProvider: NetworkTileProvider(silenceExceptions: true),
               errorImage: MemoryImage(TileProvider.transparentImage),
             ),
@@ -4838,7 +4852,7 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
           ],
         ),
 
-        // Zoom in/out controls góc trái
+        // Zoom in/out & Satellite controls góc trái
         Positioned(
           left: 12,
           top: 12,
@@ -4862,6 +4876,8 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
                 _fitRouteBounds(state.validSamples);
               }
             },
+            onToggleMapType: () => setState(() => _isSatellite = !_isSatellite),
+            isSatellite: _isSatellite,
           ),
         ),
 
@@ -4972,49 +4988,80 @@ class _MapZoomControls extends StatelessWidget {
   final VoidCallback onZoomIn;
   final VoidCallback onZoomOut;
   final VoidCallback onFitBounds;
+  final VoidCallback onToggleMapType;
+  final bool isSatellite;
 
   const _MapZoomControls({
     required this.onZoomIn,
     required this.onZoomOut,
     required this.onFitBounds,
+    required this.onToggleMapType,
+    required this.isSatellite,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.96),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2)),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.add_rounded, size: 18),
-            tooltip: 'Phóng to',
-            onPressed: onZoomIn,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Cụm 1: Phóng to, thu nhỏ, vừa toàn bộ lộ trình
+        Container(
+          decoration: _boxDecoration(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.add_rounded, size: 18),
+                tooltip: 'Phóng to',
+                onPressed: onZoomIn,
+                visualDensity: VisualDensity.compact,
+              ),
+              const SizedBox(width: 28, child: Divider(height: 1)),
+              IconButton(
+                icon: const Icon(Icons.remove_rounded, size: 18),
+                tooltip: 'Thu nhỏ',
+                onPressed: onZoomOut,
+                visualDensity: VisualDensity.compact,
+              ),
+              const SizedBox(width: 28, child: Divider(height: 1)),
+              IconButton(
+                icon: const Icon(Icons.fit_screen_rounded, size: 16),
+                tooltip: 'Vừa toàn bộ lộ trình',
+                onPressed: onFitBounds,
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        // Cụm 2: Chuyển đổi mode bản đồ riêng biệt
+        Container(
+          decoration: _boxDecoration(),
+          child: IconButton(
+            icon: Icon(
+              isSatellite ? Icons.map_rounded : Icons.satellite_alt_rounded,
+              size: 16,
+              color: isSatellite ? _refPrimaryBlue : const Color(0xFF475569),
+            ),
+            tooltip: isSatellite
+                ? 'Chuyển sang bản đồ đường phố'
+                : 'Chuyển sang bản đồ vệ tinh',
+            onPressed: onToggleMapType,
             visualDensity: VisualDensity.compact,
           ),
-          const SizedBox(width: 28, child: Divider(height: 1)),
-          IconButton(
-            icon: const Icon(Icons.remove_rounded, size: 18),
-            tooltip: 'Thu nhỏ',
-            onPressed: onZoomOut,
-            visualDensity: VisualDensity.compact,
-          ),
-          const SizedBox(width: 28, child: Divider(height: 1)),
-          IconButton(
-            icon: const Icon(Icons.fit_screen_rounded, size: 16),
-            tooltip: 'Vừa toàn bộ lộ trình',
-            onPressed: onFitBounds,
-            visualDensity: VisualDensity.compact,
-          ),
-        ],
-      ),
+        ),
+      ],
+    );
+  }
+
+  BoxDecoration _boxDecoration() {
+    return BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.96),
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: const Color(0xFFE2E8F0)),
+      boxShadow: const [
+        BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2)),
+      ],
     );
   }
 }

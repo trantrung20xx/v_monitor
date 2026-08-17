@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../core/config/map_tile_providers.dart';
 import '../../data/models/device_model.dart';
 import '../../data/models/location_model.dart';
 import '../../data/repositories/device_repository.dart';
@@ -62,9 +63,9 @@ class _JourneyHistoryPageState extends State<JourneyHistoryPage> {
         DeviceModel? target;
         if (widget.initialDeviceId != null) {
           target = devices.cast<DeviceModel?>().firstWhere(
-                (d) => d?.id == widget.initialDeviceId,
-                orElse: () => null,
-              );
+            (d) => d?.id == widget.initialDeviceId,
+            orElse: () => null,
+          );
         }
         target ??= devices.first;
         _cubit.selectDevice(target);
@@ -89,11 +90,7 @@ class _JourneyHistoryPageState extends State<JourneyHistoryPage> {
       return;
     }
 
-    _cubit.loadHistory(
-      deviceId: dev.id,
-      from: _fromTime,
-      to: _toTime,
-    );
+    _cubit.loadHistory(deviceId: dev.id, from: _fromTime, to: _toTime);
   }
 
   @override
@@ -159,7 +156,10 @@ class _JourneyHistoryPageState extends State<JourneyHistoryPage> {
                 // 2. Summary Band (Tổng quan quãng đường, vận tốc, mẫu GPS)
                 if (state.validSamples.isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 2,
+                    ),
                     child: RouteSummaryBand(state: state),
                   ),
 
@@ -174,7 +174,8 @@ class _JourneyHistoryPageState extends State<JourneyHistoryPage> {
                           borderRadius: BorderRadius.circular(12),
                           child: _HistoryMapView(
                             state: state,
-                            onPointSelected: (point) => _cubit.selectPoint(point),
+                            onPointSelected: (point) =>
+                                _cubit.selectPoint(point),
                           ),
                         ),
 
@@ -201,13 +202,22 @@ class _JourneyHistoryPageState extends State<JourneyHistoryPage> {
                               onPause: () => _cubit.pause(),
                               onResume: () => _cubit.resume(),
                               onReset: () => _cubit.reset(),
-                              onStepBackward30s: () => _cubit.stepBackward(const Duration(seconds: 30)),
-                              onStepBackward60s: () => _cubit.stepBackward(const Duration(seconds: 60)),
-                              onStepForward30s: () => _cubit.stepForward(const Duration(seconds: 30)),
-                              onStepForward60s: () => _cubit.stepForward(const Duration(seconds: 60)),
+                              onStepBackward30s: () => _cubit.stepBackward(
+                                const Duration(seconds: 30),
+                              ),
+                              onStepBackward60s: () => _cubit.stepBackward(
+                                const Duration(seconds: 60),
+                              ),
+                              onStepForward30s: () => _cubit.stepForward(
+                                const Duration(seconds: 30),
+                              ),
+                              onStepForward60s: () => _cubit.stepForward(
+                                const Duration(seconds: 60),
+                              ),
                               onSeekProgress: (p) => _cubit.seekToProgress(p),
                               onSpeedChanged: (s) => _cubit.setPlaybackSpeed(s),
-                              onFollowChanged: (f) => _cubit.toggleFollowCamera(f),
+                              onFollowChanged: (f) =>
+                                  _cubit.toggleFollowCamera(f),
                             ),
                           ),
                       ],
@@ -227,10 +237,7 @@ class _HistoryMapView extends StatefulWidget {
   final JourneyHistoryState state;
   final ValueChanged<LocationModel?> onPointSelected;
 
-  const _HistoryMapView({
-    required this.state,
-    required this.onPointSelected,
-  });
+  const _HistoryMapView({required this.state, required this.onPointSelected});
 
   @override
   State<_HistoryMapView> createState() => _HistoryMapViewState();
@@ -239,7 +246,8 @@ class _HistoryMapView extends StatefulWidget {
 class _HistoryMapViewState extends State<_HistoryMapView> {
   final MapController _mapController = MapController();
   bool _mapReady = false;
-  double _currentZoom = 14.0;
+  double _currentZoom = 13.0;
+  bool _isSatellite = false;
   static const LatLng _defaultCenter = LatLng(21.0285, 105.8542);
 
   @override
@@ -248,15 +256,15 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
 
     if (!_mapReady) return;
 
-    // Khi có danh sách lộ trình mới -> tự động fit bounds
     final oldSamples = oldWidget.state.validSamples;
     final newSamples = widget.state.validSamples;
 
+    // Fit bounds khi danh sách mẫu thay đổi
     if (oldSamples != newSamples && newSamples.isNotEmpty) {
       _fitRouteBounds(newSamples);
     }
 
-    // Khi đang replay và bật follow camera -> di chuyển map center mượt mà
+    // Follow camera theo vị trí replay nếu được bật
     if (widget.state.followCamera && widget.state.currentPosition != null) {
       if (widget.state.isPlaying || widget.state.isCompleted) {
         _mapController.move(widget.state.currentPosition!, _currentZoom);
@@ -268,7 +276,10 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
     if (samples.isEmpty || !_mapReady) return;
 
     if (samples.length == 1) {
-      _mapController.move(LatLng(samples.first.latitude, samples.first.longitude), 15.0);
+      _mapController.move(
+        LatLng(samples.first.latitude, samples.first.longitude),
+        15.0,
+      );
       return;
     }
 
@@ -278,7 +289,12 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
     _mapController.fitCamera(
       CameraFit.bounds(
         bounds: bounds,
-        padding: const EdgeInsets.only(left: 40, right: 40, top: 40, bottom: 120),
+        padding: const EdgeInsets.only(
+          left: 40,
+          right: 40,
+          top: 40,
+          bottom: 120,
+        ),
       ),
     );
   }
@@ -295,7 +311,10 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
     final state = widget.state;
 
     final initialCenter = state.validSamples.isNotEmpty
-        ? LatLng(state.validSamples.first.latitude, state.validSamples.first.longitude)
+        ? LatLng(
+            state.validSamples.first.latitude,
+            state.validSamples.first.longitude,
+          )
         : _defaultCenter;
 
     return Stack(
@@ -323,11 +342,15 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
           children: [
             // Map Tiles
             TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              urlTemplate: MapTileProviders.getUrl(
+                _isSatellite ? AppMapType.satellite : AppMapType.standard,
+              ),
               userAgentPackageName: 'com.vmonitor.app',
               minZoom: 4,
               maxZoom: 19,
-              maxNativeZoom: 19,
+              maxNativeZoom: MapTileProviders.getMaxZoom(
+                _isSatellite ? AppMapType.satellite : AppMapType.standard,
+              ),
               tileProvider: NetworkTileProvider(silenceExceptions: true),
               errorImage: MemoryImage(TileProvider.transparentImage),
             ),
@@ -375,24 +398,32 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
           ],
         ),
 
-        // Zoom in/out controls góc trái
+        // Zoom in/out & Satellite controls góc trái
         Positioned(
           left: 16,
           top: 16,
           child: _MapZoomControls(
             onZoomIn: () {
               if (!_mapReady) return;
-              _mapController.move(_mapController.camera.center, _currentZoom + 1);
+              _mapController.move(
+                _mapController.camera.center,
+                _currentZoom + 1,
+              );
             },
             onZoomOut: () {
               if (!_mapReady) return;
-              _mapController.move(_mapController.camera.center, _currentZoom - 1);
+              _mapController.move(
+                _mapController.camera.center,
+                _currentZoom - 1,
+              );
             },
             onFitBounds: () {
               if (state.validSamples.isNotEmpty) {
                 _fitRouteBounds(state.validSamples);
               }
             },
+            onToggleMapType: () => setState(() => _isSatellite = !_isSatellite),
+            isSatellite: _isSatellite,
           ),
         ),
 
@@ -408,9 +439,12 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        CircularProgressIndicator(strokeWidth: 3),
+                        CircularProgressIndicator(strokeWidth: 2.5),
                         SizedBox(width: 16),
-                        Text('Đang truy xuất dữ liệu lịch sử GPS...', style: TextStyle(fontWeight: FontWeight.w600)),
+                        Text(
+                          'Đang tải dữ liệu GPS...',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
                       ],
                     ),
                   ),
@@ -419,33 +453,46 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
             ),
           ),
 
-        // Trạng thái Empty / 1 điểm
+        // Trạng thái Empty
         if (!state.isLoading && state.isEmpty)
           Positioned.fill(
             child: IgnorePointer(
               child: Center(
                 child: Container(
                   margin: const EdgeInsets.all(32),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 20,
+                  ),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surface.withValues(alpha: 0.95),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 16)],
+                    color: Colors.white.withValues(alpha: 0.95),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black12, blurRadius: 16),
+                    ],
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.route_outlined, size: 48, color: theme.colorScheme.outline),
-                      const SizedBox(height: 10),
+                      Icon(
+                        Icons.route_outlined,
+                        size: 48,
+                        color: theme.colorScheme.outline,
+                      ),
+                      const SizedBox(height: 12),
                       Text(
                         'Không có dữ liệu vị trí trong khoảng thời gian đã chọn.',
-                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       Text(
-                        'Vui lòng chọn khoảng thời gian khác hoặc kiểm tra lại thiết bị.',
-                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+                        'Hãy chọn khoảng thời gian khác hoặc kiểm tra lại thiết bị.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.outline,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                     ],
@@ -457,17 +504,19 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
         else if (!state.isLoading && state.hasSinglePoint)
           Positioned(
             top: 16,
-            left: 70,
+            left: 72,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surface.withValues(alpha: 0.9),
+                color: Colors.white.withValues(alpha: 0.92),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: theme.colorScheme.outlineVariant),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
               child: Text(
-                'Chỉ có 1 mốc vị trí trong khoảng thời gian này.',
-                style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600),
+                'Chỉ có 1 mốc vị trí trong khoảng này.',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
@@ -480,49 +529,82 @@ class _MapZoomControls extends StatelessWidget {
   final VoidCallback onZoomIn;
   final VoidCallback onZoomOut;
   final VoidCallback onFitBounds;
+  final VoidCallback onToggleMapType;
+  final bool isSatellite;
 
   const _MapZoomControls({
     required this.onZoomIn,
     required this.onZoomOut,
     required this.onFitBounds,
+    required this.onToggleMapType,
+    required this.isSatellite,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.96),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2)),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.add_rounded, size: 20),
-            tooltip: 'Phóng to',
-            onPressed: onZoomIn,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Cụm 1: Phóng to, thu nhỏ, vừa toàn bộ lộ trình
+        Container(
+          decoration: _boxDecoration(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.add_rounded, size: 20),
+                tooltip: 'Phóng to',
+                onPressed: onZoomIn,
+                visualDensity: VisualDensity.compact,
+              ),
+              const SizedBox(width: 32, child: Divider(height: 1)),
+              IconButton(
+                icon: const Icon(Icons.remove_rounded, size: 20),
+                tooltip: 'Thu nhỏ',
+                onPressed: onZoomOut,
+                visualDensity: VisualDensity.compact,
+              ),
+              const SizedBox(width: 32, child: Divider(height: 1)),
+              IconButton(
+                icon: const Icon(Icons.fit_screen_rounded, size: 18),
+                tooltip: 'Vừa toàn bộ lộ trình',
+                onPressed: onFitBounds,
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        // Cụm 2: Chuyển đổi mode bản đồ riêng biệt
+        Container(
+          decoration: _boxDecoration(),
+          child: IconButton(
+            icon: Icon(
+              isSatellite ? Icons.map_rounded : Icons.satellite_alt_rounded,
+              size: 18,
+              color: isSatellite
+                  ? const Color(0xFF1677FF)
+                  : const Color(0xFF475569),
+            ),
+            tooltip: isSatellite
+                ? 'Chuyển sang bản đồ đường phố'
+                : 'Chuyển sang bản đồ vệ tinh',
+            onPressed: onToggleMapType,
             visualDensity: VisualDensity.compact,
           ),
-          const SizedBox(width: 32, child: Divider(height: 1)),
-          IconButton(
-            icon: const Icon(Icons.remove_rounded, size: 20),
-            tooltip: 'Thu nhỏ',
-            onPressed: onZoomOut,
-            visualDensity: VisualDensity.compact,
-          ),
-          const SizedBox(width: 32, child: Divider(height: 1)),
-          IconButton(
-            icon: const Icon(Icons.fit_screen_rounded, size: 18),
-            tooltip: 'Vừa toàn bộ lộ trình',
-            onPressed: onFitBounds,
-            visualDensity: VisualDensity.compact,
-          ),
-        ],
-      ),
+        ),
+      ],
+    );
+  }
+
+  BoxDecoration _boxDecoration() {
+    return BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.96),
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: const Color(0xFFE2E8F0)),
+      boxShadow: const [
+        BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2)),
+      ],
     );
   }
 }
