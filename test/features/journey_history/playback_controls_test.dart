@@ -22,6 +22,11 @@ void main() {
 
     var playTriggered = false;
     var resetTriggered = false;
+    var stepBackward30sTriggered = false;
+    var stepBackward60sTriggered = false;
+    var stepForward30sTriggered = false;
+    var stepForward60sTriggered = false;
+    double? selectedSpeed;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -32,8 +37,12 @@ void main() {
             onPause: () {},
             onResume: () {},
             onReset: () => resetTriggered = true,
+            onStepBackward30s: () => stepBackward30sTriggered = true,
+            onStepBackward60s: () => stepBackward60sTriggered = true,
+            onStepForward30s: () => stepForward30sTriggered = true,
+            onStepForward60s: () => stepForward60sTriggered = true,
             onSeekProgress: (_) {},
-            onSpeedChanged: (_) {},
+            onSpeedChanged: (s) => selectedSpeed = s,
             onFollowChanged: (_) {},
           ),
         ),
@@ -42,13 +51,41 @@ void main() {
 
     expect(find.text('Bắt đầu'), findsOneWidget);
     expect(find.text('1x'), findsOneWidget);
+    expect(find.byIcon(Icons.fast_rewind_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.replay_30_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.forward_30_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.fast_forward_rounded), findsOneWidget);
 
     await tester.tap(find.text('Bắt đầu'));
     await tester.pump();
     expect(playTriggered, isTrue);
 
+    await tester.tap(find.byIcon(Icons.fast_rewind_rounded));
+    await tester.pump();
+    expect(stepBackward60sTriggered, isTrue);
+
+    await tester.tap(find.byIcon(Icons.replay_30_rounded));
+    await tester.pump();
+    expect(stepBackward30sTriggered, isTrue);
+
+    await tester.tap(find.byIcon(Icons.forward_30_rounded));
+    await tester.pump();
+    expect(stepForward30sTriggered, isTrue);
+
+    await tester.tap(find.byIcon(Icons.fast_forward_rounded));
+    await tester.pump();
+    expect(stepForward60sTriggered, isTrue);
+
     await tester.tap(find.byIcon(Icons.replay_rounded));
     await tester.pump();
     expect(resetTriggered, isTrue);
+
+    // Test 16x speed selection
+    await tester.tap(find.text('1x'));
+    await tester.pumpAndSettle();
+    expect(find.text('16x'), findsWidgets);
+    await tester.tap(find.text('16x').last);
+    await tester.pumpAndSettle();
+    expect(selectedSpeed, equals(16.0));
   });
 }

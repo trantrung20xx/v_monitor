@@ -142,7 +142,7 @@ void main() {
 
     test('Play, Pause, Resume, Reset, Seek, Speed, and Device Switch (Section 71 & 47)', () async {
       final t0 = DateTime(2026, 8, 16, 8, 0, 0);
-      final t1 = DateTime(2026, 8, 16, 8, 10, 0);
+      final t1 = DateTime(2026, 8, 16, 8, 2, 0);
 
       fakeTracking.rangeResponse = LocationHistoryResponse(
         deviceId: 'dev-1',
@@ -169,13 +169,34 @@ void main() {
       cubit.resume();
       expect(cubit.state.status, equals(JourneyHistoryStatus.playing));
 
-      // Change speed
-      cubit.setPlaybackSpeed(2.0);
-      expect(cubit.state.playbackSpeed, equals(2.0));
+      // Change speed to 16x
+      cubit.setPlaybackSpeed(16.0);
+      expect(cubit.state.playbackSpeed, equals(16.0));
 
-      // Seek progress 50%
+      // Seek progress 50% (1 minute in, 8:01:00)
       cubit.seekToProgress(0.5);
       expect(cubit.state.currentPosition, isNotNull);
+      final midTime = cubit.state.currentReplayTime!;
+      expect(midTime, equals(DateTime(2026, 8, 16, 8, 1, 0)));
+
+      // Step forward 30s (8:01:30)
+      cubit.stepForward(const Duration(seconds: 30));
+      expect(cubit.state.currentReplayTime, equals(DateTime(2026, 8, 16, 8, 1, 30)));
+
+      // Step forward 60s (8:02:00 / clamps to t1)
+      cubit.stepForward(const Duration(seconds: 60));
+      expect(cubit.state.currentReplayTime, equals(t1));
+
+      // Seek back to 8:01:30
+      cubit.seekToTime(DateTime(2026, 8, 16, 8, 1, 30));
+
+      // Step backward 30s (8:01:00)
+      cubit.stepBackward(const Duration(seconds: 30));
+      expect(cubit.state.currentReplayTime, equals(DateTime(2026, 8, 16, 8, 1, 0)));
+
+      // Step backward 60s (8:00:00 / clamps to t0)
+      cubit.stepBackward(const Duration(seconds: 60));
+      expect(cubit.state.currentReplayTime, equals(t0));
 
       // Reset
       cubit.reset();

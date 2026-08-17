@@ -127,7 +127,7 @@ class HistoryMapLayers {
     markers.add(
       Marker(
         point: LatLng(start.latitude, start.longitude),
-        width: 120,
+        width: 140,
         height: 52,
         alignment: Alignment.topCenter,
         child: GestureDetector(
@@ -153,7 +153,7 @@ class HistoryMapLayers {
       markers.add(
         Marker(
           point: LatLng(end.latitude, end.longitude),
-          width: 120,
+          width: 140,
           height: 52,
           alignment: Alignment.topCenter,
           child: GestureDetector(
@@ -362,13 +362,17 @@ class HistoryMapLayers {
                 children: [
                   Icon(icon, size: 12, color: Colors.white),
                   const SizedBox(width: 3),
-                  Text(
-                    '$title · $dateText',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.2,
+                  Flexible(
+                    child: Text(
+                      '$title · $dateText',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
+                      ),
                     ),
                   ),
                 ],

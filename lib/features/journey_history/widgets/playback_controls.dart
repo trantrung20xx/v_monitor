@@ -10,6 +10,10 @@ class PlaybackControls extends StatelessWidget {
   final VoidCallback onPause;
   final VoidCallback onResume;
   final VoidCallback onReset;
+  final VoidCallback? onStepBackward30s;
+  final VoidCallback? onStepBackward60s;
+  final VoidCallback? onStepForward30s;
+  final VoidCallback? onStepForward60s;
   final ValueChanged<double> onSeekProgress;
   final ValueChanged<double> onSpeedChanged;
   final ValueChanged<bool> onFollowChanged;
@@ -21,6 +25,10 @@ class PlaybackControls extends StatelessWidget {
     required this.onPause,
     required this.onResume,
     required this.onReset,
+    this.onStepBackward30s,
+    this.onStepBackward60s,
+    this.onStepForward30s,
+    this.onStepForward60s,
     required this.onSeekProgress,
     required this.onSpeedChanged,
     required this.onFollowChanged,
@@ -108,19 +116,24 @@ class PlaybackControls extends StatelessWidget {
               ],
             ),
 
-            // 3. Thanh nút điều khiển
+            // 3. Thanh nút điều khiển (60s & 30s)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Reset, Play / Pause
+                // Step backward 60s / 30s, Play / Pause, Step forward 30s / 60s, Reset
                 Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.replay_rounded),
-                      tooltip: 'Bắt đầu lại',
-                      onPressed: hasSamples ? onReset : null,
+                      icon: const Icon(Icons.fast_rewind_rounded, size: 22),
+                      tooltip: 'Lùi 60 giây (1 phút)',
+                      onPressed: hasSamples ? onStepBackward60s : null,
                     ),
-                    const SizedBox(width: 4),
+                    IconButton(
+                      icon: const Icon(Icons.replay_30_rounded, size: 22),
+                      tooltip: 'Lùi 30 giây',
+                      onPressed: hasSamples ? onStepBackward30s : null,
+                    ),
+                    const SizedBox(width: 2),
                     FilledButton.icon(
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -140,6 +153,22 @@ class PlaybackControls extends StatelessWidget {
                             : (state.isPaused ? 'Tiếp tục' : (state.isCompleted ? 'Phát lại' : 'Bắt đầu')),
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
+                    ),
+                    const SizedBox(width: 2),
+                    IconButton(
+                      icon: const Icon(Icons.forward_30_rounded, size: 22),
+                      tooltip: 'Tiến 30 giây',
+                      onPressed: hasSamples ? onStepForward30s : null,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.fast_forward_rounded, size: 22),
+                      tooltip: 'Tiến 60 giây (1 phút)',
+                      onPressed: hasSamples ? onStepForward60s : null,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.replay_rounded, size: 20),
+                      tooltip: 'Bắt đầu lại',
+                      onPressed: hasSamples ? onReset : null,
                     ),
                   ],
                 ),
@@ -162,6 +191,7 @@ class PlaybackControls extends StatelessWidget {
                         DropdownMenuItem(value: 2.0, child: Text('2x')),
                         DropdownMenuItem(value: 4.0, child: Text('4x')),
                         DropdownMenuItem(value: 8.0, child: Text('8x')),
+                        DropdownMenuItem(value: 16.0, child: Text('16x')),
                       ],
                       onChanged: (v) {
                         if (v != null) onSpeedChanged(v);

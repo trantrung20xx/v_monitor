@@ -95,10 +95,7 @@ class _DeviceDetailView extends StatelessWidget {
                           address: state.address,
                           events: state.events,
                         ),
-                        _JourneyTab(
-                          device: device,
-                          locations: state.locations,
-                        ),
+                        _JourneyTab(device: device, locations: state.locations),
                         _EventsTab(events: state.events),
                       ],
                     ),
@@ -290,12 +287,14 @@ class _BackSquareButton extends StatelessWidget {
         style: OutlinedButton.styleFrom(
           padding: EdgeInsets.zero,
           side: const BorderSide(color: _refBorder),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           foregroundColor: _refPrimaryBlue,
         ),
-        child: const Icon(Icons.arrow_back_rounded, size: 24, color: _refPrimaryBlue),
+        child: const Icon(
+          Icons.arrow_back_rounded,
+          size: 24,
+          color: _refPrimaryBlue,
+        ),
       ),
     );
   }
@@ -348,9 +347,7 @@ class _HeaderActionButton extends StatelessWidget {
         backgroundColor: _refSurface,
         side: BorderSide(color: _refPrimaryBlue.withValues(alpha: 0.35)),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         textStyle: Theme.of(
           context,
         ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
@@ -473,8 +470,7 @@ class _OverviewTab extends StatelessWidget {
             iconColor: const Color(0xFFEA580C),
             footer: Center(
               child: TextButton.icon(
-                onPressed: () =>
-                    DefaultTabController.of(context).animateTo(1),
+                onPressed: () => DefaultTabController.of(context).animateTo(1),
                 label: const Text('Xem chi tiết hành trình'),
                 icon: const Icon(Icons.arrow_forward_rounded, size: 15),
                 iconAlignment: IconAlignment.end,
@@ -552,10 +548,7 @@ class _OverviewTab extends StatelessWidget {
                   ],
                   if (!isWide) ...[
                     const SizedBox(height: 12),
-                    _SummaryStrip(
-                      device: device,
-                      status: status,
-                    ),
+                    _SummaryStrip(device: device, status: status),
                   ],
                   const SizedBox(height: 12),
                   _AdaptiveSectionGrid(
@@ -657,10 +650,10 @@ class _OverviewTab extends StatelessWidget {
     BuildContext context, {
     required ResolvedDeviceStatus status,
   }) {
-    final modelManufacturer = [device.model, device.manufacturer]
-        .whereType<String>()
-        .where((s) => s.trim().isNotEmpty)
-        .join(' · ');
+    final modelManufacturer = [
+      device.model,
+      device.manufacturer,
+    ].whereType<String>().where((s) => s.trim().isNotEmpty).join(' · ');
 
     return [
       _InfoRow(
@@ -712,8 +705,8 @@ class _OverviewTab extends StatelessWidget {
     final latestTime = journey.endedAt != null
         ? DeviceFormatters.dateTime(journey.endedAt)
         : (locations.isNotEmpty
-            ? DeviceFormatters.dateTime(locations.first.measuredAt)
-            : '--');
+              ? DeviceFormatters.dateTime(locations.first.measuredAt)
+              : '--');
     final movingText = journey.movingDurationS != null
         ? DeviceFormatters.secondsDuration(journey.movingDurationS)
         : '--';
@@ -820,10 +813,7 @@ class _AdaptiveSectionGrid extends StatelessWidget {
 }
 
 class _SummaryStrip extends StatefulWidget {
-  const _SummaryStrip({
-    required this.device,
-    required this.status,
-  });
+  const _SummaryStrip({required this.device, required this.status});
 
   final DeviceModel device;
   final ResolvedDeviceStatus status;
@@ -937,10 +927,7 @@ class _SummaryPill extends StatelessWidget {
           maxWidth: primary ? 180 : 220,
           minHeight: 28,
         ),
-        padding: EdgeInsets.symmetric(
-          horizontal: primary ? 8 : 8,
-          vertical: 4,
-        ),
+        padding: EdgeInsets.symmetric(horizontal: primary ? 8 : 8, vertical: 4),
         decoration: BoxDecoration(
           color: background,
           borderRadius: BorderRadius.circular(6),
@@ -960,9 +947,7 @@ class _SummaryPill extends StatelessWidget {
                   color: color.withValues(alpha: 0.16),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: Center(
-                  child: Icon(icon, size: 11, color: color),
-                ),
+                child: Center(child: Icon(icon, size: 11, color: color)),
               )
             else
               Icon(icon, size: 13, color: foreground),
@@ -1267,7 +1252,6 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
-
 class _MapOverviewCard extends StatelessWidget {
   const _MapOverviewCard({required this.map, required this.strip});
 
@@ -1373,8 +1357,8 @@ class _CurrentSummaryPanel extends StatelessWidget {
     final batteryLabel = device.uavBatteryPct != null
         ? 'Pin UAV: ${device.uavBatteryPct}%'
         : (device.controllerBatteryPct != null
-            ? 'Pin TX: ${device.controllerBatteryPct}%'
-            : null);
+              ? 'Pin TX: ${device.controllerBatteryPct}%'
+              : null);
 
     return Card(
       elevation: 0,
@@ -1395,8 +1379,9 @@ class _CurrentSummaryPanel extends StatelessWidget {
             mainAxisAlignment: isTightlyBounded
                 ? MainAxisAlignment.spaceBetween
                 : MainAxisAlignment.start,
-            mainAxisSize:
-                isTightlyBounded ? MainAxisSize.max : MainAxisSize.min,
+            mainAxisSize: isTightlyBounded
+                ? MainAxisSize.max
+                : MainAxisSize.min,
             children: [
               // 1. Header (Title + Battery pill if available)
               Row(
@@ -1434,16 +1419,18 @@ class _CurrentSummaryPanel extends StatelessWidget {
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: (batteryPct < 20
-                                ? theme.colorScheme.error
-                                : _refOnline)
-                            .withValues(alpha: 0.1),
+                        color:
+                            (batteryPct < 20
+                                    ? theme.colorScheme.error
+                                    : _refOnline)
+                                .withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                          color: (batteryPct < 20
-                                  ? theme.colorScheme.error
-                                  : _refOnline)
-                              .withValues(alpha: 0.25),
+                          color:
+                              (batteryPct < 20
+                                      ? theme.colorScheme.error
+                                      : _refOnline)
+                                  .withValues(alpha: 0.25),
                         ),
                       ),
                       child: Row(
@@ -1562,9 +1549,7 @@ class _CurrentSummaryPanel extends StatelessWidget {
               // 3. Action Footer (Chia sẻ vị trí & Xem hành trình)
               Row(
                 children: [
-                  Expanded(
-                    child: _ShareLocationInlineButton(device: device),
-                  ),
+                  Expanded(child: _ShareLocationInlineButton(device: device)),
                   const SizedBox(width: 10),
                   Expanded(
                     child: OutlinedButton.icon(
@@ -2360,10 +2345,7 @@ class _MapControlButton extends StatelessWidget {
 // ─── Tab 2: Journey (Hành trình GPS & Replay — Reference Design) ─────────────
 
 class _JourneyTab extends StatefulWidget {
-  const _JourneyTab({
-    required this.device,
-    required this.locations,
-  });
+  const _JourneyTab({required this.device, required this.locations});
 
   final DeviceModel device;
   final List<LocationModel> locations;
@@ -2376,7 +2358,8 @@ class _JourneyTabState extends State<_JourneyTab> {
   late JourneyHistoryCubit _cubit;
   late DateTime _fromTime;
   late DateTime _toTime;
-  int _rangePresetIndex = 0; // 0: Hôm nay, 1: Hôm qua, 2: 24h qua, 3: 7 ngày, 4: Tùy chọn
+  int _rangePresetIndex =
+      0; // 0: Hôm nay, 1: Hôm qua, 2: 24h qua, 3: 7 ngày, 4: Tùy chọn
 
   @override
   void initState() {
@@ -2457,7 +2440,8 @@ class _JourneyTabState extends State<_JourneyTab> {
                             gapThreshold: state.gapThreshold,
                             isLoading: state.isLoading,
                             onPresetSelected: _onPresetSelected,
-                            onCustomRangePressed: () => _openCustomDateTimeRangePicker(context),
+                            onCustomRangePressed: () =>
+                                _openCustomDateTimeRangePicker(context),
                             onGapChanged: (gap) => _cubit.setGapThreshold(gap),
                             onRefresh: _fetchHistory,
                           ),
@@ -2476,13 +2460,15 @@ class _JourneyTabState extends State<_JourneyTab> {
                                 Expanded(
                                   flex: 77,
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
                                     children: [
                                       // 1. Map Card
                                       _JourneyMapCard(
                                         state: state,
                                         height: 380,
-                                        onPointSelected: (pt) => _cubit.selectPoint(pt),
+                                        onPointSelected: (pt) =>
+                                            _cubit.selectPoint(pt),
                                       ),
                                       const SizedBox(height: 10),
 
@@ -2493,12 +2479,16 @@ class _JourneyTabState extends State<_JourneyTab> {
                                         onPause: () => _cubit.pause(),
                                         onResume: () => _cubit.resume(),
                                         onReset: () => _cubit.reset(),
-                                        onStepBackward: _stepBackward,
-                                        onStepForward: _stepForward,
-                                        onSeekEnd: _seekToEnd,
-                                        onSeekProgress: (p) => _cubit.seekToProgress(p),
-                                        onSpeedChanged: (s) => _cubit.setPlaybackSpeed(s),
-                                        onFollowChanged: (f) => _cubit.toggleFollowCamera(f),
+                                        onStepBackward30s: _stepBackward30s,
+                                        onStepBackward60s: _stepBackward60s,
+                                        onStepForward30s: _stepForward30s,
+                                        onStepForward60s: _stepForward60s,
+                                        onSeekProgress: (p) =>
+                                            _cubit.seekToProgress(p),
+                                        onSpeedChanged: (s) =>
+                                            _cubit.setPlaybackSpeed(s),
+                                        onFollowChanged: (f) =>
+                                            _cubit.toggleFollowCamera(f),
                                       ),
                                       const SizedBox(height: 10),
 
@@ -2514,7 +2504,8 @@ class _JourneyTabState extends State<_JourneyTab> {
                                   flex: 23,
                                   child: _JourneyTimelineCard(
                                     state: state,
-                                    height: 596, // Cân đối hoàn hảo với tổng chiều cao cột trái
+                                    height:
+                                        596, // Cân đối hoàn hảo với tổng chiều cao cột trái
                                     onSelectSample: (s) {
                                       _cubit.seekToTime(s.measuredAt);
                                       _cubit.selectPoint(s);
@@ -2531,7 +2522,8 @@ class _JourneyTabState extends State<_JourneyTab> {
                                 _JourneyMapCard(
                                   state: state,
                                   height: width < 600 ? 280 : 330,
-                                  onPointSelected: (pt) => _cubit.selectPoint(pt),
+                                  onPointSelected: (pt) =>
+                                      _cubit.selectPoint(pt),
                                 ),
                                 const SizedBox(height: 10),
                                 _JourneyPlaybackCard(
@@ -2540,12 +2532,16 @@ class _JourneyTabState extends State<_JourneyTab> {
                                   onPause: () => _cubit.pause(),
                                   onResume: () => _cubit.resume(),
                                   onReset: () => _cubit.reset(),
-                                  onStepBackward: _stepBackward,
-                                  onStepForward: _stepForward,
-                                  onSeekEnd: _seekToEnd,
-                                  onSeekProgress: (p) => _cubit.seekToProgress(p),
-                                  onSpeedChanged: (s) => _cubit.setPlaybackSpeed(s),
-                                  onFollowChanged: (f) => _cubit.toggleFollowCamera(f),
+                                  onStepBackward30s: _stepBackward30s,
+                                  onStepBackward60s: _stepBackward60s,
+                                  onStepForward30s: _stepForward30s,
+                                  onStepForward60s: _stepForward60s,
+                                  onSeekProgress: (p) =>
+                                      _cubit.seekToProgress(p),
+                                  onSpeedChanged: (s) =>
+                                      _cubit.setPlaybackSpeed(s),
+                                  onFollowChanged: (f) =>
+                                      _cubit.toggleFollowCamera(f),
                                 ),
                                 const SizedBox(height: 10),
                                 _JourneyCurrentInfoCard(state: state),
@@ -2584,8 +2580,22 @@ class _JourneyTabState extends State<_JourneyTab> {
       } else if (index == 1) {
         // Hôm qua
         final yesterday = now.subtract(const Duration(days: 1));
-        _fromTime = DateTime(yesterday.year, yesterday.month, yesterday.day, 0, 0, 0);
-        _toTime = DateTime(yesterday.year, yesterday.month, yesterday.day, 23, 59, 59);
+        _fromTime = DateTime(
+          yesterday.year,
+          yesterday.month,
+          yesterday.day,
+          0,
+          0,
+          0,
+        );
+        _toTime = DateTime(
+          yesterday.year,
+          yesterday.month,
+          yesterday.day,
+          23,
+          59,
+          59,
+        );
       } else if (index == 2) {
         // 24h qua
         _fromTime = now.subtract(const Duration(hours: 24));
@@ -2599,27 +2609,20 @@ class _JourneyTabState extends State<_JourneyTab> {
     _fetchHistory();
   }
 
-  void _stepBackward() {
-    final state = _cubit.state;
-    if (state.currentReplayTime != null && state.validSamples.isNotEmpty) {
-      final newTime = state.currentReplayTime!.subtract(const Duration(seconds: 5));
-      _cubit.seekToTime(newTime);
-    }
+  void _stepBackward30s() {
+    _cubit.stepBackward(const Duration(seconds: 30));
   }
 
-  void _stepForward() {
-    final state = _cubit.state;
-    if (state.currentReplayTime != null && state.validSamples.isNotEmpty) {
-      final newTime = state.currentReplayTime!.add(const Duration(seconds: 5));
-      _cubit.seekToTime(newTime);
-    }
+  void _stepBackward60s() {
+    _cubit.stepBackward(const Duration(seconds: 60));
   }
 
-  void _seekToEnd() {
-    final state = _cubit.state;
-    if (state.validSamples.isNotEmpty) {
-      _cubit.seekToTime(state.validSamples.last.measuredAt);
-    }
+  void _stepForward30s() {
+    _cubit.stepForward(const Duration(seconds: 30));
+  }
+
+  void _stepForward60s() {
+    _cubit.stepForward(const Duration(seconds: 60));
   }
 
   Future<void> _openCustomDateTimeRangePicker(BuildContext context) async {
@@ -2636,14 +2639,24 @@ class _JourneyTabState extends State<_JourneyTab> {
             final isValid = tempFrom.isBefore(tempTo);
 
             return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               title: const Row(
                 children: [
-                  Icon(Icons.edit_calendar_rounded, size: 20, color: _refPrimaryBlue),
+                  Icon(
+                    Icons.edit_calendar_rounded,
+                    size: 20,
+                    color: _refPrimaryBlue,
+                  ),
                   SizedBox(width: 8),
                   Text(
                     'Tùy chọn khoảng thời gian',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _refText),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: _refText,
+                    ),
                   ),
                 ],
               ),
@@ -2653,7 +2666,14 @@ class _JourneyTabState extends State<_JourneyTab> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text('Mốc bắt đầu (Từ):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: _refText)),
+                    const Text(
+                      'Mốc bắt đầu (Từ):',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12.5,
+                        color: _refText,
+                      ),
+                    ),
                     const SizedBox(height: 6),
                     Row(
                       children: [
@@ -2661,12 +2681,27 @@ class _JourneyTabState extends State<_JourneyTab> {
                           flex: 3,
                           child: OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 8,
+                              ),
                               side: const BorderSide(color: _refBorder),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
-                            icon: const Icon(Icons.calendar_today_rounded, size: 14, color: _refPrimaryBlue),
-                            label: Text(dateFormat.format(tempFrom), style: const TextStyle(fontSize: 12, color: _refText)),
+                            icon: const Icon(
+                              Icons.calendar_today_rounded,
+                              size: 14,
+                              color: _refPrimaryBlue,
+                            ),
+                            label: Text(
+                              dateFormat.format(tempFrom),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: _refText,
+                              ),
+                            ),
                             onPressed: () async {
                               final pickedDate = await showDatePicker(
                                 context: context,
@@ -2694,16 +2729,34 @@ class _JourneyTabState extends State<_JourneyTab> {
                           flex: 2,
                           child: OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 8,
+                              ),
                               side: const BorderSide(color: _refBorder),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
-                            icon: const Icon(Icons.access_time_rounded, size: 14, color: _refPrimaryBlue),
-                            label: Text(timeFormat.format(tempFrom), style: const TextStyle(fontSize: 12, color: _refText)),
+                            icon: const Icon(
+                              Icons.access_time_rounded,
+                              size: 14,
+                              color: _refPrimaryBlue,
+                            ),
+                            label: Text(
+                              timeFormat.format(tempFrom),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: _refText,
+                              ),
+                            ),
                             onPressed: () async {
                               final pickedTime = await showTimePicker(
                                 context: context,
-                                initialTime: TimeOfDay(hour: tempFrom.hour, minute: tempFrom.minute),
+                                initialTime: TimeOfDay(
+                                  hour: tempFrom.hour,
+                                  minute: tempFrom.minute,
+                                ),
                               );
                               if (pickedTime != null) {
                                 setDialogState(() {
@@ -2724,7 +2777,14 @@ class _JourneyTabState extends State<_JourneyTab> {
                     ),
                     const SizedBox(height: 14),
 
-                    const Text('Mốc kết thúc (Đến):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: _refText)),
+                    const Text(
+                      'Mốc kết thúc (Đến):',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12.5,
+                        color: _refText,
+                      ),
+                    ),
                     const SizedBox(height: 6),
                     Row(
                       children: [
@@ -2732,12 +2792,27 @@ class _JourneyTabState extends State<_JourneyTab> {
                           flex: 3,
                           child: OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 8,
+                              ),
                               side: const BorderSide(color: _refBorder),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
-                            icon: const Icon(Icons.calendar_today_rounded, size: 14, color: _refPrimaryBlue),
-                            label: Text(dateFormat.format(tempTo), style: const TextStyle(fontSize: 12, color: _refText)),
+                            icon: const Icon(
+                              Icons.calendar_today_rounded,
+                              size: 14,
+                              color: _refPrimaryBlue,
+                            ),
+                            label: Text(
+                              dateFormat.format(tempTo),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: _refText,
+                              ),
+                            ),
                             onPressed: () async {
                               final pickedDate = await showDatePicker(
                                 context: context,
@@ -2765,16 +2840,34 @@ class _JourneyTabState extends State<_JourneyTab> {
                           flex: 2,
                           child: OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 8,
+                              ),
                               side: const BorderSide(color: _refBorder),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
-                            icon: const Icon(Icons.access_time_rounded, size: 14, color: _refPrimaryBlue),
-                            label: Text(timeFormat.format(tempTo), style: const TextStyle(fontSize: 12, color: _refText)),
+                            icon: const Icon(
+                              Icons.access_time_rounded,
+                              size: 14,
+                              color: _refPrimaryBlue,
+                            ),
+                            label: Text(
+                              timeFormat.format(tempTo),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: _refText,
+                              ),
+                            ),
                             onPressed: () async {
                               final pickedTime = await showTimePicker(
                                 context: context,
-                                initialTime: TimeOfDay(hour: tempTo.hour, minute: tempTo.minute),
+                                initialTime: TimeOfDay(
+                                  hour: tempTo.hour,
+                                  minute: tempTo.minute,
+                                ),
                               );
                               if (pickedTime != null) {
                                 setDialogState(() {
@@ -2798,7 +2891,11 @@ class _JourneyTabState extends State<_JourneyTab> {
                     if (!isValid)
                       const Text(
                         'Thời gian bắt đầu phải trước thời gian kết thúc!',
-                        style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          color: Colors.redAccent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                   ],
                 ),
@@ -2811,10 +2908,14 @@ class _JourneyTabState extends State<_JourneyTab> {
                 FilledButton(
                   style: FilledButton.styleFrom(
                     backgroundColor: _refPrimaryBlue,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                   onPressed: isValid
-                      ? () => Navigator.of(dialogContext).pop(DateTimeRange(start: tempFrom, end: tempTo))
+                      ? () => Navigator.of(
+                          dialogContext,
+                        ).pop(DateTimeRange(start: tempFrom, end: tempTo))
                       : null,
                   child: const Text('Áp dụng'),
                 ),
@@ -2887,14 +2988,21 @@ class _JourneyFilterPanel extends StatelessWidget {
                   children: [
                     const Text(
                       'Khoảng thời gian',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _refMuted),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: _refMuted,
+                      ),
                     ),
                     const SizedBox(height: 5),
                     InkWell(
                       onTap: onCustomRangePressed,
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF8FAFC),
                           borderRadius: BorderRadius.circular(8),
@@ -2903,23 +3011,55 @@ class _JourneyFilterPanel extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text('Từ ', style: TextStyle(fontSize: 11.5, color: _refMuted)),
-                            const Icon(Icons.calendar_today_rounded, size: 13, color: _refPrimaryBlue),
+                            const Text(
+                              'Từ ',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: _refMuted,
+                              ),
+                            ),
+                            const Icon(
+                              Icons.calendar_today_rounded,
+                              size: 13,
+                              color: _refPrimaryBlue,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               dtFormat.format(fromTime),
-                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: _refText),
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                                color: _refText,
+                              ),
                             ),
                             const Padding(
                               padding: EdgeInsets.symmetric(horizontal: 6),
-                              child: Icon(Icons.arrow_forward_rounded, size: 12, color: _refMuted),
+                              child: Icon(
+                                Icons.arrow_forward_rounded,
+                                size: 12,
+                                color: _refMuted,
+                              ),
                             ),
-                            const Text('Đến ', style: TextStyle(fontSize: 11.5, color: _refMuted)),
-                            const Icon(Icons.calendar_today_rounded, size: 13, color: _refPrimaryBlue),
+                            const Text(
+                              'Đến ',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: _refMuted,
+                              ),
+                            ),
+                            const Icon(
+                              Icons.calendar_today_rounded,
+                              size: 13,
+                              color: _refPrimaryBlue,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               dtFormat.format(toTime),
-                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: _refText),
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                                color: _refText,
+                              ),
                             ),
                           ],
                         ),
@@ -2928,7 +3068,10 @@ class _JourneyFilterPanel extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(width: 16),
-                const SizedBox(height: 38, child: VerticalDivider(width: 1, color: _refBorder)),
+                const SizedBox(
+                  height: 38,
+                  child: VerticalDivider(width: 1, color: _refBorder),
+                ),
                 const SizedBox(width: 16),
 
                 // Nhóm B: Khoảng nhanh
@@ -2939,7 +3082,11 @@ class _JourneyFilterPanel extends StatelessWidget {
                     children: [
                       const Text(
                         'Khoảng nhanh',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _refMuted),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: _refMuted,
+                        ),
                       ),
                       const SizedBox(height: 5),
                       SingleChildScrollView(
@@ -2954,7 +3101,11 @@ class _JourneyFilterPanel extends StatelessWidget {
                             const SizedBox(width: 6),
                             _buildQuickChip('7 ngày', 3),
                             const SizedBox(width: 6),
-                            _buildQuickChip('Tùy chọn', 4, onTap: onCustomRangePressed),
+                            _buildQuickChip(
+                              'Tùy chọn',
+                              4,
+                              onTap: onCustomRangePressed,
+                            ),
                           ],
                         ),
                       ),
@@ -2962,7 +3113,10 @@ class _JourneyFilterPanel extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 16),
-                const SizedBox(height: 38, child: VerticalDivider(width: 1, color: _refBorder)),
+                const SizedBox(
+                  height: 38,
+                  child: VerticalDivider(width: 1, color: _refBorder),
+                ),
                 const SizedBox(width: 16),
 
                 // Nhóm C: Ngắt quãng + Tải lại
@@ -2972,14 +3126,21 @@ class _JourneyFilterPanel extends StatelessWidget {
                   children: [
                     const Text(
                       'Ngắt quãng',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _refMuted),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: _refMuted,
+                      ),
                     ),
                     const SizedBox(height: 5),
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF8FAFC),
                             borderRadius: BorderRadius.circular(8),
@@ -2989,13 +3150,30 @@ class _JourneyFilterPanel extends StatelessWidget {
                             value: gapThreshold.inMinutes,
                             isDense: true,
                             underline: const SizedBox.shrink(),
-                            icon: const Icon(Icons.arrow_drop_down_rounded, size: 18, color: _refText),
-                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: _refText),
+                            icon: const Icon(
+                              Icons.arrow_drop_down_rounded,
+                              size: 18,
+                              color: _refText,
+                            ),
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: _refText,
+                            ),
                             items: const [
                               DropdownMenuItem(value: 1, child: Text('1 phút')),
-                              DropdownMenuItem(value: 5, child: Text('5 phút (chuẩn)')),
-                              DropdownMenuItem(value: 15, child: Text('15 phút')),
-                              DropdownMenuItem(value: 30, child: Text('30 phút')),
+                              DropdownMenuItem(
+                                value: 5,
+                                child: Text('5 phút (chuẩn)'),
+                              ),
+                              DropdownMenuItem(
+                                value: 15,
+                                child: Text('15 phút'),
+                              ),
+                              DropdownMenuItem(
+                                value: 30,
+                                child: Text('30 phút'),
+                              ),
                               DropdownMenuItem(value: 60, child: Text('1 giờ')),
                             ],
                             onChanged: (v) {
@@ -3007,8 +3185,13 @@ class _JourneyFilterPanel extends StatelessWidget {
                         FilledButton.icon(
                           style: FilledButton.styleFrom(
                             backgroundColor: _refPrimaryBlue,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                             visualDensity: VisualDensity.compact,
                           ),
                           onPressed: isLoading ? null : onRefresh,
@@ -3016,10 +3199,19 @@ class _JourneyFilterPanel extends StatelessWidget {
                               ? const SizedBox(
                                   width: 12,
                                   height: 12,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
                                 )
                               : const Icon(Icons.refresh_rounded, size: 15),
-                          label: const Text('Tải lại', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                          label: const Text(
+                            'Tải lại',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -3038,7 +3230,10 @@ class _JourneyFilterPanel extends StatelessWidget {
                 onTap: onCustomRangePressed,
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(8),
@@ -3047,11 +3242,19 @@ class _JourneyFilterPanel extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.calendar_today_rounded, size: 14, color: _refPrimaryBlue),
+                      const Icon(
+                        Icons.calendar_today_rounded,
+                        size: 14,
+                        color: _refPrimaryBlue,
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         '${dtFormat.format(fromTime)}  →  ${dtFormat.format(toTime)}',
-                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: _refText),
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: _refText,
+                        ),
                       ),
                     ],
                   ),
@@ -3084,9 +3287,15 @@ class _JourneyFilterPanel extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const Text('Ngắt quãng: ', style: TextStyle(fontSize: 11, color: _refMuted)),
+                      const Text(
+                        'Ngắt quãng: ',
+                        style: TextStyle(fontSize: 11, color: _refMuted),
+                      ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF8FAFC),
                           borderRadius: BorderRadius.circular(8),
@@ -3096,10 +3305,17 @@ class _JourneyFilterPanel extends StatelessWidget {
                           value: gapThreshold.inMinutes,
                           isDense: true,
                           underline: const SizedBox.shrink(),
-                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: _refText),
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            color: _refText,
+                          ),
                           items: const [
                             DropdownMenuItem(value: 1, child: Text('1 phút')),
-                            DropdownMenuItem(value: 5, child: Text('5 phút (chuẩn)')),
+                            DropdownMenuItem(
+                              value: 5,
+                              child: Text('5 phút (chuẩn)'),
+                            ),
                             DropdownMenuItem(value: 15, child: Text('15 phút')),
                             DropdownMenuItem(value: 30, child: Text('30 phút')),
                             DropdownMenuItem(value: 60, child: Text('1 giờ')),
@@ -3114,13 +3330,24 @@ class _JourneyFilterPanel extends StatelessWidget {
                   FilledButton.icon(
                     style: FilledButton.styleFrom(
                       backgroundColor: _refPrimaryBlue,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                       visualDensity: VisualDensity.compact,
                     ),
                     onPressed: isLoading ? null : onRefresh,
                     icon: const Icon(Icons.refresh_rounded, size: 15),
-                    label: const Text('Tải lại', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                    label: const Text(
+                      'Tải lại',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -3225,8 +3452,8 @@ class _JourneyMetricsRow extends StatelessWidget {
         final count = width >= 1100
             ? 6
             : width >= 720
-                ? 3
-                : 2;
+            ? 3
+            : 2;
 
         return GridView.builder(
           shrinkWrap: true,
@@ -3295,7 +3522,10 @@ class _JourneyMetricsRow extends StatelessWidget {
                               const SizedBox(width: 4),
                               Text(
                                 item.subtitle!,
-                                style: const TextStyle(fontSize: 10, color: _refMuted),
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: _refMuted,
+                                ),
                               ),
                             ],
                           ],
@@ -3357,10 +3587,7 @@ class _JourneyMapCard extends StatelessWidget {
       child: Stack(
         children: [
           // Bản đồ chính
-          _DeviceJourneyMapView(
-            state: state,
-            onPointSelected: onPointSelected,
-          ),
+          _DeviceJourneyMapView(state: state, onPointSelected: onPointSelected),
 
           // Popup chi tiết điểm GPS khi bấm chọn
           if (state.selectedPoint != null)
@@ -3387,9 +3614,10 @@ class _JourneyPlaybackCard extends StatelessWidget {
     required this.onPause,
     required this.onResume,
     required this.onReset,
-    required this.onStepBackward,
-    required this.onStepForward,
-    required this.onSeekEnd,
+    required this.onStepBackward30s,
+    required this.onStepBackward60s,
+    required this.onStepForward30s,
+    required this.onStepForward60s,
     required this.onSeekProgress,
     required this.onSpeedChanged,
     required this.onFollowChanged,
@@ -3400,9 +3628,10 @@ class _JourneyPlaybackCard extends StatelessWidget {
   final VoidCallback onPause;
   final VoidCallback onResume;
   final VoidCallback onReset;
-  final VoidCallback onStepBackward;
-  final VoidCallback onStepForward;
-  final VoidCallback onSeekEnd;
+  final VoidCallback onStepBackward30s;
+  final VoidCallback onStepBackward60s;
+  final VoidCallback onStepForward30s;
+  final VoidCallback onStepForward60s;
   final ValueChanged<double> onSeekProgress;
   final ValueChanged<double> onSpeedChanged;
   final ValueChanged<bool> onFollowChanged;
@@ -3416,8 +3645,8 @@ class _JourneyPlaybackCard extends StatelessWidget {
     final currentTimeStr = state.currentReplayTime != null
         ? timeFormat.format(state.currentReplayTime!.toLocal())
         : (state.validSamples.isNotEmpty
-            ? timeFormat.format(state.validSamples.first.measuredAt.toLocal())
-            : '--/--/---- --:--:--');
+              ? timeFormat.format(state.validSamples.first.measuredAt.toLocal())
+              : '--/--/---- --:--:--');
 
     final startTimeStr = hasSamples
         ? shortTimeFormat.format(state.validSamples.first.measuredAt.toLocal())
@@ -3433,8 +3662,8 @@ class _JourneyPlaybackCard extends StatelessWidget {
     final statusLabel = state.isCompleted
         ? 'Kết thúc'
         : (state.isPlaying
-            ? 'Đang di chuyển ($speedStr)'
-            : (state.isPaused ? 'Tạm dừng ($speedStr)' : 'Sẵn sàng'));
+              ? 'Đang di chuyển ($speedStr)'
+              : (state.isPaused ? 'Tạm dừng ($speedStr)' : 'Sẵn sàng'));
 
     final statusColor = state.isCompleted
         ? const Color(0xFFEF4444)
@@ -3493,21 +3722,21 @@ class _JourneyPlaybackCard extends StatelessWidget {
                 ),
               ),
 
-              // CENTER: Play / Pause / Step buttons
+              // CENTER: Play / Pause / Step buttons (60s & 30s)
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.skip_previous_rounded, size: 20),
-                    tooltip: 'Về đầu',
+                    icon: const Icon(Icons.fast_rewind_rounded, size: 22),
+                    tooltip: 'Lùi 60 giây (1 phút)',
                     visualDensity: VisualDensity.compact,
-                    onPressed: hasSamples ? onReset : null,
+                    onPressed: hasSamples ? onStepBackward60s : null,
                   ),
                   IconButton(
-                    icon: const Icon(Icons.fast_rewind_rounded, size: 20),
-                    tooltip: 'Lùi 5 giây',
+                    icon: const Icon(Icons.replay_30_rounded, size: 22),
+                    tooltip: 'Lùi 30 giây',
                     visualDensity: VisualDensity.compact,
-                    onPressed: hasSamples ? onStepBackward : null,
+                    onPressed: hasSamples ? onStepBackward30s : null,
                   ),
                   const SizedBox(width: 2),
                   // Primary circular play button
@@ -3515,7 +3744,9 @@ class _JourneyPlaybackCard extends StatelessWidget {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: hasSamples ? _refPrimaryBlue : Colors.grey.shade300,
+                      color: hasSamples
+                          ? _refPrimaryBlue
+                          : Colors.grey.shade300,
                       shape: BoxShape.circle,
                       boxShadow: hasSamples
                           ? [
@@ -3523,35 +3754,43 @@ class _JourneyPlaybackCard extends StatelessWidget {
                                 color: _refPrimaryBlue.withValues(alpha: 0.3),
                                 blurRadius: 8,
                                 offset: const Offset(0, 3),
-                              )
+                              ),
                             ]
                           : null,
                     ),
                     child: IconButton(
                       icon: Icon(
-                        state.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                        state.isPlaying
+                            ? Icons.pause_rounded
+                            : Icons.play_arrow_rounded,
                         size: 24,
                         color: Colors.white,
                       ),
                       onPressed: !hasSamples
                           ? null
                           : state.isPlaying
-                              ? onPause
-                              : (state.isPaused ? onResume : onPlay),
+                          ? onPause
+                          : (state.isPaused ? onResume : onPlay),
                     ),
                   ),
                   const SizedBox(width: 2),
                   IconButton(
-                    icon: const Icon(Icons.fast_forward_rounded, size: 20),
-                    tooltip: 'Tiến 5 giây',
+                    icon: const Icon(Icons.forward_30_rounded, size: 22),
+                    tooltip: 'Tiến 30 giây',
                     visualDensity: VisualDensity.compact,
-                    onPressed: hasSamples ? onStepForward : null,
+                    onPressed: hasSamples ? onStepForward30s : null,
                   ),
                   IconButton(
-                    icon: const Icon(Icons.skip_next_rounded, size: 20),
-                    tooltip: 'Đến cuối',
+                    icon: const Icon(Icons.fast_forward_rounded, size: 22),
+                    tooltip: 'Tiến 60 giây (1 phút)',
                     visualDensity: VisualDensity.compact,
-                    onPressed: hasSamples ? onSeekEnd : null,
+                    onPressed: hasSamples ? onStepForward60s : null,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.replay_rounded, size: 20),
+                    tooltip: 'Bắt đầu lại',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: hasSamples ? onReset : null,
                   ),
                 ],
               ),
@@ -3562,7 +3801,10 @@ class _JourneyPlaybackCard extends StatelessWidget {
                 children: [
                   // Dropdown tốc độ
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(6),
@@ -3572,13 +3814,18 @@ class _JourneyPlaybackCard extends StatelessWidget {
                       value: state.playbackSpeed,
                       underline: const SizedBox.shrink(),
                       isDense: true,
-                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: _refText),
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: _refText,
+                      ),
                       items: const [
                         DropdownMenuItem(value: 0.5, child: Text('0.5x')),
                         DropdownMenuItem(value: 1.0, child: Text('1x')),
                         DropdownMenuItem(value: 2.0, child: Text('2x')),
                         DropdownMenuItem(value: 4.0, child: Text('4x')),
                         DropdownMenuItem(value: 8.0, child: Text('8x')),
+                        DropdownMenuItem(value: 16.0, child: Text('16x')),
                       ],
                       onChanged: (v) {
                         if (v != null) onSpeedChanged(v);
@@ -3592,12 +3839,19 @@ class _JourneyPlaybackCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(6),
                     onTap: () => onFollowChanged(!state.followCamera),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 5,
+                      ),
                       decoration: BoxDecoration(
-                        color: state.followCamera ? const Color(0xFFEBF3FF) : const Color(0xFFF8FAFC),
+                        color: state.followCamera
+                            ? const Color(0xFFEBF3FF)
+                            : const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                          color: state.followCamera ? _refPrimaryBlue : _refBorder,
+                          color: state.followCamera
+                              ? _refPrimaryBlue
+                              : _refBorder,
                         ),
                       ),
                       child: Row(
@@ -3606,7 +3860,9 @@ class _JourneyPlaybackCard extends StatelessWidget {
                           Icon(
                             Icons.my_location_rounded,
                             size: 14,
-                            color: state.followCamera ? _refPrimaryBlue : _refMuted,
+                            color: state.followCamera
+                                ? _refPrimaryBlue
+                                : _refMuted,
                           ),
                           const SizedBox(width: 4),
                           Text(
@@ -3614,7 +3870,9 @@ class _JourneyPlaybackCard extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: state.followCamera ? _refPrimaryBlue : _refMuted,
+                              color: state.followCamera
+                                  ? _refPrimaryBlue
+                                  : _refMuted,
                             ),
                           ),
                         ],
@@ -3632,7 +3890,11 @@ class _JourneyPlaybackCard extends StatelessWidget {
             children: [
               Text(
                 startTimeStr,
-                style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w500, color: _refMuted),
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w500,
+                  color: _refMuted,
+                ),
               ),
               Expanded(
                 child: SliderTheme(
@@ -3641,8 +3903,12 @@ class _JourneyPlaybackCard extends StatelessWidget {
                     activeTrackColor: _refPrimaryBlue,
                     inactiveTrackColor: const Color(0xFFE2E8F0),
                     thumbColor: _refPrimaryBlue,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.5),
-                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                    thumbShape: const RoundSliderThumbShape(
+                      enabledThumbRadius: 6.5,
+                    ),
+                    overlayShape: const RoundSliderOverlayShape(
+                      overlayRadius: 12,
+                    ),
                   ),
                   child: Slider(
                     value: state.playbackProgress,
@@ -3652,7 +3918,11 @@ class _JourneyPlaybackCard extends StatelessWidget {
               ),
               Text(
                 endTimeStr,
-                style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w500, color: _refMuted),
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w500,
+                  color: _refMuted,
+                ),
               ),
             ],
           ),
@@ -3671,7 +3941,9 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sample = (state.currentSampleIndex >= 0 && state.currentSampleIndex < state.validSamples.length)
+    final sample =
+        (state.currentSampleIndex >= 0 &&
+            state.currentSampleIndex < state.validSamples.length)
         ? state.validSamples[state.currentSampleIndex]
         : (state.validSamples.isNotEmpty ? state.validSamples.first : null);
 
@@ -3682,13 +3954,17 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
         ? state.currentPosition!.longitude.toStringAsFixed(6)
         : (sample != null ? sample.longitude.toStringAsFixed(6) : '--');
 
-    final altStr = sample?.altitudeM != null ? '${sample!.altitudeM!.toStringAsFixed(1)} m' : '--';
+    final altStr = sample?.altitudeM != null
+        ? '${sample!.altitudeM!.toStringAsFixed(1)} m'
+        : '--';
     final speedStr = DeviceFormatters.speedMps(state.currentSpeedMps);
     final headingStr = DeviceFormatters.heading(state.currentHeadingDeg);
     final isMoving = (state.currentSpeedMps ?? 0) >= 0.5;
 
     final timeStr = state.currentReplayTime != null
-        ? DateFormat('dd/MM/yyyy HH:mm:ss').format(state.currentReplayTime!.toLocal())
+        ? DateFormat(
+            'dd/MM/yyyy HH:mm:ss',
+          ).format(state.currentReplayTime!.toLocal())
         : '--';
 
     return Container(
@@ -3714,12 +3990,20 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
                     children: [
                       const Text(
                         'Vị trí hiện tại',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _refMuted),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: _refMuted,
+                        ),
                       ),
                       const SizedBox(height: 3),
                       Text(
                         '$latStr, $lngStr',
-                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: _refText),
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: _refText,
+                        ),
                       ),
                       const SizedBox(height: 1),
                       Text(
@@ -3729,7 +4013,10 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 34, child: VerticalDivider(width: 20, color: _refBorder)),
+                const SizedBox(
+                  height: 34,
+                  child: VerticalDivider(width: 20, color: _refBorder),
+                ),
 
                 // 2. Tốc độ
                 Expanded(
@@ -3738,13 +4025,30 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('Tốc độ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _refMuted)),
+                      const Text(
+                        'Tốc độ',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: _refMuted,
+                        ),
+                      ),
                       const SizedBox(height: 3),
-                      Text(speedStr, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: _refText)),
+                      Text(
+                        speedStr,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          color: _refText,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 34, child: VerticalDivider(width: 20, color: _refBorder)),
+                const SizedBox(
+                  height: 34,
+                  child: VerticalDivider(width: 20, color: _refBorder),
+                ),
 
                 // 3. Hướng
                 Expanded(
@@ -3753,13 +4057,30 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('Hướng', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _refMuted)),
+                      const Text(
+                        'Hướng',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: _refMuted,
+                        ),
+                      ),
                       const SizedBox(height: 3),
-                      Text(headingStr, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _refText)),
+                      Text(
+                        headingStr,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: _refText,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 34, child: VerticalDivider(width: 20, color: _refBorder)),
+                const SizedBox(
+                  height: 34,
+                  child: VerticalDivider(width: 20, color: _refBorder),
+                ),
 
                 // 4. Trạng thái
                 Expanded(
@@ -3768,7 +4089,14 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('Trạng thái', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _refMuted)),
+                      const Text(
+                        'Trạng thái',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: _refMuted,
+                        ),
+                      ),
                       const SizedBox(height: 3),
                       Row(
                         mainAxisSize: MainAxisSize.min,
@@ -3776,7 +4104,9 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
                           Icon(
                             Icons.circle_rounded,
                             size: 7,
-                            color: isMoving ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                            color: isMoving
+                                ? const Color(0xFF16A34A)
+                                : const Color(0xFFD97706),
                           ),
                           const SizedBox(width: 4),
                           Text(
@@ -3784,7 +4114,9 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
-                              color: isMoving ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                              color: isMoving
+                                  ? const Color(0xFF16A34A)
+                                  : const Color(0xFFD97706),
                             ),
                           ),
                         ],
@@ -3792,7 +4124,10 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 34, child: VerticalDivider(width: 20, color: _refBorder)),
+                const SizedBox(
+                  height: 34,
+                  child: VerticalDivider(width: 20, color: _refBorder),
+                ),
 
                 // 5. Thời điểm
                 Expanded(
@@ -3801,11 +4136,22 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('Thời điểm', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _refMuted)),
+                      const Text(
+                        'Thời điểm',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: _refMuted,
+                        ),
+                      ),
                       const SizedBox(height: 3),
                       Text(
                         timeStr,
-                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: _refText),
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: _refText,
+                        ),
                       ),
                     ],
                   ),
@@ -3822,34 +4168,66 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Vị trí hiện tại', style: TextStyle(fontSize: 11, color: _refMuted)),
-                  Text('$latStr, $lngStr · Độ cao: $altStr', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                  const Text(
+                    'Vị trí hiện tại',
+                    style: TextStyle(fontSize: 11, color: _refMuted),
+                  ),
+                  Text(
+                    '$latStr, $lngStr · Độ cao: $altStr',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ],
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Tốc độ', style: TextStyle(fontSize: 11, color: _refMuted)),
-                  Text(speedStr, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                  const Text(
+                    'Tốc độ',
+                    style: TextStyle(fontSize: 11, color: _refMuted),
+                  ),
+                  Text(
+                    speedStr,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ],
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Hướng', style: TextStyle(fontSize: 11, color: _refMuted)),
-                  Text(headingStr, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                  const Text(
+                    'Hướng',
+                    style: TextStyle(fontSize: 11, color: _refMuted),
+                  ),
+                  Text(
+                    headingStr,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ],
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Trạng thái', style: TextStyle(fontSize: 11, color: _refMuted)),
+                  const Text(
+                    'Trạng thái',
+                    style: TextStyle(fontSize: 11, color: _refMuted),
+                  ),
                   Text(
                     isMoving ? 'Đang di chuyển' : 'Đang dừng',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: isMoving ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                      color: isMoving
+                          ? const Color(0xFF16A34A)
+                          : const Color(0xFFD97706),
                     ),
                   ),
                 ],
@@ -3895,10 +4273,19 @@ class _JourneyTimelineCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Lịch trình chi tiết',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _refText),
+              const Flexible(
+                child: Text(
+                  'Lịch trình chi tiết',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: _refText,
+                  ),
+                ),
               ),
+              const SizedBox(width: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
@@ -3907,7 +4294,11 @@ class _JourneyTimelineCard extends StatelessWidget {
                 ),
                 child: Text(
                   '${state.segments.length} đoạn',
-                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: _refPrimaryBlue),
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    color: _refPrimaryBlue,
+                  ),
                 ),
               ),
             ],
@@ -3915,6 +4306,8 @@ class _JourneyTimelineCard extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             '${samples.length} mốc thời gian đã ghi nhận',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 11, color: _refMuted),
           ),
           const SizedBox(height: 10),
@@ -3942,14 +4335,16 @@ class _JourneyTimelineCard extends StatelessWidget {
                       final dotColor = isFirst
                           ? const Color(0xFF16A34A)
                           : (isLast
-                              ? const Color(0xFFEF4444)
-                              : (isStopped ? const Color(0xFFD97706) : const Color(0xFF1677FF)));
+                                ? const Color(0xFFEF4444)
+                                : (isStopped
+                                      ? const Color(0xFFD97706)
+                                      : const Color(0xFF1677FF)));
 
                       final titleLabel = isFirst
                           ? 'Bắt đầu'
                           : (isLast
-                              ? 'Kết thúc'
-                              : (isStopped ? 'Điểm dừng' : 'Di chuyển'));
+                                ? 'Kết thúc'
+                                : (isStopped ? 'Điểm dừng' : 'Di chuyển'));
 
                       final speedLabel = s.speedMps != null
                           ? '${(s.speedMps! * 3.6).toStringAsFixed(0)} km/h'
@@ -3975,12 +4370,17 @@ class _JourneyTimelineCard extends StatelessWidget {
                                       decoration: BoxDecoration(
                                         color: dotColor,
                                         shape: BoxShape.circle,
-                                        border: Border.all(color: Colors.white, width: 1.5),
+                                        border: Border.all(
+                                          color: Colors.white,
+                                          width: 1.5,
+                                        ),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: dotColor.withValues(alpha: 0.3),
+                                            color: dotColor.withValues(
+                                              alpha: 0.3,
+                                            ),
                                             blurRadius: 3,
-                                          )
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -4001,37 +4401,64 @@ class _JourneyTimelineCard extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
-                                        Text(
-                                          timeFormat.format(s.measuredAt.toLocal()),
-                                          style: const TextStyle(
-                                            fontSize: 11.5,
-                                            fontWeight: FontWeight.w700,
-                                            color: _refText,
+                                        Flexible(
+                                          child: Text(
+                                            timeFormat.format(
+                                              s.measuredAt.toLocal(),
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: _refText,
+                                            ),
                                           ),
                                         ),
-                                        if (speedLabel.isNotEmpty && !isFirst && !isLast)
+                                        if (speedLabel.isNotEmpty &&
+                                            !isFirst &&
+                                            !isLast) ...[
+                                          const SizedBox(width: 4),
                                           Text(
                                             speedLabel,
-                                            style: const TextStyle(fontSize: 11, color: _refMuted),
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              color: _refMuted,
+                                            ),
                                           ),
+                                        ],
                                       ],
                                     ),
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
-                                        Text(
-                                          titleLabel,
-                                          style: TextStyle(
-                                            fontSize: 10.5,
-                                            fontWeight: FontWeight.w600,
-                                            color: dotColor,
+                                        Flexible(
+                                          child: Text(
+                                            titleLabel,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 10.5,
+                                              fontWeight: FontWeight.w600,
+                                              color: dotColor,
+                                            ),
                                           ),
                                         ),
-                                        Text(
-                                          '${s.latitude.toStringAsFixed(4)}, ${s.longitude.toStringAsFixed(4)}',
-                                          style: const TextStyle(fontSize: 9.5, color: _refMuted),
+                                        const SizedBox(width: 4),
+                                        Flexible(
+                                          child: Text(
+                                            '${s.latitude.toStringAsFixed(4)}, ${s.longitude.toStringAsFixed(4)}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 9.5,
+                                              color: _refMuted,
+                                            ),
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -4094,7 +4521,10 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
     if (samples.isEmpty || !_mapReady) return;
 
     if (samples.length == 1) {
-      _mapController.move(LatLng(samples.first.latitude, samples.first.longitude), 15.0);
+      _mapController.move(
+        LatLng(samples.first.latitude, samples.first.longitude),
+        15.0,
+      );
       return;
     }
 
@@ -4104,7 +4534,12 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
     _mapController.fitCamera(
       CameraFit.bounds(
         bounds: bounds,
-        padding: const EdgeInsets.only(left: 36, right: 36, top: 36, bottom: 36),
+        padding: const EdgeInsets.only(
+          left: 36,
+          right: 36,
+          top: 36,
+          bottom: 36,
+        ),
       ),
     );
   }
@@ -4121,10 +4556,17 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
     final state = widget.state;
 
     final initialCenter = state.validSamples.isNotEmpty
-        ? LatLng(state.validSamples.first.latitude, state.validSamples.first.longitude)
-        : (state.selectedDevice?.latitude != null && state.selectedDevice?.longitude != null
-            ? LatLng(state.selectedDevice!.latitude!, state.selectedDevice!.longitude!)
-            : _defaultCenter);
+        ? LatLng(
+            state.validSamples.first.latitude,
+            state.validSamples.first.longitude,
+          )
+        : (state.selectedDevice?.latitude != null &&
+                  state.selectedDevice?.longitude != null
+              ? LatLng(
+                  state.selectedDevice!.latitude!,
+                  state.selectedDevice!.longitude!,
+                )
+              : _defaultCenter);
 
     return Stack(
       children: [
@@ -4210,11 +4652,17 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
           child: _MapZoomControls(
             onZoomIn: () {
               if (!_mapReady) return;
-              _mapController.move(_mapController.camera.center, _currentZoom + 1);
+              _mapController.move(
+                _mapController.camera.center,
+                _currentZoom + 1,
+              );
             },
             onZoomOut: () {
               if (!_mapReady) return;
-              _mapController.move(_mapController.camera.center, _currentZoom - 1);
+              _mapController.move(
+                _mapController.camera.center,
+                _currentZoom - 1,
+              );
             },
             onFitBounds: () {
               if (state.validSamples.isNotEmpty) {
@@ -4238,7 +4686,13 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
                       children: [
                         CircularProgressIndicator(strokeWidth: 2.5),
                         SizedBox(width: 14),
-                        Text('Đang tải dữ liệu GPS...', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        Text(
+                          'Đang tải dữ liệu GPS...',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -4254,20 +4708,33 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
               child: Center(
                 child: Container(
                   margin: const EdgeInsets.all(24),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.95),
                     borderRadius: BorderRadius.circular(12),
-                    boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 12)],
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black12, blurRadius: 12),
+                    ],
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.route_outlined, size: 40, color: theme.colorScheme.outline),
+                      Icon(
+                        Icons.route_outlined,
+                        size: 40,
+                        color: theme.colorScheme.outline,
+                      ),
                       const SizedBox(height: 8),
                       const Text(
                         'Không có dữ liệu vị trí trong khoảng thời gian đã chọn.',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: _refText),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: _refText,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 4),
@@ -4295,7 +4762,11 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
               ),
               child: const Text(
                 'Chỉ có 1 mốc vị trí trong khoảng này.',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _refText),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: _refText,
+                ),
               ),
             ),
           ),

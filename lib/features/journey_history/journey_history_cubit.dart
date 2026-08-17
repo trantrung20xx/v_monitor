@@ -215,7 +215,26 @@ class JourneyHistoryCubit extends Cubit<JourneyHistoryState> {
     seekToTime(targetTime);
   }
 
-  /// Thay đổi tốc độ phát lại (0.5x, 1x, 2x, 4x, 8x)
+  /// Tua lùi thời gian phát lại (mặc định 30 giây)
+  void stepBackward([Duration duration = const Duration(seconds: 30)]) {
+    if (state.validSamples.isEmpty) return;
+    final firstTime = state.validSamples.first.measuredAt;
+    final currentTime = state.currentReplayTime ?? firstTime;
+    final targetTime = currentTime.subtract(duration);
+    seekToTime(targetTime.isBefore(firstTime) ? firstTime : targetTime);
+  }
+
+  /// Tua tiến thời gian phát lại (mặc định 30 giây)
+  void stepForward([Duration duration = const Duration(seconds: 30)]) {
+    if (state.validSamples.isEmpty) return;
+    final firstTime = state.validSamples.first.measuredAt;
+    final lastTime = state.validSamples.last.measuredAt;
+    final currentTime = state.currentReplayTime ?? firstTime;
+    final targetTime = currentTime.add(duration);
+    seekToTime(targetTime.isAfter(lastTime) ? lastTime : targetTime);
+  }
+
+  /// Thay đổi tốc độ phát lại (0.5x, 1x, 2x, 4x, 8x, 16x)
   void setPlaybackSpeed(double speed) {
     emit(state.copyWith(playbackSpeed: speed));
   }
