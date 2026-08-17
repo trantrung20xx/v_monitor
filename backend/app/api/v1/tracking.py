@@ -20,7 +20,7 @@ router = APIRouter()
 
 @router.post("/", response_model=LocationSampleResponse)
 async def add_location(location: LocationSampleCreate, db: AsyncSession = Depends(get_db)):
-    result = await TrackingService.add_location(db, location)
+    result, generated_events = await TrackingService.add_location(db, location)
     
     # Lấy device mới nhất và broadcast
     device = await DeviceService.get_device(db, location.device_id)
@@ -28,6 +28,19 @@ async def add_location(location: LocationSampleCreate, db: AsyncSession = Depend
         await realtime_service.broadcast_telemetry({
             "type": "DEVICE_UPDATE",
             "device": DeviceResponse.model_validate(device).model_dump(mode='json')
+        })
+        
+    # Broadcast các sự kiện mới phát hiện qua WebSocket
+    for event in generated_events:
+        await realtime_service.broadcast_telemetry({
+            "type": "DEVICE_EVENT",
+            "event": {
+                "id": str(event.id),
+                "device_id": str(event.device_id),
+                "event_type": event.event_type,
+                "occurred_at": event.occurred_at.isoformat() if event.occurred_at else None,
+                "source": event.metadata_.get("source") if event.metadata_ else None,
+            }
         })
         
     return result
@@ -83,8 +96,29 @@ async def get_history_range(
     )
 
 @router.get("/{device_id}/events", response_model=List[DeviceEventResponse])
-async def get_events(device_id: uuid.UUID, limit: int = 100, db: AsyncSession = Depends(get_db)):
-    events = await TrackingService.get_device_events(db, device_id, limit)
+async def get_events(
+    device_id: str,
+    limit: int = 100,
+    event_type: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Lấy danh sách các sự kiện theo dòng thời gian của một thiết bị.
+    Hỗ trợ truyền device_id là UUID hoặc device_code.
+    """
+    resolved_uuid: Optional[uuid.UUID] = None
+    try:
+        resolved_uuid = uuid.UUID(device_id)
+    except (ValueError, TypeError):
+        from app.models.device import Device
+        from sqlalchemy import select
+        dev_res = await db.execute(select(Device.id).filter(Device.device_code == device_id))
+        resolved_uuid = dev_res.scalar_one_or_none()
+
+    if not resolved_uuid:
+        return []
+
+    events = await TrackingService.get_device_events(db, resolved_uuid, limit, event_type=event_type)
     return [
         {
             "id": event.id,

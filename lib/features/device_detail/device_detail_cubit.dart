@@ -68,6 +68,9 @@ class DeviceDetailCubit extends Cubit<DeviceDetailState> {
     _deviceUpdatesSub = deviceRepo.deviceUpdates
         .where((device) => device.id == deviceId)
         .listen(_onDeviceUpdated);
+    _deviceEventsSub = deviceRepo.deviceEvents
+        .where((event) => event.deviceId == deviceId)
+        .listen(_onDeviceEventReceived);
   }
 
   final String deviceId;
@@ -78,6 +81,7 @@ class DeviceDetailCubit extends Cubit<DeviceDetailState> {
   final Map<String, String> _addressCache = {};
   String? _activeAddressKey;
   StreamSubscription<DeviceModel>? _deviceUpdatesSub;
+  StreamSubscription<DeviceEventModel>? _deviceEventsSub;
 
   Future<void> load() async {
     emit(state.copyWith(isLoading: true, error: null));
@@ -130,6 +134,12 @@ class DeviceDetailCubit extends Cubit<DeviceDetailState> {
     }
   }
 
+  void _onDeviceEventReceived(DeviceEventModel newEvent) {
+    // Chèn sự kiện mới lên đầu danh sách (mới nhất xếp trước)
+    final updatedEvents = [newEvent, ...state.events];
+    emit(state.copyWith(events: updatedEvents));
+  }
+
   Future<void> _resolveAddress(double? lat, double? lng) async {
     final cacheKey = _coordinateKey(lat, lng);
     if (cacheKey == null || lat == null || lng == null) {
@@ -171,6 +181,7 @@ class DeviceDetailCubit extends Cubit<DeviceDetailState> {
   @override
   Future<void> close() {
     _deviceUpdatesSub?.cancel();
+    _deviceEventsSub?.cancel();
     return super.close();
   }
 }

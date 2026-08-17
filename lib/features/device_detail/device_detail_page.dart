@@ -1677,7 +1677,7 @@ class _RecentActivityCard extends StatelessWidget {
                 ),
                 TextButton(
                   onPressed: () =>
-                      DefaultTabController.of(context).animateTo(3),
+                      DefaultTabController.of(context).animateTo(2),
                   child: const Text('Xem tất cả'),
                 ),
               ],
@@ -5021,50 +5021,212 @@ class _MapZoomControls extends StatelessWidget {
 
 // ─── Tab 3: Events — Timeline visual ─────────────────────────────────────────
 
-class _EventsTab extends StatelessWidget {
+class _EventsTab extends StatefulWidget {
   const _EventsTab({required this.events});
   final List<DeviceEventModel> events;
 
   @override
+  State<_EventsTab> createState() => _EventsTabState();
+}
+
+class _EventsTabState extends State<_EventsTab> {
+  String _selectedCategory = 'all';
+
+  @override
   Widget build(BuildContext context) {
-    if (events.isEmpty) {
-      final theme = Theme.of(context);
-      return Center(
-        child: Column(
+    final theme = Theme.of(context);
+    final allEvents = widget.events;
+
+    // Filter events by selected category
+    final filteredEvents = _selectedCategory == 'all'
+        ? allEvents
+        : allEvents.where((e) => e.category == _selectedCategory).toList();
+
+    // Counts for filter pills
+    final connectivityCount = allEvents
+        .where((e) => e.category == 'connectivity')
+        .length;
+    final movementCount = allEvents
+        .where((e) => e.category == 'movement')
+        .length;
+    final alertCount = allEvents.where((e) => e.category == 'alert').length;
+
+    final dateFormat = DateFormat('dd/MM/yyyy HH:mm:ss');
+
+    return Column(
+      children: [
+        // ── CATEGORY FILTER BAR ──
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: const BoxDecoration(
+            color: _refSurface,
+            border: Border(bottom: BorderSide(color: _refBorder, width: 1)),
+          ),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _EventFilterChip(
+                  label: 'Tất cả',
+                  count: allEvents.length,
+                  isSelected: _selectedCategory == 'all',
+                  onTap: () => setState(() => _selectedCategory = 'all'),
+                ),
+                const SizedBox(width: 8),
+                _EventFilterChip(
+                  label: 'Kết nối',
+                  count: connectivityCount,
+                  isSelected: _selectedCategory == 'connectivity',
+                  onTap: () =>
+                      setState(() => _selectedCategory = 'connectivity'),
+                ),
+                const SizedBox(width: 8),
+                _EventFilterChip(
+                  label: 'Di chuyển',
+                  count: movementCount,
+                  isSelected: _selectedCategory == 'movement',
+                  onTap: () => setState(() => _selectedCategory = 'movement'),
+                ),
+                const SizedBox(width: 8),
+                _EventFilterChip(
+                  label: 'Cảnh báo & Khác',
+                  count: alertCount,
+                  isSelected: _selectedCategory == 'alert',
+                  onTap: () => setState(() => _selectedCategory = 'alert'),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // ── TIMELINE LIST / EMPTY STATE ──
+        Expanded(
+          child: filteredEvents.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: _refBorder.withValues(alpha: 0.5),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.event_note_rounded,
+                            size: 28,
+                            color: _refMuted,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          _selectedCategory == 'all'
+                              ? 'Chưa có sự kiện nào'
+                              : 'Không có sự kiện thuộc danh mục này',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            color: _refText,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Các sự kiện trạng thái và di chuyển sẽ tự động xuất hiện tại đây khi thiết bị hoạt động.',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: _refMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  itemCount: filteredEvents.length,
+                  itemBuilder: (context, index) {
+                    final event = filteredEvents[index];
+                    final isLast = index == filteredEvents.length - 1;
+
+                    return _EventTimelineItem(
+                      event: event,
+                      dateFormat: dateFormat,
+                      isLast: isLast,
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _EventFilterChip extends StatelessWidget {
+  const _EventFilterChip({
+    required this.label,
+    required this.count,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final int count;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? _refPrimaryBlue.withValues(alpha: 0.1)
+              : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? _refPrimaryBlue.withValues(alpha: 0.4)
+                : Colors.transparent,
+          ),
+        ),
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.event_note_rounded,
-              size: 48,
-              color: theme.colorScheme.outline.withValues(alpha: 0.5),
-            ),
-            const SizedBox(height: 12),
             Text(
-              'Chưa có sự kiện',
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? _refPrimaryBlue : const Color(0xFF475569),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+              decoration: BoxDecoration(
+                color: isSelected ? _refPrimaryBlue : const Color(0xFFCBD5E1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '$count',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: isSelected ? Colors.white : const Color(0xFF334155),
+                ),
               ),
             ),
           ],
         ),
-      );
-    }
-
-    final dateFormat = DateFormat('dd/MM/yyyy HH:mm:ss');
-
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      itemCount: events.length,
-      itemBuilder: (context, index) {
-        final event = events[index];
-        final isLast = index == events.length - 1;
-
-        return _EventTimelineItem(
-          event: event,
-          dateFormat: dateFormat,
-          isLast: isLast,
-        );
-      },
+      ),
     );
   }
 }
@@ -5075,6 +5237,7 @@ class _EventTimelineItem extends StatelessWidget {
     required this.dateFormat,
     required this.isLast,
   });
+
   final DeviceEventModel event;
   final DateFormat dateFormat;
   final bool isLast;
@@ -5098,10 +5261,10 @@ class _EventTimelineItem extends StatelessWidget {
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
+                    color: color.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: color.withValues(alpha: 0.3),
+                      color: color.withValues(alpha: 0.35),
                       width: 1.5,
                     ),
                   ),
@@ -5111,7 +5274,7 @@ class _EventTimelineItem extends StatelessWidget {
                   Expanded(
                     child: Container(
                       width: 1.5,
-                      color: theme.colorScheme.outlineVariant,
+                      color: const Color(0xFFE2E8F0),
                       margin: const EdgeInsets.symmetric(vertical: 4),
                     ),
                   ),
@@ -5119,26 +5282,64 @@ class _EventTimelineItem extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          // Content
+          // Content Card
           Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
+            child: Container(
+              margin: EdgeInsets.only(bottom: isLast ? 0 : 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: _refSurface,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _refBorder),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    DeviceFormatters.eventLabel(event),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          event.eventLabel,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: _refText,
+                            fontSize: 13,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        dateFormat.format(event.occurredAt.toLocal()),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: _refMuted,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    dateFormat.format(event.occurredAt.toLocal()),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.outline,
+                  if (event.description != null &&
+                      event.description!.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      event.description!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _refText.withValues(alpha: 0.8),
+                        height: 1.25,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -5149,17 +5350,21 @@ class _EventTimelineItem extends StatelessWidget {
   }
 
   IconData _eventIcon(String type) {
-    switch (type) {
+    switch (type.toUpperCase()) {
       case 'ONLINE':
-        return Icons.check_circle_rounded;
+        return Icons.wifi_rounded;
       case 'OFFLINE':
-        return Icons.cancel_rounded;
+        return Icons.wifi_off_rounded;
       case 'MOVING':
       case 'MOVEMENT_STARTED':
-        return Icons.navigation_rounded;
+        return Icons.near_me_rounded;
       case 'IDLE':
       case 'MOVEMENT_STOPPED':
         return Icons.pause_circle_rounded;
+      case 'GPS_LOST':
+        return Icons.signal_wifi_statusbar_connected_no_internet_4_rounded;
+      case 'GPS_RESTORED':
+        return Icons.gps_fixed_rounded;
       case 'GEOFENCE_EXIT':
         return Icons.fmd_bad_rounded;
       case 'ERROR':
@@ -5174,21 +5379,25 @@ class _EventTimelineItem extends StatelessWidget {
   }
 
   Color _eventColor(String type) {
-    switch (type) {
+    switch (type.toUpperCase()) {
       case 'ONLINE':
         return const Color(0xFF16A34A);
       case 'OFFLINE':
-        return Colors.grey;
+        return const Color(0xFF64748B);
       case 'MOVING':
-        return const Color(0xFF2563EB);
+      case 'MOVEMENT_STARTED':
+        return const Color(0xFF1677FF);
       case 'IDLE':
+      case 'MOVEMENT_STOPPED':
         return const Color(0xFFD97706);
-      case 'ASSIGNED':
-        return const Color(0xFF0D9488);
-      case 'UNASSIGNED':
+      case 'GPS_LOST':
+      case 'GEOFENCE_EXIT':
+      case 'ERROR':
         return const Color(0xFFDC2626);
+      case 'GPS_RESTORED':
+        return const Color(0xFF16A34A);
       default:
-        return Colors.grey;
+        return const Color(0xFF64748B);
     }
   }
 }

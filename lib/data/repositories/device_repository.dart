@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/device_model.dart';
+import '../models/device_event_model.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/websocket_client.dart';
 
@@ -47,5 +48,14 @@ class DeviceRepository {
           (data) => data['type'] == 'DEVICE_UPDATE' && data['device'] != null,
         )
         .map((data) => DeviceModel.fromJson(data['device']));
+  }
+
+  /// Lắng nghe các sự kiện realtime phát sinh từ thiết bị qua WebSocket
+  Stream<DeviceEventModel> get deviceEvents {
+    return _websocketClient.messages
+        .where(
+          (data) => data['type'] == 'DEVICE_EVENT' && data['event'] != null,
+        )
+        .map((data) => DeviceEventModel.fromJson(data['event']));
   }
 }

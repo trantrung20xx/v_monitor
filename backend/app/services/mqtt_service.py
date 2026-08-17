@@ -120,7 +120,7 @@ class MQTTService:
                             source="mqtt"
                         )
 
-                        await TrackingService.add_location(db, location_data)
+                        sample, generated_events = await TrackingService.add_location(db, location_data)
                         
                         # Lấy bản ghi thiết bị mới nhất (kèm latest_state) để đẩy qua WebSocket
                         from app.services.device_service import DeviceService
@@ -135,6 +135,19 @@ class MQTTService:
                                 "device": json.loads(device_resp.model_dump_json())
                             }
                             await realtime_service.broadcast_telemetry(message)
+
+                        # Broadcast các sự kiện phát hiện được qua WebSocket
+                        for event in generated_events:
+                            await realtime_service.broadcast_telemetry({
+                                "type": "DEVICE_EVENT",
+                                "event": {
+                                    "id": str(event.id),
+                                    "device_id": str(event.device_id),
+                                    "event_type": event.event_type,
+                                    "occurred_at": event.occurred_at.isoformat() if event.occurred_at else None,
+                                    "source": event.metadata_.get("source") if event.metadata_ else None,
+                                }
+                            })
 
                         logger.info(f"Đã xử lý thành công dữ liệu vị trí từ {device_code} và đẩy qua WebSockets")
 
