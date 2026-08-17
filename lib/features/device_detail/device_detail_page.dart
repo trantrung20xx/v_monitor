@@ -1364,13 +1364,6 @@ class _CurrentSummaryPanel extends StatelessWidget {
         ? _refOnline
         : (isStopped ? _refAmber : _refMuted);
 
-    final batteryPct = device.uavBatteryPct ?? device.controllerBatteryPct;
-    final batteryLabel = device.uavBatteryPct != null
-        ? 'Pin UAV: ${device.uavBatteryPct}%'
-        : (device.controllerBatteryPct != null
-              ? 'Pin TX: ${device.controllerBatteryPct}%'
-              : null);
-
     return Card(
       elevation: 0,
       color: _refSurface,
@@ -1394,7 +1387,7 @@ class _CurrentSummaryPanel extends StatelessWidget {
                 ? MainAxisSize.max
                 : MainAxisSize.min,
             children: [
-              // 1. Header (Title + Battery pill if available)
+              // 1. Header (Title)
               Row(
                 children: [
                   Container(
@@ -1422,55 +1415,6 @@ class _CurrentSummaryPanel extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (batteryLabel != null && batteryPct != null) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color:
-                            (batteryPct < 20
-                                    ? theme.colorScheme.error
-                                    : _refOnline)
-                                .withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color:
-                              (batteryPct < 20
-                                      ? theme.colorScheme.error
-                                      : _refOnline)
-                                  .withValues(alpha: 0.25),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            batteryPct < 20
-                                ? Icons.battery_alert_rounded
-                                : Icons.battery_charging_full_rounded,
-                            size: 13,
-                            color: batteryPct < 20
-                                ? theme.colorScheme.error
-                                : _refOnline,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            batteryLabel,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: batteryPct < 20
-                                  ? theme.colorScheme.error
-                                  : _refOnline,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
                 ],
               ),
               if (!isTightlyBounded) const SizedBox(height: 12),
@@ -5216,8 +5160,6 @@ class _EventTimelineItem extends StatelessWidget {
       case 'IDLE':
       case 'MOVEMENT_STOPPED':
         return Icons.pause_circle_rounded;
-      case 'BATTERY_LOW':
-        return Icons.battery_alert_rounded;
       case 'GEOFENCE_EXIT':
         return Icons.fmd_bad_rounded;
       case 'ERROR':

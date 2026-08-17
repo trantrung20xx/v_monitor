@@ -20,11 +20,6 @@ class UsageStatus(str, enum.Enum):
     CANCELLED = "CANCELLED"
     UNKNOWN = "UNKNOWN"
 
-class BatteryType(str, enum.Enum):
-    CONTROLLER = "CONTROLLER"
-    UAV = "UAV"
-    VEHICLE = "VEHICLE"
-
 class ProcessingStatus(str, enum.Enum):
     PENDING = "PENDING"
     PROCESSED = "PROCESSED"

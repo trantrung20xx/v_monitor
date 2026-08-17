@@ -11,8 +11,6 @@ class DeviceModel {
   final Map<String, dynamic>? metadataJson;
   final DateTime? createdAt;
   final DateTime? updatedAt;
-  final int? controllerBatteryPct;
-  final int? uavBatteryPct;
   final bool isOnline;
   final double? latitude;
   final double? longitude;
@@ -34,8 +32,6 @@ class DeviceModel {
     this.metadataJson,
     this.createdAt,
     this.updatedAt,
-    this.controllerBatteryPct,
-    this.uavBatteryPct,
     this.isOnline = false,
     this.latitude,
     this.longitude,
@@ -83,8 +79,6 @@ class DeviceModel {
       createdAt: _dateOrNull(json['created_at']),
       updatedAt: _dateOrNull(json['updated_at']),
       isOnline: json['is_online'] ?? false,
-      controllerBatteryPct: _intOrNull(json['controller_battery_pct']),
-      uavBatteryPct: _intOrNull(json['uav_battery_pct']),
       latitude: _doubleOrNull(json['current_latitude']),
       longitude: _doubleOrNull(json['current_longitude']),
       currentAltitudeM: _doubleOrNull(json['current_altitude_m']),
@@ -104,13 +98,6 @@ class DeviceModel {
     if (value == null) return null;
     if (value is num) return value.toDouble();
     return double.tryParse(value.toString());
-  }
-
-  static int? _intOrNull(dynamic value) {
-    if (value == null) return null;
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    return int.tryParse(value.toString());
   }
 
   static DateTime? _dateOrNull(dynamic value) {

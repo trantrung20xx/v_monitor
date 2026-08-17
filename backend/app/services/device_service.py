@@ -59,8 +59,6 @@ class DeviceService:
                 "current_altitude_m": getattr(device.latest_state, "current_altitude_m", None),
                 "current_speed_mps": device.latest_state.current_speed_mps,
                 "current_heading_deg": device.latest_state.current_heading_deg,
-                "uav_battery_pct": device.latest_state.uav_battery_pct,
-                "controller_battery_pct": device.latest_state.controller_battery_pct,
                 "last_seen_at": device.latest_state.last_seen_at.isoformat() if device.latest_state.last_seen_at else None
             })
         return data

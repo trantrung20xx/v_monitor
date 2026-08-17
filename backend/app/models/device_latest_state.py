@@ -46,16 +46,6 @@ class DeviceLatestState(Base, TimestampMixin):
         nullable=True                                       # Hướng di chuyển hiện tại (độ)
     )
 
-    uav_battery_pct: Mapped[int | None] = mapped_column(
-        Integer,
-        nullable=True                                       # Pin UAV (%)
-    )
-
-    controller_battery_pct: Mapped[int | None] = mapped_column(
-        Integer,
-        nullable=True                                       # Pin tay cầm (%)
-    )
-
     device = relationship(
         "Device",
         back_populates="latest_state"                       # Quan hệ ngược tới Device

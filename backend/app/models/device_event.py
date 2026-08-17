@@ -13,7 +13,7 @@ class DeviceEvent(Base, UUIDMixin):
     # ID của thiết bị phát sinh sự kiện
     device_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("devices.id"), index=True, nullable=False)
 
-    # Loại sự kiện (STATUS_CHANGE, BATTERY_LOW, GEOFENCE_EXIT, ERROR, v.v.)
+    # Loại sự kiện (STATUS_CHANGE, GEOFENCE_EXIT, ERROR, v.v.)
     event_type: Mapped[str] = mapped_column(String, index=True, nullable=False)
 
     # Thời điểm sự kiện xảy ra

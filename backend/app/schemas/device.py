@@ -36,8 +36,6 @@ class DeviceResponse(DeviceBase):
     current_speed_mps: Optional[float] = None              # Vận tốc hiện tại (m/s)
     current_heading_deg: Optional[float] = None            # Hướng di chuyển hiện tại (độ)
     last_seen_at: Optional[datetime] = None                # Thời điểm nhận dữ liệu gần nhất
-    uav_battery_pct: Optional[int] = None                  # Pin UAV (%)
-    controller_battery_pct: Optional[int] = None           # Pin tay cầm (%)
 
 
 class DeviceLatestStateResponse(BaseSchema):
@@ -49,5 +47,3 @@ class DeviceLatestStateResponse(BaseSchema):
     current_altitude_m: Optional[float] = None             # Độ cao GPS hiện tại (m)
     current_speed_mps: Optional[float] = None              # Vận tốc hiện tại (m/s)
     current_heading_deg: Optional[float] = None            # Hướng di chuyển hiện tại (độ)
-    uav_battery_pct: Optional[int] = None                  # Pin UAV (%)
-    controller_battery_pct: Optional[int] = None           # Pin tay cầm (%)

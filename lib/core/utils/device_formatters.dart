@@ -102,14 +102,6 @@ class DeviceFormatters {
     return '${directions[index]} · ${positive.toStringAsFixed(0)}°';
   }
 
-  static String battery(DeviceModel device) {
-    if (device.uavBatteryPct != null) return '${device.uavBatteryPct}% UAV';
-    if (device.controllerBatteryPct != null) {
-      return '${device.controllerBatteryPct}% controller';
-    }
-    return '--';
-  }
-
   static String coordinates(double? latitude, double? longitude) {
     if (latitude == null || longitude == null) return '--';
     return '${latitudeText(latitude)}, ${longitudeText(longitude)}';
@@ -182,7 +174,10 @@ class DeviceFormatters {
       return (firstLine, secondLine);
     }
     if (latitude != null && longitude != null) {
-      return ('${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}', '');
+      return (
+        '${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}',
+        '',
+      );
     }
     return ('Chưa có dữ liệu vị trí', '');
   }
@@ -283,8 +278,6 @@ class DeviceFormatters {
         return 'Trực tuyến';
       case 'OFFLINE':
         return 'Ngoại tuyến';
-      case 'BATTERY_LOW':
-        return 'Pin yếu';
       case 'STATUS_CHANGE':
         return 'Đổi trạng thái';
       case 'ERROR':
