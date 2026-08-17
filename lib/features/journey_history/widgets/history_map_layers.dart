@@ -99,8 +99,9 @@ class HistoryMapLayers {
     return math.Point<double>(x, y);
   }
 
-  /// Xây dựng các Marker Start, End và các điểm nút GPS với nhãn mốc thời gian tối ưu
-  /// theo chuẩn Google Maps Waypoints (Anti-Collision: không chồng chéo, không che lấp nhau).
+  /// Xây dựng các Marker Start, End và các điểm nút GPS với nhãn mốc thời gian đầy đủ
+  /// (cả Ngày/Tháng/Năm + Giờ:Phút:Giây) theo chuẩn Google Maps Waypoints
+  /// và thuật toán Anti-Collision (không chồng chéo, không che lấp nhau).
   static List<Marker> buildSamplePoints({
     required List<LocationModel> validSamples,
     required ValueChanged<LocationModel> onPointSelected,
@@ -111,32 +112,32 @@ class HistoryMapLayers {
 
     final markers = <Marker>[];
 
-    // Định dạng thời gian: nếu tổng thời gian hành trình ngắn (< 30 phút) hiển thị cả giây, ngược lại HH:mm
-    final totalDuration = validSamples.last.measuredAt.difference(validSamples.first.measuredAt);
-    final showSeconds = totalDuration.inMinutes < 30;
-    final timeFormat = DateFormat(showSeconds ? 'HH:mm:ss' : 'HH:mm');
+    final dateFormat = DateFormat('dd/MM/yyyy');
+    final timeFormat = DateFormat('HH:mm:ss');
 
     final labeledScreenPixels = <math.Point<double>>[];
-    const minPixelSpacing = 85.0; // Khoảng cách pixel tối thiểu giữa 2 nhãn text trên màn hình
+    const minPixelSpacing = 95.0; // Khoảng cách pixel tối thiểu giữa 2 nhãn text trên màn hình
 
     // 1. Điểm BẮT ĐẦU (Start - Green Pin)
     final start = validSamples.first;
+    final startDt = start.measuredAt.toLocal();
     final startPix = _latLngToScreenPixel(LatLng(start.latitude, start.longitude), currentZoom);
     labeledScreenPixels.add(startPix);
 
     markers.add(
       Marker(
         point: LatLng(start.latitude, start.longitude),
-        width: 110,
-        height: 48,
+        width: 120,
+        height: 52,
         alignment: Alignment.topCenter,
         child: GestureDetector(
           onTap: () => onPointSelected(start),
           child: _buildGoogleStyleMarker(
-            label: 'Bắt đầu ${timeFormat.format(start.measuredAt.toLocal())}',
+            title: 'Bắt đầu',
+            dateText: dateFormat.format(startDt),
+            timeText: timeFormat.format(startDt),
             color: const Color(0xFF16A34A),
             icon: Icons.play_arrow_rounded,
-            isImportant: true,
           ),
         ),
       ),
@@ -146,21 +147,23 @@ class HistoryMapLayers {
     math.Point<double>? endPix;
     if (validSamples.length >= 2) {
       final end = validSamples.last;
+      final endDt = end.measuredAt.toLocal();
       endPix = _latLngToScreenPixel(LatLng(end.latitude, end.longitude), currentZoom);
 
       markers.add(
         Marker(
           point: LatLng(end.latitude, end.longitude),
-          width: 110,
-          height: 48,
+          width: 120,
+          height: 52,
           alignment: Alignment.topCenter,
           child: GestureDetector(
             onTap: () => onPointSelected(end),
             child: _buildGoogleStyleMarker(
-              label: 'Kết thúc ${timeFormat.format(end.measuredAt.toLocal())}',
+              title: 'Kết thúc',
+              dateText: dateFormat.format(endDt),
+              timeText: timeFormat.format(endDt),
               color: const Color(0xFFDC2626),
               icon: Icons.flag_rounded,
-              isImportant: true,
             ),
           ),
         ),
@@ -171,6 +174,7 @@ class HistoryMapLayers {
     if (validSamples.length > 2) {
       for (var i = 1; i < validSamples.length - 1; i++) {
         final sample = validSamples[i];
+        final sampleDt = sample.measuredAt.toLocal();
         final sampleCoord = LatLng(sample.latitude, sample.longitude);
         final samplePix = _latLngToScreenPixel(sampleCoord, currentZoom);
 
@@ -196,19 +200,20 @@ class HistoryMapLayers {
         final isStopped = (sample.speedMps ?? 0) < 0.5;
 
         if (!isColliding) {
-          // Điểm nút đủ khoảng cách -> Vẽ nhãn Timestamp Badge Google Maps Style
+          // Điểm nút đủ khoảng cách -> Vẽ nhãn Timestamp Badge Google Maps Style với cả Ngày & Giờ
           labeledScreenPixels.add(samplePix);
 
           markers.add(
             Marker(
               point: sampleCoord,
-              width: showSeconds ? 96 : 74,
-              height: 38,
+              width: 88,
+              height: 44,
               alignment: Alignment.topCenter,
               child: GestureDetector(
                 onTap: () => onPointSelected(sample),
                 child: _buildWaypointTimeBadge(
-                  timeText: timeFormat.format(sample.measuredAt.toLocal()),
+                  dateText: dateFormat.format(sampleDt),
+                  timeText: timeFormat.format(sampleDt),
                   isStopped: isStopped,
                   theme: theme,
                 ),
@@ -216,7 +221,7 @@ class HistoryMapLayers {
             ),
           );
         } else {
-          // Điểm bị chồng chéo text -> Vẽ dot tròn nhỏ để người dùng vẫn thấy quỹ đạo
+          // Điểm bị chồng chéo text -> Vẽ dot tròn nhỏ gọn để người dùng vẫn thấy quỹ đạo
           if (currentZoom >= 13) {
             markers.add(_buildDotMarker(sample, onPointSelected, theme));
           }
@@ -254,7 +259,9 @@ class HistoryMapLayers {
   }
 
   /// Nhãn mốc thời gian điểm nút (Waypoint Badge) chuẩn phong cách Google Maps
+  /// hiển thị gọn gàng cả Ngày/Tháng/Năm và Giờ:Phút:Giây
   static Widget _buildWaypointTimeBadge({
+    required String dateText,
     required String timeText,
     required bool isStopped,
     required ThemeData theme,
@@ -265,35 +272,55 @@ class HistoryMapLayers {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.95),
-            borderRadius: BorderRadius.circular(10),
+            color: Colors.white.withValues(alpha: 0.96),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(color: const Color(0xFFCBD5E1), width: 1),
             boxShadow: const [
               BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 1.5)),
             ],
           ),
-          child: Row(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Container(
-                width: 5,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: badgeColor,
-                  shape: BoxShape.circle,
+              // Dòng 1: Ngày tháng năm
+              Text(
+                dateText,
+                style: const TextStyle(
+                  color: Color(0xFF475569),
+                  fontSize: 8.5,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.2,
+                  height: 1.1,
                 ),
               ),
-              const SizedBox(width: 4),
-              Text(
-                timeText,
-                style: const TextStyle(
-                  color: Color(0xFF0F172A),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.2,
-                ),
+              const SizedBox(height: 1),
+              // Dòng 2: Dot trạng thái + Giờ:Phút:Giây
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 5,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: badgeColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    timeText,
+                    style: const TextStyle(
+                      color: Color(0xFF0F172A),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.2,
+                      height: 1.1,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -307,12 +334,13 @@ class HistoryMapLayers {
     );
   }
 
-  /// Marker Bắt đầu / Kết thúc nổi bật
+  /// Marker Bắt đầu / Kết thúc nổi bật hiển thị đầy đủ Ngày & Giờ
   static Widget _buildGoogleStyleMarker({
-    required String label,
+    required String title,
+    required String dateText,
+    required String timeText,
     required Color color,
     required IconData icon,
-    bool isImportant = false,
   }) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -326,17 +354,32 @@ class HistoryMapLayers {
               BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2)),
             ],
           ),
-          child: Row(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 13, color: Colors.white),
-              const SizedBox(width: 4),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 12, color: Colors.white),
+                  const SizedBox(width: 3),
+                  Text(
+                    '$title · $dateText',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 1),
               Text(
-                label,
+                timeText,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w900,
                   letterSpacing: -0.2,
                 ),
               ),
@@ -383,10 +426,10 @@ class HistoryMapLayers {
                 ],
               ),
               child: Text(
-                '${DateFormat('HH:mm:ss').format(time.toLocal())} · ${DeviceFormatters.speedMps(speed)}',
+                '${DateFormat('dd/MM/yyyy HH:mm:ss').format(time.toLocal())} · ${DeviceFormatters.speedMps(speed)}',
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 10,
+                  fontSize: 9.5,
                   fontWeight: FontWeight.bold,
                 ),
               ),

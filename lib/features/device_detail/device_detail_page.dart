@@ -2645,24 +2645,7 @@ class _JourneyTabState extends State<_JourneyTab> {
                     avatar: const Icon(Icons.edit_calendar_rounded, size: 14),
                     label: const Text('Tùy chọn', style: TextStyle(fontSize: 11)),
                     selected: _rangePresetIndex == 4,
-                    onSelected: (_) async {
-                      final picked = await showDateRangePicker(
-                        context: context,
-                        firstDate: DateTime(now.year - 3),
-                        lastDate: DateTime(now.year + 1),
-                        initialDateRange: DateTimeRange(
-                          start: _fromTime,
-                          end: _toTime,
-                        ),
-                      );
-                      if (picked == null) return;
-                      setState(() {
-                        _rangePresetIndex = 4;
-                        _fromTime = DateTime(picked.start.year, picked.start.month, picked.start.day, 0, 0, 0);
-                        _toTime = DateTime(picked.end.year, picked.end.month, picked.end.day, 23, 59, 59);
-                      });
-                      _fetchHistory();
-                    },
+                    onSelected: (_) => _openCustomDateTimeRangePicker(context),
                   ),
                   const SizedBox(width: 14),
 
@@ -2746,6 +2729,242 @@ class _JourneyTabState extends State<_JourneyTab> {
         ),
       ),
     );
+  }
+
+  Future<void> _openCustomDateTimeRangePicker(BuildContext context) async {
+    var tempFrom = _fromTime;
+    var tempTo = _toTime;
+
+    final result = await showDialog<DateTimeRange>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final dateFormat = DateFormat('dd/MM/yyyy');
+            final timeFormat = DateFormat('HH:mm');
+            final isValid = tempFrom.isBefore(tempTo);
+
+            return AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.edit_calendar_rounded, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Tùy chọn khoảng thời gian',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              content: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Mốc bắt đầu
+                    const Text(
+                      'Mốc bắt đầu (Từ):',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            icon: const Icon(Icons.calendar_today_rounded, size: 14),
+                            label: Text(
+                              dateFormat.format(tempFrom),
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            onPressed: () async {
+                              final pickedDate = await showDatePicker(
+                                context: context,
+                                initialDate: tempFrom,
+                                firstDate: DateTime(DateTime.now().year - 3),
+                                lastDate: DateTime(DateTime.now().year + 1),
+                              );
+                              if (pickedDate != null) {
+                                setDialogState(() {
+                                  tempFrom = DateTime(
+                                    pickedDate.year,
+                                    pickedDate.month,
+                                    pickedDate.day,
+                                    tempFrom.hour,
+                                    tempFrom.minute,
+                                    tempFrom.second,
+                                  );
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 2,
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            icon: const Icon(Icons.access_time_rounded, size: 14),
+                            label: Text(
+                              timeFormat.format(tempFrom),
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            onPressed: () async {
+                              final pickedTime = await showTimePicker(
+                                context: context,
+                                initialTime: TimeOfDay(
+                                  hour: tempFrom.hour,
+                                  minute: tempFrom.minute,
+                                ),
+                              );
+                              if (pickedTime != null) {
+                                setDialogState(() {
+                                  tempFrom = DateTime(
+                                    tempFrom.year,
+                                    tempFrom.month,
+                                    tempFrom.day,
+                                    pickedTime.hour,
+                                    pickedTime.minute,
+                                    0,
+                                  );
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Mốc kết thúc
+                    const Text(
+                      'Mốc kết thúc (Đến):',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            icon: const Icon(Icons.calendar_today_rounded, size: 14),
+                            label: Text(
+                              dateFormat.format(tempTo),
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            onPressed: () async {
+                              final pickedDate = await showDatePicker(
+                                context: context,
+                                initialDate: tempTo,
+                                firstDate: DateTime(DateTime.now().year - 3),
+                                lastDate: DateTime(DateTime.now().year + 1),
+                              );
+                              if (pickedDate != null) {
+                                setDialogState(() {
+                                  tempTo = DateTime(
+                                    pickedDate.year,
+                                    pickedDate.month,
+                                    pickedDate.day,
+                                    tempTo.hour,
+                                    tempTo.minute,
+                                    tempTo.second,
+                                  );
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 2,
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            icon: const Icon(Icons.access_time_rounded, size: 14),
+                            label: Text(
+                              timeFormat.format(tempTo),
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            onPressed: () async {
+                              final pickedTime = await showTimePicker(
+                                context: context,
+                                initialTime: TimeOfDay(
+                                  hour: tempTo.hour,
+                                  minute: tempTo.minute,
+                                ),
+                              );
+                              if (pickedTime != null) {
+                                setDialogState(() {
+                                  tempTo = DateTime(
+                                    tempTo.year,
+                                    tempTo.month,
+                                    tempTo.day,
+                                    pickedTime.hour,
+                                    pickedTime.minute,
+                                    59,
+                                  );
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    if (!isValid)
+                      const Text(
+                        'Thời gian bắt đầu phải trước thời gian kết thúc!',
+                        style: TextStyle(
+                          color: Colors.redAccent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Hủy'),
+                ),
+                FilledButton(
+                  onPressed: isValid
+                      ? () => Navigator.of(dialogContext).pop(
+                            DateTimeRange(start: tempFrom, end: tempTo),
+                          )
+                      : null,
+                  child: const Text('Áp dụng'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result != null) {
+      setState(() {
+        _rangePresetIndex = 4;
+        _fromTime = result.start;
+        _toTime = result.end;
+      });
+      _fetchHistory();
+    }
   }
 }
 
