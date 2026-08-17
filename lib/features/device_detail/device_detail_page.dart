@@ -134,7 +134,6 @@ class _DeviceDetailHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final width = MediaQuery.sizeOf(context).width;
     final compact = width < 720;
     final statusText = status.connectivity == ConnectivityStatus.online
@@ -150,14 +149,15 @@ class _DeviceDetailHeader extends StatelessWidget {
         children: [
           Padding(
             padding: EdgeInsets.fromLTRB(
-              compact ? 14 : 24,
               compact ? 12 : 20,
-              compact ? 14 : 24,
+              compact ? 10 : 14,
+              compact ? 12 : 20,
               0,
             ),
             child: Row(
               children: [
                 _BackSquareButton(
+                  compact: compact,
                   onPressed: () {
                     final navigator = Navigator.of(context);
                     if (navigator.canPop()) {
@@ -167,50 +167,53 @@ class _DeviceDetailHeader extends StatelessWidget {
                     }
                   },
                 ),
-                const SizedBox(width: 20),
+                SizedBox(width: compact ? 10 : 14),
                 Container(
-                  width: compact ? 44 : 54,
-                  height: compact ? 44 : 54,
+                  width: compact ? 34 : 38,
+                  height: compact ? 34 : 38,
                   decoration: BoxDecoration(
                     color: _refPrimaryBlue,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(8),
                     boxShadow: [
                       BoxShadow(
-                        color: _refPrimaryBlue.withValues(alpha: 0.24),
-                        blurRadius: 14,
-                        offset: const Offset(0, 6),
+                        color: _refPrimaryBlue.withValues(alpha: 0.2),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
                   child: Icon(
                     DeviceIcon.iconFor(device.deviceType),
                     color: Colors.white,
-                    size: compact ? 24 : 28,
+                    size: compact ? 18 : 20,
                   ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: compact ? 10 : 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         DeviceFormatters.displayName(device),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.headlineSmall?.copyWith(
+                        style: TextStyle(
+                          fontSize: compact ? 15 : 17,
+                          fontWeight: FontWeight.w700,
                           color: _refText,
-                          fontWeight: FontWeight.w800,
-                          height: 1.08,
+                          height: 1.15,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 2),
                       Text(
                         '${device.deviceCode}  ·  ${DeviceFormatters.deviceTypeLabel(device.deviceType)}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium?.copyWith(
+                        style: TextStyle(
+                          fontSize: compact ? 11.5 : 12.5,
+                          fontWeight: FontWeight.w400,
                           color: _refMuted,
-                          fontWeight: FontWeight.w500,
                           height: 1.1,
                         ),
                       ),
@@ -219,7 +222,7 @@ class _DeviceDetailHeader extends StatelessWidget {
                 ),
                 if (!compact) ...[
                   _HeaderStatusText(label: statusText, color: statusColor),
-                  const SizedBox(width: 24),
+                  const SizedBox(width: 16),
                   _HeaderActionButton(
                     icon: Icons.refresh_rounded,
                     label: 'Làm mới',
@@ -228,15 +231,20 @@ class _DeviceDetailHeader extends StatelessWidget {
                 ] else
                   IconButton(
                     onPressed: onRefresh,
-                    icon: const Icon(Icons.refresh_rounded),
+                    icon: const Icon(Icons.refresh_rounded, size: 20),
                     tooltip: 'Làm mới',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
                   ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: compact ? 6 : 8),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 24),
+            padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 20),
             child: Align(
               alignment: Alignment.centerLeft,
               child: TabBar(
@@ -246,21 +254,23 @@ class _DeviceDetailHeader extends StatelessWidget {
                 unselectedLabelColor: _refMuted,
                 dividerColor: Colors.transparent,
                 indicatorColor: _refPrimaryBlue,
-                indicatorWeight: 3,
+                indicatorWeight: 2.5,
                 indicatorSize: TabBarIndicatorSize.tab,
                 labelPadding: EdgeInsets.symmetric(
-                  horizontal: compact ? 16 : 28,
+                  horizontal: compact ? 14 : 20,
                 ),
-                labelStyle: theme.textTheme.labelLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
+                labelStyle: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
-                unselectedLabelStyle: theme.textTheme.labelLarge?.copyWith(
+                unselectedLabelStyle: const TextStyle(
+                  fontSize: 13,
                   fontWeight: FontWeight.w500,
                 ),
-                tabs: const [
-                  Tab(height: 48, text: 'Tổng quan'),
-                  Tab(height: 48, text: 'Hành trình'),
-                  Tab(height: 48, text: 'Sự kiện'),
+                tabs: [
+                  Tab(height: compact ? 34 : 36, text: 'Tổng quan'),
+                  Tab(height: compact ? 34 : 36, text: 'Hành trình'),
+                  Tab(height: compact ? 34 : 36, text: 'Sự kiện'),
                 ],
               ),
             ),
@@ -273,15 +283,17 @@ class _DeviceDetailHeader extends StatelessWidget {
 }
 
 class _BackSquareButton extends StatelessWidget {
-  const _BackSquareButton({required this.onPressed});
+  const _BackSquareButton({required this.onPressed, this.compact = false});
 
   final VoidCallback onPressed;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
+    final size = compact ? 34.0 : 38.0;
     return SizedBox(
-      width: 48,
-      height: 48,
+      width: size,
+      height: size,
       child: OutlinedButton(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
@@ -290,9 +302,9 @@ class _BackSquareButton extends StatelessWidget {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           foregroundColor: _refPrimaryBlue,
         ),
-        child: const Icon(
+        child: Icon(
           Icons.arrow_back_rounded,
-          size: 24,
+          size: compact ? 18 : 20,
           color: _refPrimaryBlue,
         ),
       ),
@@ -311,13 +323,14 @@ class _HeaderStatusText extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(Icons.circle_rounded, size: 9, color: color),
-        const SizedBox(width: 8),
+        Icon(Icons.circle_rounded, size: 8, color: color),
+        const SizedBox(width: 6),
         Text(
           label,
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+          style: TextStyle(
+            fontSize: 12.5,
             color: color,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],
@@ -340,17 +353,15 @@ class _HeaderActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return OutlinedButton.icon(
       onPressed: onPressed,
-      icon: Icon(icon, size: 18, color: _refPrimaryBlue),
+      icon: Icon(icon, size: 16, color: _refPrimaryBlue),
       label: Text(label),
       style: OutlinedButton.styleFrom(
         foregroundColor: _refPrimaryBlue,
         backgroundColor: _refSurface,
         side: BorderSide(color: _refPrimaryBlue.withValues(alpha: 0.35)),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        textStyle: Theme.of(
-          context,
-        ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
       ),
     );
   }
