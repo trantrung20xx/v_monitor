@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:intl/intl.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:latlong2/latlong.dart' hide Path;
 
 import '../../../core/utils/device_formatters.dart';
 import '../../../core/widgets/device_icon.dart';
@@ -89,7 +89,18 @@ class HistoryMapLayers {
     return markers;
   }
 
-  /// Xây dựng các Marker Start, End và các điểm mẫu GPS có thể tap
+  /// Chuyển đổi toạ độ địa lý (LatLng) sang toạ độ Pixel màn hình thế giới ở mức Zoom hiện tại
+  /// để tính toán khoảng cách va chạm nhãn (Label Anti-Collision & Decluttering).
+  static math.Point<double> _latLngToScreenPixel(LatLng latLng, double zoom) {
+    final n = math.pow(2.0, zoom);
+    final x = ((latLng.longitude + 180.0) / 360.0) * n * 256.0;
+    final latRad = latLng.latitude * math.pi / 180.0;
+    final y = (1.0 - math.log(math.tan(latRad) + 1.0 / math.cos(latRad)) / math.pi) / 2.0 * n * 256.0;
+    return math.Point<double>(x, y);
+  }
+
+  /// Xây dựng các Marker Start, End và các điểm nút GPS với nhãn mốc thời gian tối ưu
+  /// theo chuẩn Google Maps Waypoints (Anti-Collision: không chồng chéo, không che lấp nhau).
   static List<Marker> buildSamplePoints({
     required List<LocationModel> validSamples,
     required ValueChanged<LocationModel> onPointSelected,
@@ -100,122 +111,247 @@ class HistoryMapLayers {
 
     final markers = <Marker>[];
 
-    // Điểm BẮT ĐẦU (Start - Green)
+    // Định dạng thời gian: nếu tổng thời gian hành trình ngắn (< 30 phút) hiển thị cả giây, ngược lại HH:mm
+    final totalDuration = validSamples.last.measuredAt.difference(validSamples.first.measuredAt);
+    final showSeconds = totalDuration.inMinutes < 30;
+    final timeFormat = DateFormat(showSeconds ? 'HH:mm:ss' : 'HH:mm');
+
+    final labeledScreenPixels = <math.Point<double>>[];
+    const minPixelSpacing = 85.0; // Khoảng cách pixel tối thiểu giữa 2 nhãn text trên màn hình
+
+    // 1. Điểm BẮT ĐẦU (Start - Green Pin)
     final start = validSamples.first;
+    final startPix = _latLngToScreenPixel(LatLng(start.latitude, start.longitude), currentZoom);
+    labeledScreenPixels.add(startPix);
+
     markers.add(
       Marker(
         point: LatLng(start.latitude, start.longitude),
-        width: 90,
-        height: 52,
+        width: 110,
+        height: 48,
         alignment: Alignment.topCenter,
         child: GestureDetector(
           onTap: () => onPointSelected(start),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF16A34A),
-                  borderRadius: BorderRadius.circular(6),
-                  boxShadow: const [
-                    BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.play_circle_fill_rounded, size: 12, color: Colors.white),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Bắt đầu ${DateFormat('HH:mm').format(start.measuredAt.toLocal())}',
-                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.arrow_drop_down, size: 16, color: Color(0xFF16A34A)),
-            ],
+          child: _buildGoogleStyleMarker(
+            label: 'Bắt đầu ${timeFormat.format(start.measuredAt.toLocal())}',
+            color: const Color(0xFF16A34A),
+            icon: Icons.play_arrow_rounded,
+            isImportant: true,
           ),
         ),
       ),
     );
 
-    // Điểm KẾT THÚC (End - Red) nếu có >= 2 điểm
+    // 2. Điểm KẾT THÚC (End - Red Pin) nếu có >= 2 điểm
+    math.Point<double>? endPix;
     if (validSamples.length >= 2) {
       final end = validSamples.last;
+      endPix = _latLngToScreenPixel(LatLng(end.latitude, end.longitude), currentZoom);
+
       markers.add(
         Marker(
           point: LatLng(end.latitude, end.longitude),
-          width: 90,
-          height: 52,
+          width: 110,
+          height: 48,
           alignment: Alignment.topCenter,
           child: GestureDetector(
             onTap: () => onPointSelected(end),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFDC2626),
-                    borderRadius: BorderRadius.circular(6),
-                    boxShadow: const [
-                      BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.stop_circle_rounded, size: 12, color: Colors.white),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Kết thúc ${DateFormat('HH:mm').format(end.measuredAt.toLocal())}',
-                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.arrow_drop_down, size: 16, color: Color(0xFFDC2626)),
-              ],
+            child: _buildGoogleStyleMarker(
+              label: 'Kết thúc ${timeFormat.format(end.measuredAt.toLocal())}',
+              color: const Color(0xFFDC2626),
+              icon: Icons.flag_rounded,
+              isImportant: true,
             ),
           ),
         ),
       );
     }
 
-    // Các điểm GPS mẫu trung gian (chỉ hiển thị dot khi zoom đủ lớn để tối ưu hiệu năng) (Section 39 & 40)
-    if (currentZoom >= 14 && validSamples.length > 2) {
-      final sampleStep = currentZoom >= 16 ? 1 : 3;
-      for (var i = 1; i < validSamples.length - 1; i += sampleStep) {
+    // 3. Các điểm NÚT TRUNG GIAN với Thuật toán Thông minh Chống Chồng Chéo (Anti-Collision)
+    if (validSamples.length > 2) {
+      for (var i = 1; i < validSamples.length - 1; i++) {
         final sample = validSamples[i];
-        markers.add(
-          Marker(
-            point: LatLng(sample.latitude, sample.longitude),
-            width: 14,
-            height: 14,
-            child: GestureDetector(
-              onTap: () => onPointSelected(sample),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surface,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: theme.colorScheme.primary, width: 2),
-                  boxShadow: const [
-                    BoxShadow(color: Colors.black26, blurRadius: 2),
-                  ],
+        final sampleCoord = LatLng(sample.latitude, sample.longitude);
+        final samplePix = _latLngToScreenPixel(sampleCoord, currentZoom);
+
+        // Kiểm tra khoảng cách pixel tới điểm kết thúc
+        if (endPix != null) {
+          final distToEnd = samplePix.distanceTo(endPix);
+          if (distToEnd < minPixelSpacing * 0.85) {
+            // Quá gần điểm kết thúc -> chỉ vẽ dot nhỏ, không vẽ text
+            markers.add(_buildDotMarker(sample, onPointSelected, theme));
+            continue;
+          }
+        }
+
+        // Kiểm tra khoảng cách pixel tới tất cả các nhãn đã vẽ trước đó
+        var isColliding = false;
+        for (final p in labeledScreenPixels) {
+          if (samplePix.distanceTo(p) < minPixelSpacing) {
+            isColliding = true;
+            break;
+          }
+        }
+
+        final isStopped = (sample.speedMps ?? 0) < 0.5;
+
+        if (!isColliding) {
+          // Điểm nút đủ khoảng cách -> Vẽ nhãn Timestamp Badge Google Maps Style
+          labeledScreenPixels.add(samplePix);
+
+          markers.add(
+            Marker(
+              point: sampleCoord,
+              width: showSeconds ? 96 : 74,
+              height: 38,
+              alignment: Alignment.topCenter,
+              child: GestureDetector(
+                onTap: () => onPointSelected(sample),
+                child: _buildWaypointTimeBadge(
+                  timeText: timeFormat.format(sample.measuredAt.toLocal()),
+                  isStopped: isStopped,
+                  theme: theme,
                 ),
               ),
             ),
-          ),
-        );
+          );
+        } else {
+          // Điểm bị chồng chéo text -> Vẽ dot tròn nhỏ để người dùng vẫn thấy quỹ đạo
+          if (currentZoom >= 13) {
+            markers.add(_buildDotMarker(sample, onPointSelected, theme));
+          }
+        }
       }
     }
 
     return markers;
   }
 
-  /// Xây dựng Marker cho Replay chuyển động của thiết bị
+  /// Marker Dot nhỏ gọn cho các điểm mẫu GPS không gắn nhãn text (tránh rối bản đồ)
+  static Marker _buildDotMarker(
+    LocationModel sample,
+    ValueChanged<LocationModel> onPointSelected,
+    ThemeData theme,
+  ) {
+    return Marker(
+      point: LatLng(sample.latitude, sample.longitude),
+      width: 12,
+      height: 12,
+      child: GestureDetector(
+        onTap: () => onPointSelected(sample),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            border: Border.all(color: theme.colorScheme.primary, width: 2.5),
+            boxShadow: const [
+              BoxShadow(color: Colors.black26, blurRadius: 3, offset: Offset(0, 1)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Nhãn mốc thời gian điểm nút (Waypoint Badge) chuẩn phong cách Google Maps
+  static Widget _buildWaypointTimeBadge({
+    required String timeText,
+    required bool isStopped,
+    required ThemeData theme,
+  }) {
+    final badgeColor = isStopped ? const Color(0xFFD97706) : theme.colorScheme.primary;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.95),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFCBD5E1), width: 1),
+            boxShadow: const [
+              BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 1.5)),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 5,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: badgeColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                timeText,
+                style: const TextStyle(
+                  color: Color(0xFF0F172A),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Chân định vị nhỏ gắn vào tâm toạ độ
+        CustomPaint(
+          size: const Size(6, 4),
+          painter: _PinTipPainter(const Color(0xFFCBD5E1)),
+        ),
+      ],
+    );
+  }
+
+  /// Marker Bắt đầu / Kết thúc nổi bật
+  static Widget _buildGoogleStyleMarker({
+    required String label,
+    required Color color,
+    required IconData icon,
+    bool isImportant = false,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: const [
+              BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2)),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 13, color: Colors.white),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+        CustomPaint(
+          size: const Size(8, 5),
+          painter: _PinTipPainter(color),
+        ),
+      ],
+    );
+  }
+
+  /// Marker cho Replay chuyển động của thiết bị
   static Marker? buildReplayMarker({
     required JourneyHistoryState state,
     required ThemeData theme,
@@ -240,15 +376,19 @@ class HistoryMapLayers {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: const Color(0xFF0F172A).withValues(alpha: 0.9),
-                borderRadius: BorderRadius.circular(4),
+                color: const Color(0xFF0F172A).withValues(alpha: 0.92),
+                borderRadius: BorderRadius.circular(5),
                 boxShadow: const [
                   BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
                 ],
               ),
               child: Text(
                 '${DateFormat('HH:mm:ss').format(time.toLocal())} · ${DeviceFormatters.speedMps(speed)}',
-                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           const SizedBox(height: 2),
@@ -281,4 +421,23 @@ class HistoryMapLayers {
       ),
     );
   }
+}
+
+class _PinTipPainter extends CustomPainter {
+  final Color color;
+  _PinTipPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..lineTo(size.width, 0)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

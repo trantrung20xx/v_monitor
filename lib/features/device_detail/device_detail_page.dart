@@ -2413,7 +2413,7 @@ class _JourneyTabState extends State<_JourneyTab> {
                             visualDensity: VisualDensity.compact,
                           ),
                           onPressed: () {
-                            context.push('/history?device_id=${widget.device.id}');
+                            context.go('/history?device_id=${widget.device.id}');
                           },
                           icon: const Icon(Icons.play_circle_fill_rounded, size: 16),
                           label: const Text('Phát lại / Replay', style: TextStyle(fontSize: 12)),

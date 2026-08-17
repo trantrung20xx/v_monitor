@@ -6,12 +6,17 @@ import '../features/device_detail/device_detail_page.dart';
 import '../features/journey_history/journey_history_page.dart';
 import '../features/map/map_view_page.dart';
 
+final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
+final GlobalKey<NavigatorState> _shellNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'shell');
+
 /// Application route configuration.
 class AppRouter {
   static final GoRouter router = GoRouter(
+    navigatorKey: _rootNavigatorKey,
     initialLocation: '/',
     routes: [
       ShellRoute(
+        navigatorKey: _shellNavigatorKey,
         builder: (context, state, child) => _AppShell(child: child),
         routes: [
           GoRoute(
@@ -35,6 +40,7 @@ class AppRouter {
         ],
       ),
       GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
         path: '/devices/:id',
         name: 'device-detail',
         builder: (context, state) {

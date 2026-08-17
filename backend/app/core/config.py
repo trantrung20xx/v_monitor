@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     tracking_outlier_speed_kmh: float = 500.0             # Implied speed > this = outlier
     tracking_max_history_samples: int = 100000            # Max samples per history request
 
-    jwt_secret: str = "dev-only-change-me"
+    jwt_secret: str = "abcxyz123"
 
     model_config = SettingsConfigDict(
         env_file=_BACKEND_DIR / ".env",
