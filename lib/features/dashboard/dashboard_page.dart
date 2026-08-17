@@ -35,7 +35,7 @@ class _DashboardView extends StatelessWidget {
           return const Scaffold(
             backgroundColor: Color(0xFFF8FAFB),
             body: Center(
-              child: CircularProgressIndicator(color: Color(0xFF0F9FA8)),
+              child: CircularProgressIndicator(color: Color(0xFF1677FF)),
             ),
           );
         }
@@ -407,13 +407,13 @@ class _SearchBarState extends State<_SearchBar> {
         color: _isFocused ? Colors.white : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: _isFocused ? const Color(0xFF0F9FA8) : const Color(0xFFE2E8F0),
+          color: _isFocused ? const Color(0xFF1677FF) : const Color(0xFFE2E8F0),
           width: 1,
         ),
         boxShadow: _isFocused
             ? [
                 BoxShadow(
-                  color: const Color(0xFF0F9FA8).withValues(alpha: 0.12),
+                  color: const Color(0xFF1677FF).withValues(alpha: 0.12),
                   blurRadius: 4,
                   offset: const Offset(0, 1),
                 ),
@@ -569,7 +569,7 @@ class _StatusFilterBar extends StatelessWidget {
                               ? FontWeight.w600
                               : FontWeight.w500,
                           color: isSelected
-                              ? const Color(0xFF0F9FA8)
+                              ? const Color(0xFF1677FF)
                               : const Color(0xFF64748B),
                         ),
                       ),
@@ -583,7 +583,7 @@ class _StatusFilterBar extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: isSelected
                                 ? const Color(
-                                    0xFF0F9FA8,
+                                    0xFF1677FF,
                                   ).withValues(alpha: 0.12)
                                 : const Color(0xFFE2E8F0),
                             borderRadius: BorderRadius.circular(10),
@@ -594,7 +594,7 @@ class _StatusFilterBar extends StatelessWidget {
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                               color: isSelected
-                                  ? const Color(0xFF0F9FA8)
+                                  ? const Color(0xFF1677FF)
                                   : const Color(0xFF64748B),
                             ),
                           ),
@@ -642,7 +642,7 @@ class _SidebarStats extends StatelessWidget {
       _StatRow(
         label: 'Di chuyển',
         value: state.movingCount,
-        color: const Color(0xFF2563EB),
+        color: const Color(0xFF1677FF),
         icon: Icons.navigation_rounded,
       ),
       _StatRow(
@@ -762,7 +762,7 @@ class _SidebarLegend extends StatelessWidget {
         SizedBox(height: 4),
         _LegendItem(color: Color(0xFF8B949E), label: 'Ngoại tuyến'),
         SizedBox(height: 4),
-        _LegendItem(color: Color(0xFF2563EB), label: 'Di chuyển'),
+        _LegendItem(color: Color(0xFF1677FF), label: 'Di chuyển'),
         SizedBox(height: 4),
         _LegendItem(color: Color(0xFFD97706), label: 'Đang dừng'),
         SizedBox(height: 4),
@@ -860,7 +860,7 @@ class _ErrorView extends StatelessWidget {
               const SizedBox(height: 20),
               FilledButton.icon(
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF0F9FA8),
+                  backgroundColor: const Color(0xFF1677FF),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),

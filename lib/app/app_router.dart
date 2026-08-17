@@ -143,11 +143,11 @@ class _DesktopNavRail extends StatelessWidget {
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color: const Color(0xFF0F9FA8),
+                color: const Color(0xFF1677FF),
                 borderRadius: BorderRadius.circular(10),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF0F9FA8).withValues(alpha: 0.22),
+                    color: const Color(0xFF1677FF).withValues(alpha: 0.22),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -200,7 +200,7 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const activeColor = Color(0xFF0F9FA8);
+    const activeColor = Color(0xFF1677FF);
     const inactiveColor = Color(0xFF66727D);
 
     return Padding(

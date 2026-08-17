@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Application theme — Material 3, dark teal accent, clean and professional.
+/// Application theme — Material 3, enterprise blue accent matching DeviceDetailPage, clean and professional.
 class AppTheme {
-  static const _seed = Color(0xFF147A7E);
+  static const _seed = Color(0xFF1677FF);
 
   static ThemeData get light {
     final colorScheme = ColorScheme.fromSeed(
@@ -15,7 +15,7 @@ class AppTheme {
 
   static ThemeData get dark {
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF5DB9B7),
+      seedColor: const Color(0xFF3B82F6),
       brightness: Brightness.dark,
     );
     return _buildTheme(colorScheme, Brightness.dark);

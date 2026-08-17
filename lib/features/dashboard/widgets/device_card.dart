@@ -316,13 +316,13 @@ class DeviceCard extends StatelessWidget {
     switch (type.toUpperCase()) {
       case 'UAV_CONTROLLER':
         return (
-          const Color(0xFF0F9FA8),
-          const Color(0xFF0F9FA8).withValues(alpha: 0.1),
+          const Color(0xFF1677FF),
+          const Color(0xFF1677FF).withValues(alpha: 0.1),
         );
       case 'VEHICLE':
         return (
-          const Color(0xFF2563EB),
-          const Color(0xFF2563EB).withValues(alpha: 0.1),
+          const Color(0xFF1677FF),
+          const Color(0xFF1677FF).withValues(alpha: 0.1),
         );
       default:
         return (
