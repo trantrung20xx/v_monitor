@@ -21,8 +21,6 @@ class DeviceGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     final filteredDevices = DeviceQueryFilter.filter(
       devices,
       query: searchQuery,
@@ -30,46 +28,93 @@ class DeviceGrid extends StatelessWidget {
     );
 
     if (filteredDevices.isEmpty) {
+      final isFiltered =
+          searchQuery.isNotEmpty || statusFilter != DeviceFilter.all;
       return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              searchQuery.isEmpty
-                  ? Icons.devices_other_rounded
-                  : Icons.search_off_rounded,
-              size: 56,
-              color: theme.colorScheme.outline.withValues(alpha: 0.5),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              searchQuery.isEmpty
-                  ? 'Chưa có thiết bị nào'
-                  : 'Không tìm thấy thiết bị phù hợp',
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            if (searchQuery.isEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Kiểm tra kết nối backend và MQTT',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.outline,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(
+                  isFiltered
+                      ? Icons.search_off_rounded
+                      : Icons.devices_other_rounded,
+                  size: 32,
+                  color: const Color(0xFF64748B),
                 ),
               ),
+              const SizedBox(height: 16),
+              Text(
+                isFiltered
+                    ? 'Không tìm thấy thiết bị phù hợp'
+                    : 'Chưa có thiết bị nào',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF18212A),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                isFiltered
+                    ? 'Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm'
+                    : 'Kiểm tra kết nối backend và MQTT',
+                style: const TextStyle(fontSize: 13, color: Color(0xFF66727D)),
+                textAlign: TextAlign.center,
+              ),
             ],
-          ],
+          ),
         ),
       );
     }
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Narrow screen: single column list
-        if (constraints.maxWidth < 480) {
+        final totalWidth = constraints.maxWidth;
+
+        // Single column list for mobile & narrow viewports
+        if (totalWidth < 600) {
           return ListView.separated(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.only(top: 8, bottom: 24),
+            itemCount: filteredDevices.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 14),
+            itemBuilder: (context, index) {
+              final device = filteredDevices[index];
+              return DeviceCard(
+                device: device,
+                address: deviceAddresses[device.id],
+                onTap: () => context.pushNamed(
+                  'device-detail',
+                  pathParameters: {'id': device.id},
+                ),
+              );
+            },
+          );
+        }
+
+        // Multi-column responsive grid: at least 3+ cards on desktop
+        final int columnCount;
+        if (totalWidth >= 1380) {
+          columnCount = 4;
+        } else if (totalWidth >= 750) {
+          columnCount = 3;
+        } else if (totalWidth >= 480) {
+          columnCount = 2;
+        } else {
+          columnCount = 1;
+        }
+
+        if (columnCount == 1) {
+          return ListView.separated(
+            padding: const EdgeInsets.only(top: 4, bottom: 20),
             itemCount: filteredDevices.length,
             separatorBuilder: (_, _) => const SizedBox(height: 10),
             itemBuilder: (context, index) {
@@ -86,15 +131,13 @@ class DeviceGrid extends StatelessWidget {
           );
         }
 
-        // Wide screen: responsive grid
-        const maxCrossExtent = 380.0;
         return GridView.builder(
-          padding: const EdgeInsets.all(16),
-          gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: maxCrossExtent,
+          padding: const EdgeInsets.only(top: 4, bottom: 20),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columnCount,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            mainAxisExtent: _cardExtent(constraints.maxWidth),
+            mainAxisExtent: 186,
           ),
           itemCount: filteredDevices.length,
           itemBuilder: (context, index) {
@@ -111,12 +154,5 @@ class DeviceGrid extends StatelessWidget {
         );
       },
     );
-  }
-
-  /// Keep dashboard cards stable so address/status text cannot resize the grid.
-  double _cardExtent(double totalWidth) {
-    if (totalWidth < 640) return 260;
-    if (totalWidth < 960) return 242;
-    return 230;
   }
 }

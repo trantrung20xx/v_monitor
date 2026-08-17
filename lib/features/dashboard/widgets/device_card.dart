@@ -26,359 +26,380 @@ class DeviceCard extends StatelessWidget {
       baseStatus: device.status,
     );
 
-    final theme = Theme.of(context);
-    final isMoving = status.movement == MovementStatus.moving;
-
-    // Speed
+    // Speed format
     final speedStr = DeviceFormatters.speedKmh(
       device.currentSpeedMps,
       status: status,
     );
-    final speedUnit = isMoving || status.movement == MovementStatus.stopped
-        ? 'km/h'
-        : '';
 
     final relativeTimeStr = DeviceFormatters.relativeTime(device.lastSeenAt);
     final headingText = DeviceFormatters.headingText(
       device.currentHeadingDeg,
       status: status,
     );
-
-    final (addressLine1, addressLine2) = DeviceFormatters.addressLines(
-      address,
-      latitude: device.latitude,
-      longitude: device.longitude,
-    );
+    final fullLocation = DeviceFormatters.location(device, address);
 
     final String displayName = device.name.trim().isNotEmpty
         ? device.name.trim()
         : device.deviceCode.trim();
     final String? subCode =
-        device.name.trim().isNotEmpty && device.name.trim() != device.deviceCode.trim()
+        device.name.trim().isNotEmpty &&
+            device.name.trim() != device.deviceCode.trim()
         ? device.deviceCode.trim()
-        : null;
+        : (device.name.trim().isEmpty ? null : device.deviceCode.trim());
 
-    final speedColor = isMoving
-        ? const Color(0xFF2563EB)
-        : theme.colorScheme.onSurface;
+    // Device icon color & bg
+    final (typeColor, typeBgColor) = _deviceTypeColors(device.deviceType);
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-        ),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // ── Row 1: Icon + Name/Code + Status + Speed ──
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Avatar + status dot
-                  Stack(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: status.color.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(
-                          DeviceIcon.iconFor(device.deviceType),
-                          color: status.color,
-                          size: 24,
-                        ),
-                      ),
-                      Positioned(
-                        right: 0,
-                        bottom: 0,
-                        child: Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: status.color,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: theme.colorScheme.surface,
-                              width: 2,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 12),
-                  // Name block
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          displayName,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            height: 1.2,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (subCode != null)
-                          Text(
-                            subCode,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.outline,
-                              fontFamily: 'monospace',
-                              fontSize: 11,
-                            ),
-                          ),
-                        const SizedBox(height: 4),
-                        // Status badge inline
-                        _StatusChip(status: status),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Speed block (right-aligned)
-                  _SpeedReadout(
-                    value: speedStr.replaceAll(' km/h', ''),
-                    unit: speedUnit,
-                    color: speedColor,
-                  ),
-                ],
-              ),
+    // Connection metric details
+    final (connIcon, connColor, connLabel) = _connectionStatusDetails(status);
 
-              const SizedBox(height: 12),
-              const Divider(height: 1),
-              const SizedBox(height: 10),
-
-              // ── Row 2: Heading + Last Seen ──
-              Row(
-                children: [
-                  Expanded(
-                    child: _MetaItem(
-                      icon: Icons.explore_outlined,
-                      text: 'Hướng: $headingText',
-                      faded: headingText == '--',
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  _MetaItem(
-                    icon: status.freshness == DataFreshnessStatus.stale
-                        ? Icons.warning_amber_rounded
-                        : Icons.schedule_rounded,
-                    text: relativeTimeStr,
-                    faded: device.lastSeenAt == null,
-                    color: status.freshness == DataFreshnessStatus.stale
-                        ? const Color(0xFFDC2626)
-                        : null,
-                  ),
-                ],
-              ),
-
-              // ── Row 3: Telemetry (Battery / Altitude if available) ──
-              if (device.uavBatteryPct != null ||
-                  device.controllerBatteryPct != null ||
-                  device.currentAltitudeM != null) ...[
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    if (device.uavBatteryPct != null) ...[
-                      _MetaItem(
-                        icon: Icons.battery_charging_full_rounded,
-                        text: 'Pin UAV: ${device.uavBatteryPct}%',
-                        color: (device.uavBatteryPct! < 20)
-                            ? const Color(0xFFDC2626)
-                            : null,
-                      ),
-                      const SizedBox(width: 12),
-                    ],
-                    if (device.currentAltitudeM != null) ...[
-                      _MetaItem(
-                        icon: Icons.flight_takeoff_rounded,
-                        text: 'Độ cao: ${device.currentAltitudeM!.toStringAsFixed(1)}m',
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-
-              // ── Row 4: Address ──
-              const SizedBox(height: 6),
-              _MetaItem(
-                icon: Icons.location_on_outlined,
-                text: addressLine1,
-                maxLines: 1,
-              ),
-              if (addressLine2.isNotEmpty) ...[
-                const SizedBox(height: 3),
-                Padding(
-                  padding: const EdgeInsets.only(left: 17),
-                  child: Text(
-                    addressLine2,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontSize: 11,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.status});
-  final ResolvedDeviceStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    final IconData icon;
-    if (status.connectivity == ConnectivityStatus.offline) {
-      icon = Icons.wifi_off_rounded;
-    } else if (status.freshness == DataFreshnessStatus.stale) {
-      icon = Icons.signal_wifi_statusbar_connected_no_internet_4_rounded;
-    } else if (status.movement == MovementStatus.moving) {
-      icon = Icons.navigation_rounded;
-    } else {
-      icon = Icons.pause_circle_rounded;
-    }
+    final isStale = status.freshness == DataFreshnessStatus.stale;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: status.color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: status.color),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              status.label,
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: status.color,
-              ),
-            ),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE4E9ED), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _SpeedReadout extends StatelessWidget {
-  const _SpeedReadout({
-    required this.value,
-    required this.unit,
-    required this.color,
-  });
-
-  final String value;
-  final String unit;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 48, maxWidth: 66),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          SizedBox(
-            height: 28,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerRight,
-              child: Text(
-                value,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: color,
-                  height: 1,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── HEADER: Icon + Name/Code + Speed + Menu ──
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Device Icon Container
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: typeBgColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        DeviceIcon.iconFor(device.deviceType),
+                        color: typeColor,
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Device Name and Code
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            displayName,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF18212A),
+                              height: 1.2,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (subCode != null && subCode.isNotEmpty) ...[
+                            const SizedBox(height: 1),
+                            Text(
+                              subCode,
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w400,
+                                color: Color(0xFF66727D),
+                                height: 1.1,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    // Speed block
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.bolt_rounded,
+                              size: 12,
+                              color: Color(0xFF2563EB),
+                            ),
+                            SizedBox(width: 2),
+                            Text(
+                              'Tốc độ',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF66727D),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 1),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            speedStr,
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF18212A),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 2),
+                    // Overflow menu
+                    SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: PopupMenuButton<String>(
+                        icon: const Icon(
+                          Icons.more_vert_rounded,
+                          size: 16,
+                          color: Color(0xFF66727D),
+                        ),
+                        padding: EdgeInsets.zero,
+                        splashRadius: 14,
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: 'detail',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline_rounded,
+                                  size: 16,
+                                  color: Color(0xFF66727D),
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Chi tiết thiết bị',
+                                  style: TextStyle(fontSize: 13),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        onSelected: (value) {
+                          if (value == 'detail') {
+                            onTap();
+                          }
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-              ),
+
+                const SizedBox(height: 6),
+                const Divider(height: 1, color: Color(0xFFE8ECEF)),
+                const SizedBox(height: 6),
+
+                // ── METRICS ROW: Kết nối | Cập nhật | Hướng ──
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 1. Kết nối (flex 10)
+                    Expanded(
+                      flex: 10,
+                      child: _MetricItem(
+                        icon: connIcon,
+                        iconColor: connColor,
+                        label: 'Kết nối',
+                        value: connLabel,
+                        valueColor: connColor,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    // 2. Cập nhật (flex 11)
+                    Expanded(
+                      flex: 11,
+                      child: _MetricItem(
+                        icon: isStale
+                            ? Icons.warning_amber_rounded
+                            : Icons.schedule_rounded,
+                        iconColor: isStale
+                            ? const Color(0xFFDC2626)
+                            : const Color(0xFF66727D),
+                        label: 'Cập nhật',
+                        value: relativeTimeStr,
+                        valueColor: isStale
+                            ? const Color(0xFFDC2626)
+                            : const Color(0xFF18212A),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    // 3. Hướng (flex 9)
+                    Expanded(
+                      flex: 9,
+                      child: _MetricItem(
+                        icon: Icons.explore_outlined,
+                        iconColor: const Color(0xFF3976D9),
+                        label: 'Hướng',
+                        value: headingText,
+                        valueColor: const Color(0xFF18212A),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 6),
+                const Divider(height: 1, color: Color(0xFFE8ECEF)),
+                const SizedBox(height: 6),
+
+                // ── LOCATION BLOCK: Vị trí & địa chỉ ──
+                const Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 13,
+                      color: Color(0xFFD95656),
+                    ),
+                    SizedBox(width: 3),
+                    Text(
+                      'Vị trí',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF66727D),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  fullLocation,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF18212A),
+                    height: 1.25,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: true,
+                ),
+              ],
             ),
           ),
-          if (unit.isNotEmpty)
-            Text(
-              unit,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.outline,
-              ),
-            ),
-        ],
+        ),
       ),
     );
   }
+
+  static (Color, Color) _deviceTypeColors(String type) {
+    switch (type.toUpperCase()) {
+      case 'UAV_CONTROLLER':
+        return (
+          const Color(0xFF0F9FA8),
+          const Color(0xFF0F9FA8).withValues(alpha: 0.1),
+        );
+      case 'VEHICLE':
+        return (
+          const Color(0xFF2563EB),
+          const Color(0xFF2563EB).withValues(alpha: 0.1),
+        );
+      default:
+        return (
+          const Color(0xFF66727D),
+          const Color(0xFF66727D).withValues(alpha: 0.1),
+        );
+    }
+  }
+
+  static (IconData, Color, String) _connectionStatusDetails(
+    ResolvedDeviceStatus status,
+  ) {
+    if (status.connectivity == ConnectivityStatus.offline) {
+      return (Icons.wifi_off_rounded, const Color(0xFF8B949E), 'Ngoại tuyến');
+    }
+    if (status.freshness == DataFreshnessStatus.stale) {
+      return (
+        Icons.signal_wifi_statusbar_connected_no_internet_4_rounded,
+        const Color(0xFFDC2626),
+        'Mất tín hiệu GPS',
+      );
+    }
+    return (Icons.wifi_rounded, const Color(0xFF16A34A), 'Trực tuyến');
+  }
 }
 
-class _MetaItem extends StatelessWidget {
-  const _MetaItem({
+class _MetricItem extends StatelessWidget {
+  const _MetricItem({
     required this.icon,
-    required this.text,
-    this.faded = false,
-    this.maxLines = 1,
-    this.color,
+    required this.iconColor,
+    required this.label,
+    required this.value,
+    required this.valueColor,
   });
 
   final IconData icon;
-  final String text;
-  final bool faded;
-  final int maxLines;
-  final Color? color;
+  final Color iconColor;
+  final String label;
+  final String value;
+  final Color valueColor;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final effectiveColor =
-        color ??
-        (faded
-            ? theme.colorScheme.outline.withValues(alpha: 0.6)
-            : theme.colorScheme.onSurfaceVariant);
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 1),
-          child: Icon(icon, size: 13, color: effectiveColor),
-        ),
-        const SizedBox(width: 4),
-        Flexible(
-          child: Text(
-            text,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: effectiveColor,
-              fontWeight: faded ? FontWeight.normal : FontWeight.w500,
-              height: 1.16,
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: iconColor),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF66727D),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            maxLines: maxLines,
-            overflow: TextOverflow.ellipsis,
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            color: valueColor,
+            height: 1.2,
           ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
       ],
     );

@@ -35,7 +35,18 @@ void main() {
 
     expect(find.text('Xe tuần tra khu vực trung tâm'), findsOneWidget);
     expect(find.text('VM-ALPHA-0001'), findsOneWidget);
-    expect(find.text('Hướng: Đông Bắc · 45°'), findsOneWidget);
+    expect(find.text('Hướng'), findsOneWidget);
+    expect(find.text('Đông Bắc · 45°'), findsOneWidget);
+    expect(find.text('Tốc độ'), findsOneWidget);
+    expect(find.text('30 km/h'), findsOneWidget);
+    expect(find.text('Kết nối'), findsOneWidget);
+    expect(find.text('Trực tuyến'), findsOneWidget);
+    expect(
+      find.text(
+        '123 đường kiểm thử responsive, phường mô phỏng, thành phố Hà Nội',
+      ),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
 
     await _pumpAtSize(
@@ -50,6 +61,47 @@ void main() {
     );
 
     expect(find.text('Xe tuần tra khu vực trung tâm'), findsOneWidget);
+    expect(find.text('30 km/h'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('DeviceCard handles very long address and name without overflow', (
+    tester,
+  ) async {
+    final device = DeviceModel(
+      id: 'device-2',
+      deviceCode: 'UAV-EXTREME-LONG-CODE-99999',
+      name:
+          'Flycam giám sát hành trình tuần tra biên giới và cứu hộ cứu nạn trên không',
+      type: 'UAV_CONTROLLER',
+      status: 'ACTIVE',
+      isOnline: true,
+      latitude: 21.028511,
+      longitude: 105.804817,
+      currentSpeedMps: 12.5,
+      currentHeadingDeg: 245.0,
+      lastSeenAt: DateTime.now().subtract(const Duration(minutes: 1)),
+    );
+
+    await _pumpAtSize(
+      tester,
+      const Size(360, 640),
+      DeviceCard(
+        device: device,
+        address:
+            'BIDV Tower, 27 Phố Đào Tấn, Phường Cống Vị, Quận Ba Đình, Thành phố Hà Nội, Việt Nam',
+        onTap: () {},
+      ),
+    );
+
+    expect(
+      find.text(
+        'BIDV Tower, 27 Phố Đào Tấn, Phường Cống Vị, Quận Ba Đình, Thành phố Hà Nội, Việt Nam',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('45 km/h'), findsOneWidget);
+    expect(find.text('Tây Nam · 245°'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
