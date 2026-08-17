@@ -3680,8 +3680,14 @@ class _JourneyPlaybackCard extends StatelessWidget {
         ? const Color(0xFFEF4444)
         : (state.isPlaying ? const Color(0xFF16A34A) : _refMuted);
 
+    final width = MediaQuery.sizeOf(context).width;
+    final isCompact = width < 680;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: EdgeInsets.symmetric(
+        horizontal: isCompact ? 12 : 16,
+        vertical: isCompact ? 8 : 10,
+      ),
       decoration: BoxDecoration(
         color: _refSurface,
         borderRadius: BorderRadius.circular(12),
@@ -3690,213 +3696,445 @@ class _JourneyPlaybackCard extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ── HÀNG 1: Controls ───────────────────────────────
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // LEFT: Thời gian & Trạng thái
-              Flexible(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      currentTimeStr,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: _refText,
-                        letterSpacing: -0.2,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.circle_rounded, size: 7, color: statusColor),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: Text(
-                            statusLabel,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: statusColor,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              // CENTER: Play / Pause / Step buttons (60s & 30s)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.fast_rewind_rounded, size: 22),
-                    tooltip: 'Lùi 60 giây (1 phút)',
-                    visualDensity: VisualDensity.compact,
-                    onPressed: hasSamples ? onStepBackward60s : null,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.replay_30_rounded, size: 22),
-                    tooltip: 'Lùi 30 giây',
-                    visualDensity: VisualDensity.compact,
-                    onPressed: hasSamples ? onStepBackward30s : null,
-                  ),
-                  const SizedBox(width: 2),
-                  // Primary circular play button
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: hasSamples
-                          ? _refPrimaryBlue
-                          : Colors.grey.shade300,
-                      shape: BoxShape.circle,
-                      boxShadow: hasSamples
-                          ? [
-                              BoxShadow(
-                                color: _refPrimaryBlue.withValues(alpha: 0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3),
-                              ),
-                            ]
-                          : null,
-                    ),
-                    child: IconButton(
-                      icon: Icon(
-                        state.isPlaying
-                            ? Icons.pause_rounded
-                            : Icons.play_arrow_rounded,
-                        size: 24,
-                        color: Colors.white,
-                      ),
-                      onPressed: !hasSamples
-                          ? null
-                          : state.isPlaying
-                          ? onPause
-                          : (state.isPaused ? onResume : onPlay),
-                    ),
-                  ),
-                  const SizedBox(width: 2),
-                  IconButton(
-                    icon: const Icon(Icons.forward_30_rounded, size: 22),
-                    tooltip: 'Tiến 30 giây',
-                    visualDensity: VisualDensity.compact,
-                    onPressed: hasSamples ? onStepForward30s : null,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.fast_forward_rounded, size: 22),
-                    tooltip: 'Tiến 60 giây (1 phút)',
-                    visualDensity: VisualDensity.compact,
-                    onPressed: hasSamples ? onStepForward60s : null,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.replay_rounded, size: 20),
-                    tooltip: 'Bắt đầu lại',
-                    visualDensity: VisualDensity.compact,
-                    onPressed: hasSamples ? onReset : null,
-                  ),
-                ],
-              ),
-
-              // RIGHT: Tốc độ + Toggle Theo dõi xe
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Dropdown tốc độ
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: _refBorder),
-                    ),
-                    child: DropdownButton<double>(
-                      value: state.playbackSpeed,
-                      underline: const SizedBox.shrink(),
-                      isDense: true,
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w700,
-                        color: _refText,
-                      ),
-                      items: const [
-                        DropdownMenuItem(value: 0.5, child: Text('0.5x')),
-                        DropdownMenuItem(value: 1.0, child: Text('1x')),
-                        DropdownMenuItem(value: 2.0, child: Text('2x')),
-                        DropdownMenuItem(value: 4.0, child: Text('4x')),
-                        DropdownMenuItem(value: 8.0, child: Text('8x')),
-                        DropdownMenuItem(value: 16.0, child: Text('16x')),
-                      ],
-                      onChanged: (v) {
-                        if (v != null) onSpeedChanged(v);
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-
-                  // Toggle Follow Camera
-                  InkWell(
-                    borderRadius: BorderRadius.circular(6),
-                    onTap: () => onFollowChanged(!state.followCamera),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: state.followCamera
-                            ? const Color(0xFFEBF3FF)
-                            : const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: state.followCamera
-                              ? _refPrimaryBlue
-                              : _refBorder,
+          if (!isCompact) ...[
+            // ── DESKTOP LAYOUT: 1 Row with Left, Center, Right ──
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // LEFT: Thời gian & Trạng thái
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        currentTimeStr,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: _refText,
+                          letterSpacing: -0.2,
                         ),
                       ),
-                      child: Row(
+                      const SizedBox(height: 2),
+                      Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.my_location_rounded,
-                            size: 14,
-                            color: state.followCamera
-                                ? _refPrimaryBlue
-                                : _refMuted,
+                            Icons.circle_rounded,
+                            size: 7,
+                            color: statusColor,
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            'Theo dõi xe',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: state.followCamera
-                                  ? _refPrimaryBlue
-                                  : _refMuted,
+                          Flexible(
+                            child: Text(
+                              statusLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: statusColor,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
+                ),
 
-          // ── HÀNG 2: Timeline Slider ────────────────────────
+                // CENTER: Play / Pause / Step buttons (60s & 30s)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.fast_rewind_rounded, size: 22),
+                      tooltip: 'Lùi 60 giây (1 phút)',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: hasSamples ? onStepBackward60s : null,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.replay_30_rounded, size: 22),
+                      tooltip: 'Lùi 30 giây',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: hasSamples ? onStepBackward30s : null,
+                    ),
+                    const SizedBox(width: 2),
+                    // Primary circular play button
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: hasSamples
+                            ? _refPrimaryBlue
+                            : Colors.grey.shade300,
+                        shape: BoxShape.circle,
+                        boxShadow: hasSamples
+                            ? [
+                                BoxShadow(
+                                  color: _refPrimaryBlue.withValues(alpha: 0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: IconButton(
+                        icon: Icon(
+                          state.isPlaying
+                              ? Icons.pause_rounded
+                              : Icons.play_arrow_rounded,
+                          size: 24,
+                          color: Colors.white,
+                        ),
+                        onPressed: !hasSamples
+                            ? null
+                            : state.isPlaying
+                            ? onPause
+                            : (state.isPaused ? onResume : onPlay),
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    IconButton(
+                      icon: const Icon(Icons.forward_30_rounded, size: 22),
+                      tooltip: 'Tiến 30 giây',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: hasSamples ? onStepForward30s : null,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.fast_forward_rounded, size: 22),
+                      tooltip: 'Tiến 60 giây (1 phút)',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: hasSamples ? onStepForward60s : null,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.replay_rounded, size: 20),
+                      tooltip: 'Bắt đầu lại',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: hasSamples ? onReset : null,
+                    ),
+                  ],
+                ),
+
+                // RIGHT: Tốc độ + Toggle Theo dõi xe
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Dropdown tốc độ
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: _refBorder),
+                      ),
+                      child: DropdownButton<double>(
+                        value: state.playbackSpeed,
+                        underline: const SizedBox.shrink(),
+                        isDense: true,
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: _refText,
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 0.5, child: Text('0.5x')),
+                          DropdownMenuItem(value: 1.0, child: Text('1x')),
+                          DropdownMenuItem(value: 2.0, child: Text('2x')),
+                          DropdownMenuItem(value: 4.0, child: Text('4x')),
+                          DropdownMenuItem(value: 8.0, child: Text('8x')),
+                          DropdownMenuItem(value: 16.0, child: Text('16x')),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) onSpeedChanged(v);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+
+                    // Toggle Follow Camera
+                    InkWell(
+                      borderRadius: BorderRadius.circular(6),
+                      onTap: () => onFollowChanged(!state.followCamera),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: state.followCamera
+                              ? const Color(0xFFEBF3FF)
+                              : const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: state.followCamera
+                                ? _refPrimaryBlue
+                                : _refBorder,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.my_location_rounded,
+                              size: 14,
+                              color: state.followCamera
+                                  ? _refPrimaryBlue
+                                  : _refMuted,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Theo dõi xe',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: state.followCamera
+                                    ? _refPrimaryBlue
+                                    : _refMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ] else ...[
+            // ── MOBILE LAYOUT: Split into clean, uncrowded rows ──
+            // Hàng 1 (Mobile): Thời gian & Trạng thái (Trái) + Tốc độ & Theo dõi (Phải)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        currentTimeStr,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: _refText,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.circle_rounded,
+                            size: 6.5,
+                            color: statusColor,
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              statusLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w600,
+                                color: statusColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: _refBorder),
+                      ),
+                      child: DropdownButton<double>(
+                        value: state.playbackSpeed,
+                        underline: const SizedBox.shrink(),
+                        isDense: true,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: _refText,
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 0.5, child: Text('0.5x')),
+                          DropdownMenuItem(value: 1.0, child: Text('1x')),
+                          DropdownMenuItem(value: 2.0, child: Text('2x')),
+                          DropdownMenuItem(value: 4.0, child: Text('4x')),
+                          DropdownMenuItem(value: 8.0, child: Text('8x')),
+                          DropdownMenuItem(value: 16.0, child: Text('16x')),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) onSpeedChanged(v);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(6),
+                      onTap: () => onFollowChanged(!state.followCamera),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: state.followCamera
+                              ? const Color(0xFFEBF3FF)
+                              : const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: state.followCamera
+                                ? _refPrimaryBlue
+                                : _refBorder,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.my_location_rounded,
+                              size: 13,
+                              color: state.followCamera
+                                  ? _refPrimaryBlue
+                                  : _refMuted,
+                            ),
+                            if (width >= 360) ...[
+                              const SizedBox(width: 3),
+                              Text(
+                                'Theo dõi',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: state.followCamera
+                                      ? _refPrimaryBlue
+                                      : _refMuted,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            // Hàng 2 (Mobile): Cụm nút phát / tua / chuyển bước (Căn giữa)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.replay_rounded, size: 19),
+                  tooltip: 'Bắt đầu lại',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
+                  onPressed: hasSamples ? onReset : null,
+                ),
+                const SizedBox(width: 2),
+                IconButton(
+                  icon: const Icon(Icons.fast_rewind_rounded, size: 20),
+                  tooltip: 'Lùi 60 giây (1 phút)',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
+                  onPressed: hasSamples ? onStepBackward60s : null,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.replay_30_rounded, size: 20),
+                  tooltip: 'Lùi 30 giây',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
+                  onPressed: hasSamples ? onStepBackward30s : null,
+                ),
+                const SizedBox(width: 4),
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: hasSamples ? _refPrimaryBlue : Colors.grey.shade300,
+                    shape: BoxShape.circle,
+                    boxShadow: hasSamples
+                        ? [
+                            BoxShadow(
+                              color: _refPrimaryBlue.withValues(alpha: 0.3),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    icon: Icon(
+                      state.isPlaying
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded,
+                      size: 22,
+                      color: Colors.white,
+                    ),
+                    onPressed: !hasSamples
+                        ? null
+                        : state.isPlaying
+                        ? onPause
+                        : (state.isPaused ? onResume : onPlay),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(Icons.forward_30_rounded, size: 20),
+                  tooltip: 'Tiến 30 giây',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
+                  onPressed: hasSamples ? onStepForward30s : null,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.fast_forward_rounded, size: 20),
+                  tooltip: 'Tiến 60 giây (1 phút)',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
+                  onPressed: hasSamples ? onStepForward60s : null,
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 4),
+
+          // ── HÀNG CUỐI: Timeline Slider ────────────────────────
           Row(
             children: [
               Text(
