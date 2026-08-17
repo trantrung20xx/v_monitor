@@ -275,12 +275,6 @@ class DeviceFormatters {
       case 'MOVEMENT_STOPPED':
       case 'IDLE':
         return 'Dừng di chuyển';
-      case 'USER_ASSIGNED':
-      case 'ASSIGNED':
-        return 'Gán người dùng';
-      case 'USER_RELEASED':
-      case 'UNASSIGNED':
-        return 'Thu hồi người dùng';
       case 'GPS_LOST':
         return 'Mất GPS';
       case 'GPS_RESTORED':

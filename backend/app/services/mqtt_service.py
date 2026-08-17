@@ -7,19 +7,34 @@ from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 from app.schemas.tracking import LocationSampleCreate
 from app.services.tracking_service import TrackingService
-from uuid import UUID
 
 logger = logging.getLogger(__name__)
+
+# Hỗ trợ tương thích cả paho-mqtt 1.x và 2.x, tránh cảnh báo type checker (Pylance/Pyright)
+try:
+    from paho.mqtt.enums import CallbackAPIVersion
+    _HAS_CALLBACK_API_VERSION = True
+except ImportError:
+    CallbackAPIVersion = getattr(mqtt, "CallbackAPIVersion", None)
+    _HAS_CALLBACK_API_VERSION = CallbackAPIVersion is not None
+
+
+def _create_mqtt_client(client_id: str) -> mqtt.Client:
+    """Khởi tạo MQTT Client an toàn trên mọi phiên bản paho-mqtt."""
+    if _HAS_CALLBACK_API_VERSION and CallbackAPIVersion is not None:
+        return mqtt.Client(
+            CallbackAPIVersion.VERSION2,
+            client_id=client_id,
+        )
+    return mqtt.Client(client_id=client_id)
+
 
 # Lớp dịch vụ quản lý kết nối MQTT (Message Queuing Telemetry Transport).
 # Giao tiếp với các thiết bị vật lý (UAV, Xe) để nhận dữ liệu GPS liên tục.
 class MQTTService:
     def __init__(self):
-        # Khởi tạo client paho-mqtt
-        self.client = mqtt.Client(
-            mqtt.CallbackAPIVersion.VERSION2,
-            client_id="v_monitor_backend",
-        )
+        # Khởi tạo client paho-mqtt tương thích đa phiên bản
+        self.client = _create_mqtt_client(client_id="v_monitor_backend")
 
         # Đăng ký các hàm callback xử lý sự kiện của MQTT
         self.client.on_connect = self.on_connect
@@ -30,9 +45,17 @@ class MQTTService:
         # Việc lưu loop giúp đẩy các hàm bất đồng bộ (async db operations) ngược lại luồng chính của FastAPI
         self.loop = None
 
-    def on_connect(self, client, userdata, flags, reason_code, properties):
-        # reason_code không lỗi nghĩa là kết nối thành công tới broker
-        if not reason_code.is_failure:
+    def on_connect(self, client, userdata, flags, reason_code, properties=None):
+        # Kiểm tra trạng thái kết nối tương thích cả v1 (int rc) và v2 (ReasonCode)
+        is_success = False
+        if hasattr(reason_code, "is_failure"):
+            is_success = not reason_code.is_failure
+        elif isinstance(reason_code, int):
+            is_success = (reason_code == 0)
+        else:
+            is_success = (str(reason_code) == "0" or str(reason_code).lower() == "success")
+
+        if is_success:
             logger.info("Đã kết nối thành công tới MQTT broker")
             # Theo dõi tất cả các tin nhắn gửi tới chủ đề (topic) bắt đầu bằng v_monitor/telemetry/
             client.subscribe("v_monitor/telemetry/#", qos=1)
@@ -51,7 +74,7 @@ class MQTTService:
         if self.loop and self.loop.is_running():
             asyncio.run_coroutine_threadsafe(self.process_message(msg.topic, payload_str), self.loop)
 
-    def on_disconnect(self, client, userdata, flags, reason_code, properties):
+    def on_disconnect(self, client, userdata, flags, reason_code=None, properties=None):
         logger.info("Đã ngắt kết nối khỏi MQTT broker")
 
     async def process_message(self, topic: str, payload_str: str):
@@ -68,7 +91,7 @@ class MQTTService:
                 if 'latitude' in data and 'longitude' in data:
                     # Mở kết nối cơ sở dữ liệu để truy vấn device_id và lưu
                     from app.models.device import Device
-                    from sqlalchemy.future import select
+                    from sqlalchemy import select
                     async with AsyncSessionLocal() as db:
                         # Truy vấn lấy device_id từ device_code
                         device_result = await db.execute(select(Device.id).filter(Device.device_code == device_code))

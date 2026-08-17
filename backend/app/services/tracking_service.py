@@ -1,6 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
-from sqlalchemy import func
+from sqlalchemy import select, func
 from typing import List, Tuple
 import uuid
 from datetime import datetime, timezone

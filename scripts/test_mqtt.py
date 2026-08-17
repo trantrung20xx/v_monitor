@@ -6,6 +6,24 @@ from datetime import datetime, timezone
 from pathlib import Path
 import paho.mqtt.client as mqtt
 
+# Hỗ trợ tương thích cả paho-mqtt 1.x và 2.x, tránh cảnh báo type checker
+try:
+    from paho.mqtt.enums import CallbackAPIVersion
+    _HAS_CALLBACK_API_VERSION = True
+except ImportError:
+    CallbackAPIVersion = getattr(mqtt, "CallbackAPIVersion", None)
+    _HAS_CALLBACK_API_VERSION = CallbackAPIVersion is not None
+
+
+def create_mqtt_client(client_id: str) -> mqtt.Client:
+    if _HAS_CALLBACK_API_VERSION and CallbackAPIVersion is not None:
+        return mqtt.Client(
+            CallbackAPIVersion.VERSION2,
+            client_id=client_id,
+        )
+    return mqtt.Client(client_id=client_id)
+
+
 def load_backend_env():
     env_path = Path(__file__).resolve().parents[1] / "backend" / ".env"
     if not env_path.exists():
@@ -33,12 +51,14 @@ TOPIC = os.getenv("MQTT_TOPIC", "v_monitor/telemetry/UAV-100")
 COUNT = int(os.getenv("MQTT_COUNT", "5"))
 INTERVAL_SECONDS = float(os.getenv("MQTT_INTERVAL_SECONDS", "1"))
 
-def on_connect(client, userdata, flags, reason_code, properties):
+
+def on_connect(client, userdata, flags, reason_code, properties=None):
     print(
         f"Connected to MQTT broker {BROKER}:{PORT} "
         f"with result code {reason_code}"
     )
-    if getattr(reason_code, "is_failure", False):
+    is_failure = getattr(reason_code, "is_failure", False) if hasattr(reason_code, "is_failure") else (reason_code != 0 if isinstance(reason_code, int) else False)
+    if is_failure:
         client.disconnect()
         return
     
@@ -66,10 +86,8 @@ def on_connect(client, userdata, flags, reason_code, properties):
         
     client.disconnect()
 
-client = mqtt.Client(
-    mqtt.CallbackAPIVersion.VERSION2,
-    client_id="v_monitor_test_publisher",
-)
+
+client = create_mqtt_client(client_id="v_monitor_test_publisher")
 client.on_connect = on_connect
 if USERNAME:
     client.username_pw_set(USERNAME, PASSWORD)
