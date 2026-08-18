@@ -7,6 +7,7 @@ import '../../domain/entities/device_query_filter.dart';
 import 'dashboard_cubit.dart';
 import 'dashboard_state.dart';
 import 'widgets/device_list_panel.dart';
+// ignore: unused_import
 import 'widgets/stats_overview.dart';
 
 class DashboardPage extends StatelessWidget {
