@@ -5219,18 +5219,19 @@ class _EventFilterChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(8),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected
               ? _refPrimaryBlue.withValues(alpha: 0.1)
               : const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected
                 ? _refPrimaryBlue.withValues(alpha: 0.4)
-                : Colors.transparent,
+                : const Color(0xFFE2E8F0),
+            width: 1,
           ),
         ),
         child: Row(
@@ -5246,10 +5247,10 @@ class _EventFilterChip extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
               decoration: BoxDecoration(
                 color: isSelected ? _refPrimaryBlue : const Color(0xFFCBD5E1),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
                 '$count',
