@@ -552,21 +552,33 @@ class _MapZoomControls extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                icon: const Icon(Icons.add_rounded, size: 20),
+                icon: const Icon(
+                  Icons.add_rounded,
+                  size: 20,
+                  color: Color(0xFF1677FF),
+                ),
                 tooltip: 'Phóng to',
                 onPressed: onZoomIn,
                 visualDensity: VisualDensity.compact,
               ),
               const SizedBox(width: 32, child: Divider(height: 1)),
               IconButton(
-                icon: const Icon(Icons.remove_rounded, size: 20),
+                icon: const Icon(
+                  Icons.remove_rounded,
+                  size: 20,
+                  color: Color(0xFF1677FF),
+                ),
                 tooltip: 'Thu nhỏ',
                 onPressed: onZoomOut,
                 visualDensity: VisualDensity.compact,
               ),
               const SizedBox(width: 32, child: Divider(height: 1)),
               IconButton(
-                icon: const Icon(Icons.fit_screen_rounded, size: 18),
+                icon: const Icon(
+                  Icons.fit_screen_rounded,
+                  size: 18,
+                  color: Color(0xFF1677FF),
+                ),
                 tooltip: 'Vừa toàn bộ lộ trình',
                 onPressed: onFitBounds,
                 visualDensity: VisualDensity.compact,
@@ -582,9 +594,7 @@ class _MapZoomControls extends StatelessWidget {
             icon: Icon(
               isSatellite ? Icons.map_rounded : Icons.satellite_alt_rounded,
               size: 18,
-              color: isSatellite
-                  ? const Color(0xFF1677FF)
-                  : const Color(0xFF475569),
+              color: const Color(0xFF1677FF),
             ),
             tooltip: isSatellite
                 ? 'Chuyển sang bản đồ đường phố'

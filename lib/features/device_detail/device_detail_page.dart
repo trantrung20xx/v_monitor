@@ -2253,9 +2253,7 @@ class _MapControls extends StatelessWidget {
             tooltip: isSatellite
                 ? 'Chuyển sang bản đồ đường phố'
                 : 'Chuyển sang bản đồ vệ tinh',
-            iconColor: isSatellite
-                ? const Color(0xFF1677FF)
-                : const Color(0xFF475569),
+            iconColor: _refPrimaryBlue,
             onPressed: onToggleMapType,
           ),
         ),
@@ -5002,21 +5000,21 @@ class _MapZoomControls extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                icon: const Icon(Icons.add_rounded, size: 18),
+                icon: const Icon(Icons.add_rounded, size: 18, color: _refPrimaryBlue),
                 tooltip: 'Phóng to',
                 onPressed: onZoomIn,
                 visualDensity: VisualDensity.compact,
               ),
               const SizedBox(width: 28, child: Divider(height: 1)),
               IconButton(
-                icon: const Icon(Icons.remove_rounded, size: 18),
+                icon: const Icon(Icons.remove_rounded, size: 18, color: _refPrimaryBlue),
                 tooltip: 'Thu nhỏ',
                 onPressed: onZoomOut,
                 visualDensity: VisualDensity.compact,
               ),
               const SizedBox(width: 28, child: Divider(height: 1)),
               IconButton(
-                icon: const Icon(Icons.fit_screen_rounded, size: 16),
+                icon: const Icon(Icons.fit_screen_rounded, size: 16, color: _refPrimaryBlue),
                 tooltip: 'Vừa toàn bộ lộ trình',
                 onPressed: onFitBounds,
                 visualDensity: VisualDensity.compact,
@@ -5031,8 +5029,8 @@ class _MapZoomControls extends StatelessWidget {
           child: IconButton(
             icon: Icon(
               isSatellite ? Icons.map_rounded : Icons.satellite_alt_rounded,
-              size: 16,
-              color: isSatellite ? _refPrimaryBlue : const Color(0xFF475569),
+              size: 18,
+              color: _refPrimaryBlue,
             ),
             tooltip: isSatellite
                 ? 'Chuyển sang bản đồ đường phố'

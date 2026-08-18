@@ -573,13 +573,13 @@ class _MapControls extends StatelessWidget {
                 tooltip: 'Phóng to bản đồ',
                 onPressed: onZoomIn,
               ),
-              const SizedBox(width: 32, child: Divider(height: 1, color: Color(0xFFE2E8F0))),
+              const SizedBox(width: 34, child: Divider(height: 1)),
               _MapControlButton(
                 icon: Icons.remove_rounded,
                 tooltip: 'Thu nhỏ bản đồ',
                 onPressed: onZoomOut,
               ),
-              const SizedBox(width: 32, child: Divider(height: 1, color: Color(0xFFE2E8F0))),
+              const SizedBox(width: 34, child: Divider(height: 1)),
               _MapControlButton(
                 icon: Icons.my_location_rounded,
                 tooltip: 'Căn giữa bản đồ',
@@ -597,9 +597,7 @@ class _MapControls extends StatelessWidget {
             tooltip: isSatellite
                 ? 'Chuyển sang bản đồ đường phố'
                 : 'Chuyển sang bản đồ vệ tinh',
-            iconColor: isSatellite
-                ? const Color(0xFF2563EB)
-                : const Color(0xFF475569),
+            iconColor: const Color(0xFF1677FF),
             onPressed: onToggleMapType,
           ),
         ),
@@ -610,13 +608,13 @@ class _MapControls extends StatelessWidget {
   BoxDecoration _decoration() {
     return BoxDecoration(
       color: Colors.white.withValues(alpha: 0.96),
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(8),
       border: Border.all(color: const Color(0xFFE2E8F0)),
-      boxShadow: [
+      boxShadow: const [
         BoxShadow(
-          color: const Color(0xFF0F172A).withValues(alpha: 0.08),
-          blurRadius: 14,
-          offset: const Offset(0, 4),
+          color: Colors.black12,
+          blurRadius: 12,
+          offset: Offset(0, 4),
         ),
       ],
     );
@@ -650,8 +648,8 @@ class _MapControlButton extends StatelessWidget {
           splashRadius: 18,
           icon: Icon(
             icon,
-            size: 20,
-            color: iconColor ?? const Color(0xFF475569),
+            size: 18,
+            color: iconColor ?? const Color(0xFF1677FF),
           ),
         ),
       ),
