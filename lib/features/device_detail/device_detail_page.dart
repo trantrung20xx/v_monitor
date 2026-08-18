@@ -366,7 +366,6 @@ class _HeaderActionButton extends StatelessWidget {
         backgroundColor: _refSurface,
         side: BorderSide(color: _refPrimaryBlue.withValues(alpha: 0.35)),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
         textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
       ),
     );
@@ -402,8 +401,6 @@ class _OverviewTab extends StatelessWidget {
     );
     final latestLocation = locations.isNotEmpty ? locations.first : null;
     final journey = _JourneySnapshot.from(locations);
-    final altitudeM = device.currentAltitudeM ?? latestLocation?.altitudeM;
-    final accuracyM = latestLocation?.accuracyM;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -411,105 +408,10 @@ class _OverviewTab extends StatelessWidget {
         final isWide = width >= 900;
         final horizontalPadding = width < 600 ? 12.0 : 22.0;
         final topHeight = isWide
-            ? (width >= 1280 ? 460.0 : 430.0)
+            ? (width >= 1280 ? 440.0 : 410.0)
             : width >= 600
-            ? 400.0
-            : 340.0;
-        final columns = width >= 1020
-            ? 3
-            : width >= 680
-            ? 2
-            : 1;
-        final locationRows = _locationRows(
-          context,
-          status: status,
-          latestLocation: latestLocation,
-          altitudeM: altitudeM,
-          accuracyM: accuracyM,
-        );
-        final deviceInfoRows = _deviceInfoRows(context, status: status);
-        final journeyRows = _journeyRows(journey, locations);
-        final canShareLocation = MapLauncherService.isValidCoordinate(
-          device.latitude,
-          device.longitude,
-        );
-        final maxCardRows = [
-          locationRows.length,
-          deviceInfoRows.length,
-          journeyRows.length,
-        ].fold<int>(0, (current, count) => count > current ? count : current);
-        final cardExtent = _sectionCardExtent(columns, maxCardRows);
-
-        final cards = [
-          _SectionCard(
-            title: status.freshness == DataFreshnessStatus.stale
-                ? 'Vị trí gần nhất'
-                : 'Vị trí hiện tại',
-            icon: Icons.location_on_rounded,
-            iconColor: const Color(0xFF0D9488),
-            footer: canShareLocation
-                ? Align(
-                    alignment: Alignment.centerRight,
-                    child: _ShareLocationCompactButton(device: device),
-                  )
-                : null,
-            footerDivider: true,
-            children: locationRows,
-          ),
-          _SectionCard(
-            title: 'Thông tin thiết bị',
-            icon: Icons.memory_rounded,
-            iconColor: const Color(0xFF2563EB),
-            footer: Row(
-              children: [
-                Icon(
-                  Icons.verified_user_outlined,
-                  size: 14,
-                  color: status.connectivity == ConnectivityStatus.online
-                      ? _refOnline
-                      : _refMuted,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    'Trạng thái: ${device.statusLabel}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: _refMuted,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            footerDivider: true,
-            children: deviceInfoRows,
-          ),
-          _SectionCard(
-            title: 'Hành trình hiện tại',
-            icon: Icons.route_rounded,
-            iconColor: const Color(0xFFEA580C),
-            footer: Center(
-              child: TextButton.icon(
-                onPressed: () => DefaultTabController.of(context).animateTo(1),
-                label: const Text('Xem chi tiết hành trình'),
-                icon: const Icon(Icons.arrow_forward_rounded, size: 15),
-                iconAlignment: IconAlignment.end,
-                style: TextButton.styleFrom(
-                  foregroundColor: _refPrimaryBlue,
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  textStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-            footerDivider: true,
-            children: journeyRows,
-          ),
-        ];
+            ? 380.0
+            : 320.0;
 
         return SingleChildScrollView(
           padding: EdgeInsets.all(horizontalPadding),
@@ -537,7 +439,7 @@ class _OverviewTab extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Expanded(
-                            flex: 62,
+                            flex: 60,
                             child: _MapOverviewCard(
                               map: _MapWidget(
                                 device: device,
@@ -551,13 +453,12 @@ class _OverviewTab extends StatelessWidget {
                           ),
                           const SizedBox(width: 16),
                           Expanded(
-                            flex: 38,
-                            child: _CurrentSummaryPanel(
+                            flex: 40,
+                            child: _OverviewLiveLocationCard(
                               device: device,
                               status: status,
-                              journey: journey,
+                              latestLocation: latestLocation,
                               address: address,
-                              timeRangeLabel: cubitState.timeRange.label,
                             ),
                           ),
                         ],
@@ -571,27 +472,24 @@ class _OverviewTab extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    _CurrentSummaryPanel(
+                    _OverviewLiveLocationCard(
                       device: device,
                       status: status,
-                      journey: journey,
+                      latestLocation: latestLocation,
                       address: address,
                       compact: true,
-                      timeRangeLabel: cubitState.timeRange.label,
                     ),
                   ],
                   if (!isWide) ...[
                     const SizedBox(height: 12),
                     _SummaryStrip(device: device, status: status),
                   ],
-                  const SizedBox(height: 12),
-                  _AdaptiveSectionGrid(
-                    columns: columns,
-                    spacing: 12,
-                    itemExtent: cardExtent,
-                    children: cards,
+                  const SizedBox(height: 16),
+                  _OverviewMetricsDashboard(
+                    journey: journey,
+                    timeRangeLabel: cubitState.timeRange.label,
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 16),
                   _RecentActivityCard(
                     events: events,
                     device: device,
@@ -626,245 +524,6 @@ class _OverviewTab extends StatelessWidget {
         customTo: result.end,
       );
     }
-  }
-
-  double _sectionCardExtent(int columns, int maxRows) {
-    if (columns <= 1) return 0.0;
-    final minExtent = columns == 3 ? 340.0 : 350.0;
-    final maxExtent = columns == 3 ? 390.0 : 410.0;
-    final estimatedExtent = 115.0 + (maxRows * 35.0);
-    return estimatedExtent.clamp(minExtent, maxExtent).toDouble();
-  }
-
-  List<Widget> _locationRows(
-    BuildContext context, {
-    required ResolvedDeviceStatus status,
-    required LocationModel? latestLocation,
-    required double? altitudeM,
-    required double? accuracyM,
-  }) {
-    final theme = Theme.of(context);
-    if (device.latitude == null || device.longitude == null) {
-      return const [
-        _InfoRow(
-          label: 'Tọa độ',
-          value: 'Chưa có dữ liệu vị trí',
-          icon: Icons.location_off_rounded,
-          iconColor: _refMuted,
-        ),
-      ];
-    }
-
-    return [
-      if (_hasText(address)) _AddressInfoBlock(address: address!.trim()),
-      _InfoRow(
-        label: 'Tọa độ GPS',
-        value: DeviceFormatters.coordinatePair(
-          device.latitude,
-          device.longitude,
-        ),
-        icon: Icons.my_location_rounded,
-        iconColor: const Color(0xFF0D9488),
-        maxLines: 1,
-      ),
-      _InfoRow(
-        label: 'Độ cao',
-        value: altitudeM != null ? '${altitudeM.toStringAsFixed(1)} m' : '--',
-        icon: Icons.height_rounded,
-        iconColor: const Color(0xFF6366F1),
-      ),
-      _InfoRow(
-        label: 'Độ chính xác',
-        value: accuracyM != null ? '±${accuracyM.toStringAsFixed(0)} m' : '--',
-        icon: Icons.gps_fixed_rounded,
-        iconColor: const Color(0xFF16A34A),
-      ),
-      _InfoRow(
-        label: 'Vệ tinh',
-        value: latestLocation?.satelliteCount != null
-            ? '${latestLocation!.satelliteCount} vệ tinh'
-            : '--',
-        icon: Icons.satellite_alt_rounded,
-        iconColor: const Color(0xFF0284C7),
-      ),
-      _InfoRow(
-        label: 'Thời điểm',
-        value: DeviceFormatters.dateTime(
-          latestLocation?.measuredAt ?? device.lastSeenAt,
-        ),
-        valueColor: status.freshness == DataFreshnessStatus.fresh
-            ? null
-            : theme.colorScheme.error,
-        icon: Icons.schedule_rounded,
-        iconColor: const Color(0xFFEA580C),
-        maxLines: 1,
-      ),
-    ];
-  }
-
-  List<Widget> _deviceInfoRows(
-    BuildContext context, {
-    required ResolvedDeviceStatus status,
-  }) {
-    final modelManufacturer = [
-      device.model,
-      device.manufacturer,
-    ].whereType<String>().where((s) => s.trim().isNotEmpty).join(' · ');
-
-    return [
-      _InfoRow(
-        label: 'Tên thiết bị',
-        value: DeviceFormatters.displayName(device),
-        icon: Icons.badge_rounded,
-        iconColor: const Color(0xFF2563EB),
-      ),
-      _InfoRow(
-        label: 'Mã thiết bị',
-        value: device.deviceCode,
-        icon: Icons.qr_code_2_rounded,
-        iconColor: const Color(0xFF475569),
-      ),
-      _InfoRow(
-        label: 'Loại phương tiện',
-        value: DeviceFormatters.deviceTypeLabel(device.deviceType),
-        icon: Icons.category_rounded,
-        iconColor: const Color(0xFF0D9488),
-      ),
-      _InfoRow(
-        label: 'Model / Hãng',
-        value: modelManufacturer.isNotEmpty ? modelManufacturer : '--',
-        icon: Icons.precision_manufacturing_rounded,
-        iconColor: const Color(0xFF7C3AED),
-      ),
-      _InfoRow(
-        label: 'Số Serial',
-        value: device.serialNumber ?? '--',
-        icon: Icons.tag_rounded,
-        iconColor: const Color(0xFF6366F1),
-      ),
-      _InfoRow(
-        label: 'Firmware',
-        value: device.firmwareVersion ?? '--',
-        icon: Icons.system_update_alt_rounded,
-        iconColor: const Color(0xFF0284C7),
-      ),
-    ];
-  }
-
-  List<Widget> _journeyRows(
-    _JourneySnapshot journey,
-    List<LocationModel> locations,
-  ) {
-    final startedTime = journey.startedAt != null
-        ? DeviceFormatters.dateTime(journey.startedAt)
-        : '--';
-    final latestTime = journey.endedAt != null
-        ? DeviceFormatters.dateTime(journey.endedAt)
-        : (locations.isNotEmpty
-              ? DeviceFormatters.dateTime(locations.first.measuredAt)
-              : '--');
-    final movingText = journey.movingDurationS != null
-        ? DeviceFormatters.secondsDuration(journey.movingDurationS)
-        : '--';
-    final stoppedText = journey.stoppedDurationS != null
-        ? DeviceFormatters.secondsDuration(journey.stoppedDurationS)
-        : '--';
-    final avgSpeedText = journey.avgSpeedMps != null
-        ? DeviceFormatters.speedMps(journey.avgSpeedMps)
-        : '--';
-    final maxSpeedText = journey.maxSpeedMps != null
-        ? DeviceFormatters.speedMps(journey.maxSpeedMps)
-        : '--';
-
-    return [
-      _InfoRow(
-        label: 'Quãng đường',
-        value: journey.distanceM != null
-            ? DeviceFormatters.distance(journey.distanceM)
-            : '--',
-        icon: Icons.route_rounded,
-        iconColor: const Color(0xFFEA580C),
-      ),
-      _InfoRow(
-        label: 'Bắt đầu',
-        value: startedTime,
-        icon: Icons.play_circle_outline_rounded,
-        iconColor: const Color(0xFF16A34A),
-      ),
-      _InfoRow(
-        label: 'Cập nhật cuối',
-        value: latestTime,
-        icon: Icons.flag_outlined,
-        iconColor: const Color(0xFFDC2626),
-      ),
-      _InfoRow(
-        label: 'Chạy / Dừng',
-        value: '$movingText / $stoppedText',
-        icon: Icons.timer_outlined,
-        iconColor: const Color(0xFF2563EB),
-      ),
-      _InfoRow(
-        label: 'Vận tốc TB / Max',
-        value: '$avgSpeedText / $maxSpeedText',
-        icon: Icons.speed_rounded,
-        iconColor: const Color(0xFF7C3AED),
-      ),
-      _InfoRow(
-        label: 'Điểm GPS',
-        value: journey.sampleCount > 0 ? '${journey.sampleCount} điểm' : '--',
-        icon: Icons.scatter_plot_rounded,
-        iconColor: const Color(0xFF0D9488),
-      ),
-    ];
-  }
-}
-
-// ─── Shared detail info row ───────────────────────────────────────────────────
-
-class _AdaptiveSectionGrid extends StatelessWidget {
-  const _AdaptiveSectionGrid({
-    required this.columns,
-    required this.children,
-    required this.itemExtent,
-    this.spacing = 12,
-  });
-
-  final int columns;
-  final List<Widget> children;
-  final double itemExtent;
-  final double spacing;
-
-  @override
-  Widget build(BuildContext context) {
-    if (columns <= 1) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: _withVerticalSpacing(children),
-      );
-    }
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: children.length,
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: columns,
-        crossAxisSpacing: spacing,
-        mainAxisSpacing: spacing,
-        mainAxisExtent: itemExtent,
-      ),
-      itemBuilder: (context, index) => children[index],
-    );
-  }
-
-  List<Widget> _withVerticalSpacing(List<Widget> items) {
-    if (items.isEmpty) return items;
-    return [
-      for (var index = 0; index < items.length; index++) ...[
-        if (index > 0) SizedBox(height: spacing),
-        items[index],
-      ],
-    ];
   }
 }
 
@@ -1120,193 +779,7 @@ class _AddressInfoBlock extends StatelessWidget {
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({
-    required this.label,
-    required this.value,
-    this.valueColor,
-    this.icon,
-    this.iconColor,
-    this.maxLines = 1,
-  });
-  final String label;
-  final String value;
-  final Color? valueColor;
-  final IconData? icon;
-  final Color? iconColor;
-  final int maxLines;
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final effectiveIconColor = iconColor ?? _refPrimaryBlue;
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isNarrow = constraints.maxWidth < 240;
-        final labelWidth = (constraints.maxWidth * 0.38)
-            .clamp(92.0, 130.0)
-            .toDouble();
-
-        final labelWidget = Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            if (icon != null) ...[
-              Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  color: effectiveIconColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(5),
-                ),
-                child: Center(
-                  child: Icon(icon, size: 12, color: effectiveIconColor),
-                ),
-              ),
-              const SizedBox(width: 7),
-            ],
-            Expanded(
-              child: Text(
-                label,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: const Color(0xFF64748B),
-                  fontWeight: FontWeight.w600,
-                  fontSize: 11.5,
-                  height: 1.15,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        );
-
-        final valueWidget = Text(
-          value,
-          style: theme.textTheme.bodySmall?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: valueColor ?? const Color(0xFF0F172A),
-            fontSize: 12.5,
-            height: 1.2,
-          ),
-          maxLines: maxLines,
-          overflow: TextOverflow.ellipsis,
-        );
-
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 3),
-          child: isNarrow
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    labelWidget,
-                    const SizedBox(height: 2),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 29),
-                      child: valueWidget,
-                    ),
-                  ],
-                )
-              : Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    SizedBox(width: labelWidth, child: labelWidget),
-                    const SizedBox(width: 8),
-                    Expanded(child: valueWidget),
-                  ],
-                ),
-        );
-      },
-    );
-  }
-}
-
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({
-    required this.title,
-    required this.icon,
-    required this.iconColor,
-    required this.children,
-    this.footer,
-    this.footerDivider = true,
-  });
-  final String title;
-  final IconData icon;
-  final Color iconColor;
-  final List<Widget> children;
-  final Widget? footer;
-  final bool footerDivider;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      elevation: 0,
-      color: _refSurface,
-      shadowColor: Colors.black.withValues(alpha: 0.05),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: _refBorder),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final hasBoundedHeight = constraints.hasBoundedHeight;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: hasBoundedHeight
-                ? MainAxisSize.max
-                : MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                child: Row(
-                  children: [
-                    Icon(icon, size: 18, color: iconColor),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: iconColor,
-                          height: 1.15,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: children,
-                ),
-              ),
-              if (footer != null) ...[
-                if (hasBoundedHeight)
-                  const Spacer()
-                else
-                  const SizedBox(height: 2),
-                if (footerDivider) const Divider(height: 1, color: _refBorder),
-                SizedBox(
-                  height: 43,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: footer,
-                  ),
-                ),
-              ],
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
 
 class _MapOverviewCard extends StatelessWidget {
   const _MapOverviewCard({required this.map, required this.strip});
@@ -1644,41 +1117,25 @@ class _OverviewTimeRangeFilterBar extends StatelessWidget {
   }
 }
 
-class _CurrentSummaryPanel extends StatelessWidget {
-  const _CurrentSummaryPanel({
+class _OverviewLiveLocationCard extends StatelessWidget {
+  const _OverviewLiveLocationCard({
     required this.device,
     required this.status,
-    required this.journey,
+    required this.latestLocation,
     this.address,
     this.compact = false,
-    this.timeRangeLabel,
   });
 
   final DeviceModel device;
   final ResolvedDeviceStatus status;
-  final _JourneySnapshot journey;
+  final LocationModel? latestLocation;
   final String? address;
   final bool compact;
-  final String? timeRangeLabel;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final speed = DeviceFormatters.speed(device, status);
-    final heading = DeviceFormatters.heading(device.currentHeadingDeg);
-    final altitudeText = device.currentAltitudeM != null
-        ? '${device.currentAltitudeM!.toStringAsFixed(1)} m'
-        : '--';
-    final distanceText = journey.distanceM != null
-        ? DeviceFormatters.distance(journey.distanceM)
-        : '--';
-    final movingDurationText = journey.movingDurationS != null
-        ? DeviceFormatters.secondsDuration(journey.movingDurationS)
-        : '--';
-    final stoppedDurationText = journey.stoppedDurationS != null
-        ? DeviceFormatters.secondsDuration(journey.stoppedDurationS)
-        : '--';
-
     final isMoving = status.movement == MovementStatus.moving;
     final isStopped = status.movement == MovementStatus.stopped;
     final movementStatusLabel = isMoving
@@ -1687,6 +1144,13 @@ class _CurrentSummaryPanel extends StatelessWidget {
     final movementStatusColor = isMoving
         ? _refOnline
         : (isStopped ? _refAmber : _refMuted);
+
+    final cardTitle = status.freshness == DataFreshnessStatus.stale
+        ? 'Vị trí gần nhất'
+        : 'Vị trí hiện tại';
+    final lastUpdatedTime = DeviceFormatters.dateTime(
+      latestLocation?.measuredAt ?? device.lastSeenAt,
+    );
 
     return Card(
       elevation: 0,
@@ -1711,26 +1175,26 @@ class _CurrentSummaryPanel extends StatelessWidget {
                 ? MainAxisSize.max
                 : MainAxisSize.min,
             children: [
-              // 1. Header (Title)
+              // 1. Header: Tiêu đề vị trí + Nút xem thông số kỹ thuật thiết bị
               Row(
                 children: [
                   Container(
                     width: 28,
                     height: 28,
                     decoration: BoxDecoration(
-                      color: _refPrimaryBlue.withValues(alpha: 0.1),
+                      color: const Color(0xFF0D9488).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: const Icon(
-                      Icons.tune_rounded,
+                      Icons.location_on_rounded,
                       size: 16,
-                      color: _refPrimaryBlue,
+                      color: Color(0xFF0D9488),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Thông số vận hành',
+                      cardTitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleSmall?.copyWith(
@@ -1739,105 +1203,186 @@ class _CurrentSummaryPanel extends StatelessWidget {
                       ),
                     ),
                   ),
-                ],
-              ),
-              if (!isTightlyBounded) const SizedBox(height: 12),
-
-              // 2. Telemetry Tiles (3 rows x 2 columns)
-              // Row 1: Tốc độ & Hướng di chuyển
-              Row(
-                children: [
-                  Expanded(
-                    child: _TelemetryMetricTile(
-                      icon: Icons.speed_rounded,
-                      iconColor: const Color(0xFF2563EB),
-                      label: 'TỐC ĐỘ HIỆN TẠI',
-                      value: speed,
-                      subValue: movementStatusLabel,
-                      subValueColor: movementStatusColor,
+                  IconButton(
+                    onPressed: () => _showDeviceTechnicalInfoModal(
+                      context,
+                      device: device,
+                      latestLocation: latestLocation,
+                      status: status,
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _TelemetryMetricTile(
-                      icon: Icons.explore_rounded,
-                      iconColor: const Color(0xFF7C3AED),
-                      label: 'HƯỚNG DI CHUYỂN',
-                      value: heading,
-                      subValue: device.currentHeadingDeg != null
-                          ? 'Góc ${device.currentHeadingDeg!.toStringAsFixed(0)}°'
-                          : null,
-                    ),
+                    icon: const Icon(Icons.info_outline_rounded, size: 18),
+                    color: _refPrimaryBlue,
+                    tooltip: 'Thông tin thiết bị',
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                   ),
                 ],
               ),
               if (!isTightlyBounded) const SizedBox(height: 10),
 
-              // Row 2: Độ cao & Quãng đường
-              Row(
-                children: [
-                  Expanded(
-                    child: _TelemetryMetricTile(
-                      icon: Icons.height_rounded,
-                      iconColor: const Color(0xFF0D9488),
-                      label: 'ĐỘ CAO',
-                      value: altitudeText,
-                      subValue: 'So với mực nước biển',
+              // 2. Speed & Movement Highlight Banner
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: _refPrimaryBlue.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.speed_rounded,
+                        size: 18,
+                        color: _refPrimaryBlue,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _TelemetryMetricTile(
-                      icon: Icons.route_rounded,
-                      iconColor: const Color(0xFFEA580C),
-                      label: 'QUÃNG ĐƯỜNG',
-                      value: distanceText,
-                      subValue: timeRangeLabel != null
-                          ? 'Trong $timeRangeLabel'
-                          : 'Hành trình ghi nhận',
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'TỐC ĐỘ HIỆN TẠI',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: _refMuted,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 10,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                          const SizedBox(height: 1),
+                          Text(
+                            speed,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: _refText,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                              height: 1.15,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: movementStatusColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        movementStatusLabel,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: movementStatusColor,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               if (!isTightlyBounded) const SizedBox(height: 10),
 
-              // Row 3: Thời gian di chuyển & Thời gian dừng
-              Row(
-                children: [
-                  Expanded(
-                    child: _TelemetryMetricTile(
-                      icon: Icons.timer_outlined,
-                      iconColor: const Color(0xFF16A34A),
-                      label: 'THỜI GIAN CHẠY',
-                      value: movingDurationText,
-                      subValue: 'Thời gian di chuyển',
+              // 3. Address / Coordinates Detail
+              if (_hasText(address)) ...[
+                _AddressInfoBlock(address: address!.trim()),
+                if (!isTightlyBounded) const SizedBox(height: 6),
+              ],
+
+              // 4. Coordinates & Last Updated timestamp
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFF1F5F9)),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.my_location_rounded, size: 14, color: Color(0xFF0D9488)),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Tọa độ GPS:',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: _refMuted,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11.5,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            DeviceFormatters.coordinatePair(
+                              device.latitude,
+                              device.longitude,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.end,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: _refText,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _TelemetryMetricTile(
-                      icon: Icons.pause_circle_outline_rounded,
-                      iconColor: const Color(0xFFD97706),
-                      label: 'THỜI GIAN DỪNG',
-                      value: stoppedDurationText,
-                      subValue: 'Thời gian dừng đỗ',
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(Icons.schedule_rounded, size: 14, color: Color(0xFFEA580C)),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Thời điểm:',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: _refMuted,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11.5,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            lastUpdatedTime,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.end,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: status.freshness == DataFreshnessStatus.fresh
+                                  ? _refText
+                                  : theme.colorScheme.error,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               if (!isTightlyBounded) const SizedBox(height: 12),
 
-              // 3. Action Footer (Chia sẻ vị trí & Xem hành trình)
+              // 5. Actions Footer (Chia sẻ vị trí & Chuyển sang xem hành trình)
               Row(
                 children: [
                   Expanded(child: _ShareLocationInlineButton(device: device)),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: OutlinedButton.icon(
+                    child: OutlinedButton(
                       onPressed: () =>
                           DefaultTabController.of(context).animateTo(1),
-                      icon: const Icon(Icons.timeline_rounded, size: 16),
-                      label: const Text('Xem hành trình'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: _refPrimaryBlue,
                         side: const BorderSide(color: _refPrimaryBlue),
@@ -1846,9 +1391,25 @@ class _CurrentSummaryPanel extends StatelessWidget {
                         ),
                         minimumSize: const Size(0, 40),
                         padding: const EdgeInsets.symmetric(horizontal: 8),
-                        textStyle: theme.textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.timeline_rounded, size: 16),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              'Xem hành trình',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: _refPrimaryBlue,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -1872,89 +1433,542 @@ class _CurrentSummaryPanel extends StatelessWidget {
   }
 }
 
-class _TelemetryMetricTile extends StatelessWidget {
-  const _TelemetryMetricTile({
-    required this.icon,
-    required this.iconColor,
-    required this.label,
-    required this.value,
-    this.subValue,
-    this.subValueColor,
+// ─── Metrics Dashboard (4 Core Statistic Cards) ──────────────────────────────
+
+class _OverviewMetricsDashboard extends StatelessWidget {
+  const _OverviewMetricsDashboard({
+    required this.journey,
+    this.timeRangeLabel,
   });
 
+  final _JourneySnapshot journey;
+  final String? timeRangeLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final distanceStr = journey.distanceM != null
+        ? DeviceFormatters.distance(journey.distanceM)
+        : '--';
+    final movingStr = journey.movingDurationS != null
+        ? DeviceFormatters.secondsDuration(journey.movingDurationS)
+        : '--';
+    final stoppedStr = journey.stoppedDurationS != null
+        ? DeviceFormatters.secondsDuration(journey.stoppedDurationS)
+        : '--';
+    final avgSpeedStr = journey.avgSpeedMps != null
+        ? DeviceFormatters.speedMps(journey.avgSpeedMps)
+        : '--';
+    final maxSpeedStr = journey.maxSpeedMps != null
+        ? DeviceFormatters.speedMps(journey.maxSpeedMps)
+        : '--';
+    final startedStr = journey.startedAt != null
+        ? DeviceFormatters.dateTime(journey.startedAt)
+        : '--';
+    final endedStr = journey.endedAt != null
+        ? DeviceFormatters.dateTime(journey.endedAt)
+        : (journey.startedAt != null ? DeviceFormatters.dateTime(journey.startedAt) : '--');
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final columns = width >= 1100 ? 4 : (width >= 620 ? 2 : 1);
+        const spacing = 12.0;
+
+        final cards = [
+          _MetricDashboardCard(
+            title: 'TỔNG QUÃNG ĐƯỜNG',
+            icon: Icons.route_rounded,
+            iconColor: const Color(0xFFEA580C),
+            accentBg: const Color(0xFFFFF7ED),
+            primaryValue: distanceStr,
+            primaryLabel: timeRangeLabel != null ? 'Trong $timeRangeLabel' : 'Khoảng thời gian đã chọn',
+            extraInfo: journey.sampleCount > 0 ? '${journey.sampleCount} điểm GPS' : null,
+          ),
+          _MetricDashboardCard(
+            title: 'THỜI GIAN HOẠT ĐỘNG',
+            icon: Icons.timer_outlined,
+            iconColor: const Color(0xFF16A34A),
+            accentBg: const Color(0xFFF0FDF4),
+            dualRows: [
+              (
+                icon: Icons.play_arrow_rounded,
+                label: 'Chạy:',
+                value: movingStr,
+                color: const Color(0xFF16A34A),
+              ),
+              (
+                icon: Icons.pause_rounded,
+                label: 'Dừng:',
+                value: stoppedStr,
+                color: const Color(0xFFD97706),
+              ),
+            ],
+          ),
+          _MetricDashboardCard(
+            title: 'VẬN TỐC HÀNH TRÌNH',
+            icon: Icons.speed_rounded,
+            iconColor: const Color(0xFF2563EB),
+            accentBg: const Color(0xFFEFF6FF),
+            dualRows: [
+              (
+                icon: Icons.trending_flat_rounded,
+                label: 'Trung bình:',
+                value: avgSpeedStr,
+                color: const Color(0xFF2563EB),
+              ),
+              (
+                icon: Icons.flash_on_rounded,
+                label: 'Tối đa:',
+                value: maxSpeedStr,
+                color: const Color(0xFFDC2626),
+              ),
+            ],
+          ),
+          _MetricDashboardCard(
+            title: 'KHUNG THỜI GIAN',
+            icon: Icons.calendar_today_rounded,
+            iconColor: const Color(0xFF7C3AED),
+            accentBg: const Color(0xFFF5F3FF),
+            dualRows: [
+              (
+                icon: Icons.play_circle_outline_rounded,
+                label: 'Bắt đầu:',
+                value: startedStr,
+                color: const Color(0xFF7C3AED),
+              ),
+              (
+                icon: Icons.flag_outlined,
+                label: 'Kết thúc:',
+                value: endedStr,
+                color: const Color(0xFF475569),
+              ),
+            ],
+          ),
+        ];
+
+        if (columns == 1) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var i = 0; i < cards.length; i++) ...[
+                if (i > 0) const SizedBox(height: spacing),
+                cards[i],
+              ],
+            ],
+          );
+        }
+
+        final itemWidth = (width - spacing * (columns - 1)) / columns;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (final card in cards)
+              SizedBox(
+                width: itemWidth,
+                child: card,
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _MetricDashboardCard extends StatelessWidget {
+  const _MetricDashboardCard({
+    required this.title,
+    required this.icon,
+    required this.iconColor,
+    required this.accentBg,
+    this.primaryValue,
+    this.primaryLabel,
+    this.extraInfo,
+    this.dualRows,
+  });
+
+  final String title;
   final IconData icon;
   final Color iconColor;
-  final String label;
-  final String value;
-  final String? subValue;
-  final Color? subValueColor;
+  final Color accentBg;
+  final String? primaryValue;
+  final String? primaryLabel;
+  final String? extraInfo;
+  final List<({IconData icon, String label, String value, Color color})>? dualRows;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE5EAF2)),
+        color: _refSurface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _refBorder),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.025),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Header: Icon + Title
           Row(
             children: [
-              Icon(icon, size: 13, color: iconColor),
-              const SizedBox(width: 5),
+              Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  color: accentBg,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(icon, size: 14, color: iconColor),
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  label,
+                  title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: _refMuted,
                     fontWeight: FontWeight.w700,
-                    fontSize: 10,
-                    letterSpacing: 0.1,
+                    fontSize: 10.5,
+                    letterSpacing: 0.3,
                   ),
                 ),
               ),
+              if (extraInfo != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    extraInfo!,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: const Color(0xFF475569),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
             ],
           ),
-          const SizedBox(height: 3),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: _refText,
-              fontWeight: FontWeight.w800,
-              fontSize: 14.5,
-              height: 1.15,
-            ),
-          ),
-          if (subValue != null) ...[
-            const SizedBox(height: 2),
+          const SizedBox(height: 10),
+
+          // Body: Single Big Value OR Dual Rows
+          if (primaryValue != null) ...[
             Text(
-              subValue!,
+              primaryValue!,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: subValueColor ?? _refMuted,
-                fontWeight: subValueColor != null
-                    ? FontWeight.w700
-                    : FontWeight.w500,
-                fontSize: 10.5,
-                height: 1.1,
+              style: theme.textTheme.titleLarge?.copyWith(
+                color: _refText,
+                fontWeight: FontWeight.w900,
+                fontSize: 21,
+                height: 1.15,
               ),
             ),
+            if (primaryLabel != null) ...[
+              const SizedBox(height: 3),
+              Text(
+                primaryLabel!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: _refMuted,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ] else if (dualRows != null) ...[
+            for (var i = 0; i < dualRows!.length; i++) ...[
+              if (i > 0) const SizedBox(height: 6),
+              Row(
+                children: [
+                  Icon(dualRows![i].icon, size: 14, color: dualRows![i].color),
+                  const SizedBox(width: 5),
+                  Text(
+                    dualRows![i].label,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: _refMuted,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11.5,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      dualRows![i].value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: _refText,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ],
       ),
     );
   }
+}
+
+// ─── Device Technical Info Modal ─────────────────────────────────────────────
+
+void _showDeviceTechnicalInfoModal(
+  BuildContext context, {
+  required DeviceModel device,
+  required LocationModel? latestLocation,
+  required ResolvedDeviceStatus status,
+}) {
+  final modelManufacturer = [
+    device.model,
+    device.manufacturer,
+  ].whereType<String>().where((s) => s.trim().isNotEmpty).join(' · ');
+
+  final altitudeM = device.currentAltitudeM ?? latestLocation?.altitudeM;
+  final accuracyM = latestLocation?.accuracyM;
+
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (modalContext) {
+      final theme = Theme.of(modalContext);
+      return Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(modalContext).size.height * 0.85,
+          maxWidth: 680,
+        ),
+        margin: const EdgeInsets.only(top: 40),
+        decoration: const BoxDecoration(
+          color: _refSurface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Drag Handle
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFCBD5E1),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+
+            // Modal Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 12, 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: _refPrimaryBlue.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.memory_rounded,
+                      size: 18,
+                      color: _refPrimaryBlue,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Thông số kỹ thuật thiết bị',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: _refText,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          DeviceFormatters.displayName(device),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: _refMuted,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(modalContext).pop(),
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                    tooltip: 'Đóng',
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: _refBorder),
+
+            // Scrollable Content
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Section 1: Thông tin phần cứng
+                    _buildTechSectionTitle(
+                      icon: Icons.devices_other_rounded,
+                      title: 'Thông tin phần cứng',
+                    ),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        children: [
+                          _buildTechRow('Tên thiết bị', DeviceFormatters.displayName(device)),
+                          _buildTechRow('Mã định danh', device.deviceCode),
+                          _buildTechRow('Loại phương tiện', DeviceFormatters.deviceTypeLabel(device.deviceType)),
+                          _buildTechRow('Model / Hãng', modelManufacturer.isNotEmpty ? modelManufacturer : '--'),
+                          _buildTechRow('Số Serial / IMEI', device.serialNumber ?? '--'),
+                          _buildTechRow('Phiên bản Firmware', device.firmwareVersion ?? '--'),
+                          _buildTechRow(
+                            'Trạng thái',
+                            device.statusLabel,
+                            valueColor: status.connectivity == ConnectivityStatus.online
+                                ? _refOnline
+                                : _refMuted,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Section 2: Vị trí & Cảm biến GPS
+                    _buildTechSectionTitle(
+                      icon: Icons.satellite_alt_rounded,
+                      title: 'Thông số GPS & Vệ tinh',
+                    ),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        children: [
+                          _buildTechRow(
+                            'Tọa độ GPS',
+                            DeviceFormatters.coordinatePair(device.latitude, device.longitude),
+                          ),
+                          _buildTechRow(
+                            'Độ cao',
+                            altitudeM != null ? '${altitudeM.toStringAsFixed(1)} m' : '--',
+                          ),
+                          _buildTechRow(
+                            'Độ chính xác vệ tinh',
+                            accuracyM != null ? '±${accuracyM.toStringAsFixed(0)} m' : '--',
+                          ),
+                          _buildTechRow(
+                            'Số lượng vệ tinh',
+                            latestLocation?.satelliteCount != null
+                                ? '${latestLocation!.satelliteCount} vệ tinh'
+                                : '--',
+                          ),
+                          _buildTechRow(
+                            'Thời điểm GPS',
+                            DeviceFormatters.dateTime(latestLocation?.measuredAt ?? device.lastSeenAt),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+Widget _buildTechSectionTitle({required IconData icon, required String title}) {
+  return Row(
+    children: [
+      Icon(icon, size: 16, color: _refPrimaryBlue),
+      const SizedBox(width: 8),
+      Text(
+        title,
+        style: const TextStyle(
+          fontSize: 13.5,
+          fontWeight: FontWeight.w800,
+          color: _refText,
+        ),
+      ),
+    ],
+  );
+}
+
+Widget _buildTechRow(String label, String value, {Color? valueColor}) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 140,
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF64748B),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              color: valueColor ?? const Color(0xFF0F172A),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _RecentActivityCard extends StatelessWidget {
@@ -2010,11 +2024,25 @@ class _RecentActivityCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             if (recentEvents.isEmpty)
-              _InfoRow(
-                label: 'Timeline',
-                value: 'Chưa có hoạt động gần đây',
-                icon: Icons.event_busy_rounded,
-                valueColor: theme.colorScheme.outline,
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.event_busy_rounded,
+                      size: 16,
+                      color: theme.colorScheme.outline,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Chưa có hoạt động gần đây',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.outline,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
               )
             else
               LayoutBuilder(
@@ -5507,60 +5535,7 @@ class _ShareLocationInlineButton extends StatelessWidget {
   }
 }
 
-class _ShareLocationCompactButton extends StatelessWidget {
-  const _ShareLocationCompactButton({required this.device});
 
-  final DeviceModel device;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final hasLocation = MapLauncherService.isValidCoordinate(
-      device.latitude,
-      device.longitude,
-    );
-
-    if (!hasLocation) {
-      return OutlinedButton.icon(
-        onPressed: null,
-        icon: const Icon(Icons.share_rounded, size: 16),
-        label: const Text('Chia sẻ'),
-      );
-    }
-
-    return PopupMenuButton<String>(
-      tooltip: 'Chia sẻ vị trí',
-      position: PopupMenuPosition.under,
-      onSelected: (value) =>
-          _handleShareLocationSelection(context, device, value),
-      itemBuilder: (context) => _shareLocationMenuItems(context, device),
-      child: Container(
-        height: 36,
-        constraints: const BoxConstraints(minWidth: 132),
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          color: _refPrimaryBlue,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.share_rounded, size: 16, color: Colors.white),
-            const SizedBox(width: 8),
-            Text(
-              'Chia sẻ',
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 List<PopupMenuEntry<String>> _shareLocationMenuItems(
   BuildContext context,

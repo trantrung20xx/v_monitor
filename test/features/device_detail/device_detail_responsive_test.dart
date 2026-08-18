@@ -55,8 +55,10 @@ void main() {
       expect(find.text('Hành trình'), findsWidgets);
       expect(find.text('Sự kiện'), findsOneWidget);
       expect(find.text('Vị trí hiện tại'), findsOneWidget);
-      expect(find.text('Thông số vận hành'), findsOneWidget);
-      expect(find.text('Hành trình hiện tại'), findsOneWidget);
+      expect(find.text('TỔNG QUÃNG ĐƯỜNG'), findsOneWidget);
+      expect(find.text('THỜI GIAN HOẠT ĐỘNG'), findsOneWidget);
+      expect(find.text('VẬN TỐC HÀNH TRÌNH'), findsOneWidget);
+      expect(find.text('KHUNG THỜI GIAN'), findsOneWidget);
       expect(find.text('Hoạt động gần đây'), findsOneWidget);
       expect(
         flutterErrors
