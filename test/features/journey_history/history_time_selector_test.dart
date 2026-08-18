@@ -40,7 +40,7 @@ void main() {
     expect(find.text('Hôm qua'), findsOneWidget);
     expect(find.text('24h qua'), findsOneWidget);
     expect(find.text('7 ngày qua'), findsOneWidget);
-    expect(find.text('5 phút (chuẩn)'), findsOneWidget);
+    expect(find.text('5 phút'), findsOneWidget);
 
     await tester.tap(find.text('Tra cứu'));
     await tester.pump();

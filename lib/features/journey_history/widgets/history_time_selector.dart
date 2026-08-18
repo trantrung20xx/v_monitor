@@ -43,7 +43,9 @@ class HistoryTimeSelector extends StatelessWidget {
     return Card(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: isDesktop ? _buildDesktopLayout(context, theme) : _buildMobileLayout(context, theme),
+        child: isDesktop
+            ? _buildDesktopLayout(context, theme)
+            : _buildMobileLayout(context, theme),
       ),
     );
   }
@@ -56,10 +58,7 @@ class HistoryTimeSelector extends StatelessWidget {
         Row(
           children: [
             // Chọn thiết bị
-            Expanded(
-              flex: 3,
-              child: _buildDeviceDropdown(context, theme),
-            ),
+            Expanded(flex: 3, child: _buildDeviceDropdown(context, theme)),
             const SizedBox(width: 12),
 
             // Chọn mốc BẮT ĐẦU (FROM)
@@ -90,12 +89,17 @@ class HistoryTimeSelector extends StatelessWidget {
             SizedBox(
               height: 40,
               child: FilledButton.icon(
-                onPressed: (selectedDevice == null || isLoading) ? null : onQuery,
+                onPressed: (selectedDevice == null || isLoading)
+                    ? null
+                    : onQuery,
                 icon: isLoading
                     ? const SizedBox(
                         width: 16,
                         height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Icon(Icons.search_rounded, size: 18),
                 label: const Text('Tra cứu'),
@@ -147,7 +151,10 @@ class HistoryTimeSelector extends StatelessWidget {
                 ? const SizedBox(
                     width: 16,
                     height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
                 : const Icon(Icons.search_rounded, size: 18),
             label: const Text('Tra cứu lịch sử'),
@@ -178,7 +185,10 @@ class HistoryTimeSelector extends StatelessWidget {
               child: Text(
                 DeviceFormatters.displayName(d),
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             );
           }).toList(),
@@ -229,13 +239,21 @@ class HistoryTimeSelector extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          color: Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
         ),
         child: Row(
           children: [
-            Icon(Icons.calendar_today_rounded, size: 16, color: Theme.of(context).colorScheme.primary),
+            Icon(
+              Icons.calendar_today_rounded,
+              size: 16,
+              color: Theme.of(context).colorScheme.primary,
+            ),
             const SizedBox(width: 6),
             Expanded(
               child: Column(
@@ -252,7 +270,10 @@ class HistoryTimeSelector extends StatelessWidget {
                   ),
                   Text(
                     _dtFormat.format(currentValue),
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -286,8 +307,22 @@ class HistoryTimeSelector extends StatelessWidget {
             label: 'Hôm qua',
             onTap: () {
               final yesterday = now.subtract(const Duration(days: 1));
-              final start = DateTime(yesterday.year, yesterday.month, yesterday.day, 0, 0, 0);
-              final end = DateTime(yesterday.year, yesterday.month, yesterday.day, 23, 59, 59);
+              final start = DateTime(
+                yesterday.year,
+                yesterday.month,
+                yesterday.day,
+                0,
+                0,
+                0,
+              );
+              final end = DateTime(
+                yesterday.year,
+                yesterday.month,
+                yesterday.day,
+                23,
+                59,
+                59,
+              );
               onFromTimeChanged(start);
               onToTimeChanged(end);
             },
@@ -317,7 +352,9 @@ class HistoryTimeSelector extends StatelessWidget {
             children: [
               Text(
                 'Ngắt quãng:',
-                style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(width: 4),
               () {
@@ -329,17 +366,21 @@ class HistoryTimeSelector extends StatelessWidget {
                   value: currentMinutes,
                   isDense: true,
                   underline: const SizedBox.shrink(),
-                  style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                   items: [
                     const DropdownMenuItem(value: 1, child: Text('1 phút')),
-                    const DropdownMenuItem(value: 5, child: Text('5 phút (chuẩn)')),
+                    const DropdownMenuItem(value: 5, child: Text('5 phút')),
                     const DropdownMenuItem(value: 15, child: Text('15 phút')),
                     const DropdownMenuItem(value: 30, child: Text('30 phút')),
                     const DropdownMenuItem(value: 60, child: Text('1 giờ')),
                     if (isCustom)
                       DropdownMenuItem(
                         value: currentMinutes,
-                        child: Text('${formatGapDuration(gapThreshold)} (Tùy ý)'),
+                        child: Text(
+                          '${formatGapDuration(gapThreshold)} (Tùy ý)',
+                        ),
                       ),
                     const DropdownMenuItem(
                       value: -1,
