@@ -285,10 +285,10 @@ class _MobileLayout extends StatelessWidget {
             child: _StatusFilterBar(selected: state.statusFilter, state: state),
           ),
           // Stats horizontal carousel
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-            child: StatsOverview(state: state),
-          ),
+          // Padding(
+          //   padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+          //   child: StatsOverview(state: state),
+          // ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
             child: Row(

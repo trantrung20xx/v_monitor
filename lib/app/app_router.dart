@@ -28,6 +28,10 @@ class AppRouter {
             builder: (context, state) => const DashboardPage(),
           ),
           GoRoute(
+            path: '/dashboard',
+            redirect: (context, state) => '/',
+          ),
+          GoRoute(
             path: '/map',
             name: 'map',
             builder: (context, state) => const MapViewPage(),

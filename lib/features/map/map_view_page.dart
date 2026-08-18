@@ -143,7 +143,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
                 if (context.canPop()) {
                   context.pop();
                 } else {
-                  context.go('/dashboard');
+                  context.goNamed('dashboard');
                 }
               },
             ),
