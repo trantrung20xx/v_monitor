@@ -25,7 +25,9 @@ class AppRouter {
           GoRoute(
             path: '/',
             name: 'dashboard',
-            builder: (context, state) => const DashboardPage(),
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: DashboardPage(),
+            ),
           ),
           GoRoute(
             path: '/dashboard',
@@ -34,7 +36,9 @@ class AppRouter {
           GoRoute(
             path: '/map',
             name: 'map',
-            builder: (context, state) => const MapViewPage(),
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: MapViewPage(),
+            ),
           ),
         ],
       ),

@@ -63,7 +63,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
   static const double _maxZoom = 18;
   static const double _zoomStep = 1;
 
-  static const Color _primaryBlue = Color(0xFF2563EB);
+  static const Color _primaryBlue = Color(0xFF1677FF);
   static const Color _textMain = Color(0xFF0F172A);
   static const Color _textMuted = Color(0xFF64748B);
   static const Color _borderColor = Color(0xFFE2E8F0);
@@ -99,14 +99,17 @@ class _MapViewBodyState extends State<_MapViewBody> {
       builder: (context) {
         return DraggableScrollableSheet(
           expand: false,
-          initialChildSize: 0.6,
-          minChildSize: 0.3,
-          maxChildSize: 0.9,
+          initialChildSize: 0.65,
+          minChildSize: 0.35,
+          maxChildSize: 0.92,
+          snap: true,
+          snapSizes: const [0.35, 0.65, 0.92],
           builder: (context, scrollController) {
             return DeviceListOverlay(
               devices: devices,
               addresses: addresses,
               scrollController: scrollController,
+              isMobileSheet: true,
               onDeviceSelected: (d) {
                 Navigator.pop(context);
                 _onDeviceSelected(context, d);
@@ -151,88 +154,109 @@ class _MapViewBodyState extends State<_MapViewBody> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(6),
+                  padding: const EdgeInsets.all(5),
                   decoration: BoxDecoration(
                     color: _primaryBlue.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(7),
                   ),
                   child: const Icon(
                     Icons.travel_explore_rounded,
-                    size: 18,
+                    size: 17,
                     color: _primaryBlue,
                   ),
                 ),
-                const SizedBox(width: 8),
-                const Text(
-                  'Bản đồ giám sát',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: _textMain,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: _borderColor),
-                  ),
+                const SizedBox(width: 7),
+                Flexible(
                   child: Text(
-                    '${state.devices.length} thiết bị',
-                    style: const TextStyle(
-                      fontSize: 11.5,
+                    'Bản đồ giám sát',
+                    style: TextStyle(
+                      fontSize: isDesktop ? 16 : 15,
                       fontWeight: FontWeight.w700,
                       color: _textMain,
                     ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                if (isDesktop) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: _borderColor),
+                    ),
+                    child: Text(
+                      '${state.devices.length} thiết bị',
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: _textMain,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
             actions: [
-              if (!state.isLoading && state.devices.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-                  child: FilledButton.tonalIcon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _showDesktopList && isDesktop
-                          ? _primaryBlue.withValues(alpha: 0.15)
-                          : const Color(0xFFF8FAFC),
-                      foregroundColor: _showDesktopList && isDesktop
-                          ? _primaryBlue
-                          : _textMain,
-                      side: BorderSide(
-                        color: _showDesktopList && isDesktop
-                            ? _primaryBlue
-                            : _borderColor,
+              if (!state.isLoading && state.devices.isNotEmpty) ...[
+                if (isDesktop)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                    child: FilledButton.tonalIcon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _showDesktopList
+                            ? _primaryBlue.withValues(alpha: 0.15)
+                            : const Color(0xFFF8FAFC),
+                        foregroundColor:
+                            _showDesktopList ? _primaryBlue : _textMain,
+                        side: BorderSide(
+                          color: _showDesktopList ? _primaryBlue : _borderColor,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        visualDensity: VisualDensity.compact,
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    onPressed: () {
-                      if (isDesktop) {
+                      onPressed: () {
                         setState(() {
                           _showDesktopList = !_showDesktopList;
                         });
-                      } else {
-                        _openMobileList(
-                          context,
-                          state.devices,
-                          state.deviceAddresses,
-                        );
-                      }
-                    },
-                    icon: const Icon(Icons.list_alt_rounded, size: 16),
-                    label: Text(
-                      isDesktop ? 'Danh sách (${state.devices.length})' : 'Danh sách',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                      },
+                      icon: const Icon(Icons.list_alt_rounded, size: 16),
+                      label: Text(
+                        'Danh sách (${state.devices.length})',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  IconButton(
+                    icon: Badge(
+                      isLabelVisible: state.devices.isNotEmpty,
+                      label: Text(
+                        '${state.devices.length}',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      backgroundColor: _primaryBlue,
+                      textColor: Colors.white,
+                      child: const Icon(Icons.list_alt_rounded, color: _textMain),
+                    ),
+                    tooltip: 'Danh sách thiết bị',
+                    onPressed: () => _openMobileList(
+                      context,
+                      state.devices,
+                      state.deviceAddresses,
                     ),
                   ),
-                ),
+              ],
               IconButton(
                 icon: const Icon(Icons.refresh_rounded, color: _textMain),
                 tooltip: 'Làm mới dữ liệu',
@@ -346,11 +370,11 @@ class _MapViewBodyState extends State<_MapViewBody> {
                             color: Colors.white.withValues(alpha: 0.95),
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(color: _borderColor),
-                            boxShadow: [
+                            boxShadow: const [
                               BoxShadow(
-                                color: const Color(0xFF0F172A).withValues(alpha: 0.08),
+                                color: Colors.black12,
                                 blurRadius: 18,
-                                offset: const Offset(0, 4),
+                                offset: Offset(0, 4),
                               ),
                             ],
                           ),
@@ -395,6 +419,38 @@ class _MapViewBodyState extends State<_MapViewBody> {
                       ),
                     ),
                   ),
+                // Floating Action Button on Mobile
+                if (!isDesktop && !state.isLoading && state.devices.isNotEmpty)
+                  Positioned(
+                    right: 16,
+                    bottom: 16,
+                    child: FloatingActionButton.extended(
+                      heroTag: 'mobile-map-device-list-fab',
+                      elevation: 3,
+                      highlightElevation: 5,
+                      backgroundColor: Colors.white,
+                      foregroundColor: _primaryBlue,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        side: const BorderSide(color: _borderColor),
+                      ),
+                      icon: const Icon(Icons.list_alt_rounded, size: 18),
+                      label: Text(
+                        'Danh sách (${state.devices.length})',
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: _textMain,
+                        ),
+                      ),
+                      onPressed: () => _openMobileList(
+                        context,
+                        state.devices,
+                        state.deviceAddresses,
+                      ),
+                    ),
+                  ),
+                // Desktop Floating Panel
                 if (isDesktop && _showDesktopList)
                   Positioned(
                     top: 16,
