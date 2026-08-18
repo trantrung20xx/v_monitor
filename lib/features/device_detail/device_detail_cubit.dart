@@ -13,9 +13,9 @@ import '../../data/repositories/tracking_repository.dart';
 enum OverviewTimeRange {
   today('Hôm nay'),
   yesterday('Hôm qua'),
-  last24h('24 giờ'),
+  last24h('24h qua'),
   last7d('7 ngày'),
-  custom('Tùy chỉnh');
+  custom('Tùy chọn');
 
   const OverviewTimeRange(this.label);
   final String label;

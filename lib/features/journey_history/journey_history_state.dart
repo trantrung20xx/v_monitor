@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'package:latlong2/latlong.dart';
 import '../../data/models/device_model.dart';
 import '../../data/models/location_model.dart';
+import '../../domain/entities/gps_validator.dart';
 import '../../domain/entities/route_segment.dart';
 
 enum JourneyHistoryStatus {
@@ -93,6 +94,26 @@ class JourneyHistoryState extends Equatable {
 
     final currentOffset = currentReplayTime!.difference(validSamples.first.measuredAt).inMilliseconds;
     return (currentOffset / totalDuration).clamp(0.0, 1.0);
+  }
+
+  /// Quãng đường đã đi tính đến thời điểm phát lại / điểm đang chọn hiện tại (m)
+  double get currentDistanceM {
+    if (validSamples.length < 2 || currentSampleIndex <= 0) return 0.0;
+
+    var distance = 0.0;
+    final targetIndex = currentSampleIndex.clamp(0, validSamples.length - 1);
+
+    for (var i = 1; i <= targetIndex; i++) {
+      final prev = validSamples[i - 1];
+      final curr = validSamples[i];
+      if (curr.measuredAt.difference(prev.measuredAt) <= gapThreshold) {
+        distance += GpsValidator.calculateDistanceM(
+          LatLng(prev.latitude, prev.longitude),
+          LatLng(curr.latitude, curr.longitude),
+        );
+      }
+    }
+    return distance;
   }
 
   JourneyHistoryState copyWith({

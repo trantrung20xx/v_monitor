@@ -22,6 +22,7 @@ import '../../data/repositories/geocoding_repository.dart';
 import '../../data/repositories/tracking_repository.dart';
 import '../journey_history/journey_history_cubit.dart';
 import '../journey_history/journey_history_state.dart';
+import '../journey_history/widgets/custom_date_time_range_dialog.dart';
 import '../journey_history/widgets/custom_gap_dialog.dart';
 import '../journey_history/widgets/history_map_layers.dart';
 import '../journey_history/widgets/point_info_popup.dart';
@@ -525,7 +526,8 @@ class _OverviewTab extends StatelessWidget {
                     rangeTo: cubitState.rangeTo,
                     isLoading: cubitState.isRangeLoading,
                     onSelectRange: (range) => cubit.setTimeRange(range),
-                    onPickCustomRange: () => _pickCustomRange(context),
+                    onCustomRangePressed: () => _pickCustomRange(context),
+                    onRefresh: () => cubit.setTimeRange(cubitState.timeRange),
                   ),
                   const SizedBox(height: 12),
                   if (isWide)
@@ -605,47 +607,23 @@ class _OverviewTab extends StatelessWidget {
   }
 
   Future<void> _pickCustomRange(BuildContext context) async {
+    final cubit = context.read<DeviceDetailCubit>();
+    final cubitState = cubit.state;
     final now = DateTime.now();
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: now,
-      initialDateRange: DateTimeRange(
-        start: now.subtract(const Duration(days: 1)),
-        end: now,
-      ),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-              primary: _refPrimaryBlue,
-            ),
-          ),
-          child: child!,
-        );
-      },
+    final defaultFrom =
+        cubitState.rangeFrom ?? DateTime(now.year, now.month, now.day, 0, 0, 0);
+    final defaultTo = cubitState.rangeTo ?? now;
+
+    final result = await showCustomDateTimeRangeDialog(
+      context,
+      initialFrom: defaultFrom,
+      initialTo: defaultTo,
     );
-    if (picked != null && context.mounted) {
-      final from = DateTime(
-        picked.start.year,
-        picked.start.month,
-        picked.start.day,
-        0,
-        0,
-        0,
-      );
-      final to = DateTime(
-        picked.end.year,
-        picked.end.month,
-        picked.end.day,
-        23,
-        59,
-        59,
-      );
-      context.read<DeviceDetailCubit>().setTimeRange(
+    if (result != null && context.mounted) {
+      cubit.setTimeRange(
         OverviewTimeRange.custom,
-        customFrom: from,
-        customTo: to,
+        customFrom: result.start,
+        customTo: result.end,
       );
     }
   }
@@ -1398,7 +1376,8 @@ class _OverviewTimeRangeFilterBar extends StatelessWidget {
     required this.rangeTo,
     required this.isLoading,
     required this.onSelectRange,
-    required this.onPickCustomRange,
+    required this.onCustomRangePressed,
+    required this.onRefresh,
   });
 
   final OverviewTimeRange selectedRange;
@@ -1406,46 +1385,116 @@ class _OverviewTimeRangeFilterBar extends StatelessWidget {
   final DateTime? rangeTo;
   final bool isLoading;
   final ValueChanged<OverviewTimeRange> onSelectRange;
-  final VoidCallback onPickCustomRange;
+  final VoidCallback onCustomRangePressed;
+  final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final bannerText = _formatRangeBanner(selectedRange, rangeFrom, rangeTo);
+    final dtFormat = DateFormat('dd/MM/yyyy HH:mm');
+    final from = rangeFrom ?? DateTime.now();
+    final to = rangeTo ?? DateTime.now();
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: _refSurface,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: _refBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
-          ),
-        ],
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= 860;
+
+          final timeBox = SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: InkWell(
+              onTap: onCustomRangePressed,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _refBorder),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Từ ',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: _refMuted,
+                      ),
+                    ),
+                    const Icon(
+                      Icons.calendar_today_rounded,
+                      size: 13,
+                      color: _refPrimaryBlue,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      dtFormat.format(from),
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: _refText,
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 6),
+                      child: Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 12,
+                        color: _refMuted,
+                      ),
+                    ),
+                    const Text(
+                      'Đến ',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: _refMuted,
+                      ),
+                    ),
+                    const Icon(
+                      Icons.calendar_today_rounded,
+                      size: 13,
+                      color: _refPrimaryBlue,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      dtFormat.format(to),
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: _refText,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+
           final chips = SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              mainAxisSize: MainAxisSize.min,
               children: OverviewTimeRange.values.map((range) {
                 final isSelected = selectedRange == range;
                 return Padding(
                   padding: const EdgeInsets.only(right: 6),
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(6),
                     onTap: () {
                       if (range == OverviewTimeRange.custom) {
-                        onPickCustomRange();
+                        onCustomRangePressed();
                       } else {
                         onSelectRange(range);
                       }
                     },
+                    borderRadius: BorderRadius.circular(6),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 150),
                       padding: const EdgeInsets.symmetric(
@@ -1468,8 +1517,9 @@ class _OverviewTimeRangeFilterBar extends StatelessWidget {
                         range.label,
                         style: TextStyle(
                           fontSize: 12,
-                          fontWeight:
-                              isSelected ? FontWeight.w700 : FontWeight.w500,
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
                           color: isSelected
                               ? _refPrimaryBlue
                               : const Color(0xFF475569),
@@ -1482,91 +1532,115 @@ class _OverviewTimeRangeFilterBar extends StatelessWidget {
             ),
           );
 
-          final banner = ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: constraints.maxWidth),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.calendar_month_rounded,
-                  size: 14,
-                  color: _refPrimaryBlue,
-                ),
-                const SizedBox(width: 5),
-                Flexible(
-                  child: Text(
-                    bannerText,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: const Color(0xFF334155),
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (isLoading) ...[
-                  const SizedBox(width: 6),
-                  const SizedBox(
+          final reloadButton = FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: _refPrimaryBlue,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              visualDensity: VisualDensity.compact,
+            ),
+            onPressed: isLoading ? null : onRefresh,
+            icon: isLoading
+                ? const SizedBox(
                     width: 12,
                     height: 12,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: _refPrimaryBlue,
+                      color: Colors.white,
                     ),
-                  ),
-                ],
-              ],
+                  )
+                : const Icon(Icons.refresh_rounded, size: 15),
+            label: const Text(
+              'Tải lại',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           );
 
-          return Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
+          if (isWide) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Nhóm A: Khoảng thời gian
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Khoảng thời gian',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: _refMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    timeBox,
+                  ],
+                ),
+                const SizedBox(width: 16),
+                const SizedBox(
+                  height: 38,
+                  child: VerticalDivider(width: 1, color: _refBorder),
+                ),
+                const SizedBox(width: 16),
+
+                // Nhóm B: Khoảng nhanh
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Khoảng nhanh',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: _refMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      chips,
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                const SizedBox(
+                  height: 38,
+                  child: VerticalDivider(width: 1, color: _refBorder),
+                ),
+                const SizedBox(width: 16),
+
+                // Nhóm C: Tải lại
+                reloadButton,
+              ],
+            );
+          }
+
+          // Layout khi hẹp (Mobile / Tablet)
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              timeBox,
+              const SizedBox(height: 10),
               chips,
-              banner,
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: reloadButton,
+              ),
             ],
           );
         },
       ),
     );
-  }
-
-  static String _formatRangeBanner(
-    OverviewTimeRange range,
-    DateTime? from,
-    DateTime? to,
-  ) {
-    final now = DateTime.now();
-    final timeFmt = DateFormat('HH:mm');
-    final dateFmt = DateFormat('dd/MM/yyyy');
-    final shortDateFmt = DateFormat('dd/MM HH:mm');
-    final fullDateTimeFmt = DateFormat('dd/MM/yyyy HH:mm');
-
-    switch (range) {
-      case OverviewTimeRange.today:
-        final dateStr = dateFmt.format(now);
-        final toStr = to != null ? timeFmt.format(to) : timeFmt.format(now);
-        return 'Hôm nay, $dateStr • 00:00 – $toStr';
-      case OverviewTimeRange.yesterday:
-        final yesterday = now.subtract(const Duration(days: 1));
-        final dateStr = dateFmt.format(yesterday);
-        return 'Hôm qua, $dateStr • 00:00 – 23:59';
-      case OverviewTimeRange.last24h:
-        final fromStr = from != null ? shortDateFmt.format(from) : '--';
-        final toStr = to != null ? shortDateFmt.format(to) : '--';
-        return '24 giờ qua • $fromStr – $toStr';
-      case OverviewTimeRange.last7d:
-        final fromStr = from != null ? dateFmt.format(from) : '--';
-        final toStr = to != null ? dateFmt.format(to) : '--';
-        return '7 ngày qua • $fromStr – $toStr';
-      case OverviewTimeRange.custom:
-        final fromStr = from != null ? fullDateTimeFmt.format(from) : '--';
-        final toStr = to != null ? fullDateTimeFmt.format(to) : '--';
-        return 'Tùy chỉnh • $fromStr – $toStr';
-    }
   }
 }
 
@@ -2786,304 +2860,10 @@ class _JourneyTabState extends State<_JourneyTab> {
   }
 
   Future<void> _openCustomDateTimeRangePicker(BuildContext context) async {
-    var tempFrom = _fromTime;
-    var tempTo = _toTime;
-
-    final result = await showDialog<DateTimeRange>(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            final dateFormat = DateFormat('dd/MM/yyyy');
-            final timeFormat = DateFormat('HH:mm');
-            final isValid = tempFrom.isBefore(tempTo);
-
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              title: const Row(
-                children: [
-                  Icon(
-                    Icons.edit_calendar_rounded,
-                    size: 20,
-                    color: _refPrimaryBlue,
-                  ),
-                  SizedBox(width: 8),
-                  Text(
-                    'Tùy chọn khoảng thời gian',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: _refText,
-                    ),
-                  ),
-                ],
-              ),
-              content: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                      'Mốc bắt đầu (Từ):',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12.5,
-                        color: _refText,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 8,
-                              ),
-                              side: const BorderSide(color: _refBorder),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            icon: const Icon(
-                              Icons.calendar_today_rounded,
-                              size: 14,
-                              color: _refPrimaryBlue,
-                            ),
-                            label: Text(
-                              dateFormat.format(tempFrom),
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: _refText,
-                              ),
-                            ),
-                            onPressed: () async {
-                              final pickedDate = await showDatePicker(
-                                context: context,
-                                initialDate: tempFrom,
-                                firstDate: DateTime(DateTime.now().year - 3),
-                                lastDate: DateTime(DateTime.now().year + 1),
-                              );
-                              if (pickedDate != null) {
-                                setDialogState(() {
-                                  tempFrom = DateTime(
-                                    pickedDate.year,
-                                    pickedDate.month,
-                                    pickedDate.day,
-                                    tempFrom.hour,
-                                    tempFrom.minute,
-                                    tempFrom.second,
-                                  );
-                                });
-                              }
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          flex: 2,
-                          child: OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 8,
-                              ),
-                              side: const BorderSide(color: _refBorder),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            icon: const Icon(
-                              Icons.access_time_rounded,
-                              size: 14,
-                              color: _refPrimaryBlue,
-                            ),
-                            label: Text(
-                              timeFormat.format(tempFrom),
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: _refText,
-                              ),
-                            ),
-                            onPressed: () async {
-                              final pickedTime = await showTimePicker(
-                                context: context,
-                                initialTime: TimeOfDay(
-                                  hour: tempFrom.hour,
-                                  minute: tempFrom.minute,
-                                ),
-                              );
-                              if (pickedTime != null) {
-                                setDialogState(() {
-                                  tempFrom = DateTime(
-                                    tempFrom.year,
-                                    tempFrom.month,
-                                    tempFrom.day,
-                                    pickedTime.hour,
-                                    pickedTime.minute,
-                                    0,
-                                  );
-                                });
-                              }
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-
-                    const Text(
-                      'Mốc kết thúc (Đến):',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12.5,
-                        color: _refText,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 8,
-                              ),
-                              side: const BorderSide(color: _refBorder),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            icon: const Icon(
-                              Icons.calendar_today_rounded,
-                              size: 14,
-                              color: _refPrimaryBlue,
-                            ),
-                            label: Text(
-                              dateFormat.format(tempTo),
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: _refText,
-                              ),
-                            ),
-                            onPressed: () async {
-                              final pickedDate = await showDatePicker(
-                                context: context,
-                                initialDate: tempTo,
-                                firstDate: DateTime(DateTime.now().year - 3),
-                                lastDate: DateTime(DateTime.now().year + 1),
-                              );
-                              if (pickedDate != null) {
-                                setDialogState(() {
-                                  tempTo = DateTime(
-                                    pickedDate.year,
-                                    pickedDate.month,
-                                    pickedDate.day,
-                                    tempTo.hour,
-                                    tempTo.minute,
-                                    tempTo.second,
-                                  );
-                                });
-                              }
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          flex: 2,
-                          child: OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 8,
-                              ),
-                              side: const BorderSide(color: _refBorder),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            icon: const Icon(
-                              Icons.access_time_rounded,
-                              size: 14,
-                              color: _refPrimaryBlue,
-                            ),
-                            label: Text(
-                              timeFormat.format(tempTo),
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: _refText,
-                              ),
-                            ),
-                            onPressed: () async {
-                              final pickedTime = await showTimePicker(
-                                context: context,
-                                initialTime: TimeOfDay(
-                                  hour: tempTo.hour,
-                                  minute: tempTo.minute,
-                                ),
-                              );
-                              if (pickedTime != null) {
-                                setDialogState(() {
-                                  tempTo = DateTime(
-                                    tempTo.year,
-                                    tempTo.month,
-                                    tempTo.day,
-                                    pickedTime.hour,
-                                    pickedTime.minute,
-                                    59,
-                                  );
-                                });
-                              }
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    if (!isValid)
-                      const Text(
-                        'Thời gian bắt đầu phải trước thời gian kết thúc!',
-                        style: TextStyle(
-                          color: Colors.redAccent,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Hủy'),
-                ),
-                FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: _refPrimaryBlue,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  onPressed: isValid
-                      ? () => Navigator.of(
-                          dialogContext,
-                        ).pop(DateTimeRange(start: tempFrom, end: tempTo))
-                      : null,
-                  child: const Text('Áp dụng'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+    final result = await showCustomDateTimeRangeDialog(
+      context,
+      initialFrom: _fromTime,
+      initialTo: _toTime,
     );
 
     if (result != null) {
@@ -4346,7 +4126,9 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
         ? '${sample!.altitudeM!.toStringAsFixed(1)} m'
         : '--';
     final speedStr = DeviceFormatters.speedMps(state.currentSpeedMps);
-    final headingStr = DeviceFormatters.heading(state.currentHeadingDeg);
+    final currDistStr = DeviceFormatters.distance(state.currentDistanceM);
+    final totalDistStr = DeviceFormatters.distance(state.totalDistanceM);
+    final distanceProgressStr = '$currDistStr / $totalDistStr';
     final isMoving = (state.currentSpeedMps ?? 0) >= 0.5;
 
     final timeStr = state.currentReplayTime != null
@@ -4371,7 +4153,7 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
               children: [
                 // 1. Vị trí hiện tại
                 Expanded(
-                  flex: 36,
+                  flex: 34,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -4408,7 +4190,7 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
 
                 // 2. Tốc độ
                 Expanded(
-                  flex: 16,
+                  flex: 15,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -4438,15 +4220,15 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
                   child: VerticalDivider(width: 20, color: _refBorder),
                 ),
 
-                // 3. Hướng
+                // 3. Quãng đường đã đi / Tổng
                 Expanded(
-                  flex: 16,
+                  flex: 19,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Text(
-                        'Hướng',
+                        'Đã đi',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -4455,7 +4237,7 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        headingStr,
+                        distanceProgressStr,
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -4589,11 +4371,11 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Hướng',
+                    'Đã đi',
                     style: TextStyle(fontSize: 11, color: _refMuted),
                   ),
                   Text(
-                    headingStr,
+                    distanceProgressStr,
                     style: const TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
@@ -4616,6 +4398,22 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
                       color: isMoving
                           ? const Color(0xFF16A34A)
                           : const Color(0xFFD97706),
+                    ),
+                  ),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Thời điểm',
+                    style: TextStyle(fontSize: 11, color: _refMuted),
+                  ),
+                  Text(
+                    timeStr,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
