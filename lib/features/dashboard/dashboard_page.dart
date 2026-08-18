@@ -80,56 +80,56 @@ class _DesktopLayout extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // ── Left panel: Tổng quan (Section 12, 13, 14) ──────────────────────
-          SizedBox(
-            width: 270,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE4E9ED), width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Panel header
-                  const Text(
-                    'Tổng quan',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF18212A),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${state.totalDevices} thiết bị',
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF66727D),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  // Status counters
-                  _SidebarStats(state: state),
-                  const SizedBox(height: 12),
-                  const Divider(height: 1, color: Color(0xFFE8ECEF)),
-                  const SizedBox(height: 12),
-                  // Legend
-                  const _SidebarLegend(),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 14),
+          // SizedBox(
+          //   width: 270,
+          //   child: Container(
+          //     decoration: BoxDecoration(
+          //       color: Colors.white,
+          //       borderRadius: BorderRadius.circular(14),
+          //       border: Border.all(color: const Color(0xFFE4E9ED), width: 1),
+          //       boxShadow: [
+          //         BoxShadow(
+          //           color: Colors.black.withValues(alpha: 0.03),
+          //           blurRadius: 10,
+          //           offset: const Offset(0, 2),
+          //         ),
+          //       ],
+          //     ),
+          //     padding: const EdgeInsets.all(16),
+          //     child: Column(
+          //       crossAxisAlignment: CrossAxisAlignment.start,
+          //       children: [
+          //         // Panel header
+          //         const Text(
+          //           'Tổng quan',
+          //           style: TextStyle(
+          //             fontSize: 18,
+          //             fontWeight: FontWeight.w700,
+          //             color: Color(0xFF18212A),
+          //           ),
+          //         ),
+          //         const SizedBox(height: 2),
+          //         Text(
+          //           '${state.totalDevices} thiết bị',
+          //           style: const TextStyle(
+          //             fontSize: 12.5,
+          //             fontWeight: FontWeight.w500,
+          //             color: Color(0xFF66727D),
+          //           ),
+          //         ),
+          //         const SizedBox(height: 14),
+          //         // Status counters
+          //         _SidebarStats(state: state),
+          //         const SizedBox(height: 12),
+          //         const Divider(height: 1, color: Color(0xFFE8ECEF)),
+          //         const SizedBox(height: 12),
+          //         // Legend
+          //         const _SidebarLegend(),
+          //       ],
+          //     ),
+          //   ),
+          // ),
+          // const SizedBox(width: 14),
           // ── Right panel: Main Device List (Section 15, 16, 17, 18, 19) ─────
           Expanded(
             child: Container(
