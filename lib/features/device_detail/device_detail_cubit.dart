@@ -10,9 +10,24 @@ import '../../data/repositories/device_repository.dart';
 import '../../data/repositories/geocoding_repository.dart';
 import '../../data/repositories/tracking_repository.dart';
 
+enum OverviewTimeRange {
+  today('Hôm nay'),
+  yesterday('Hôm qua'),
+  last24h('24 giờ'),
+  last7d('7 ngày'),
+  custom('Tùy chỉnh');
+
+  const OverviewTimeRange(this.label);
+  final String label;
+}
+
 class DeviceDetailState extends Equatable {
   const DeviceDetailState({
     this.isLoading = true,
+    this.isRangeLoading = false,
+    this.timeRange = OverviewTimeRange.today,
+    this.rangeFrom,
+    this.rangeTo,
     this.error,
     this.device,
     this.events = const [],
@@ -21,6 +36,10 @@ class DeviceDetailState extends Equatable {
   });
 
   final bool isLoading;
+  final bool isRangeLoading;
+  final OverviewTimeRange timeRange;
+  final DateTime? rangeFrom;
+  final DateTime? rangeTo;
   final String? error;
   final DeviceModel? device;
   final List<DeviceEventModel> events;
@@ -29,6 +48,10 @@ class DeviceDetailState extends Equatable {
 
   DeviceDetailState copyWith({
     bool? isLoading,
+    bool? isRangeLoading,
+    OverviewTimeRange? timeRange,
+    DateTime? rangeFrom,
+    DateTime? rangeTo,
     String? error,
     DeviceModel? device,
     List<DeviceEventModel>? events,
@@ -38,6 +61,10 @@ class DeviceDetailState extends Equatable {
   }) {
     return DeviceDetailState(
       isLoading: isLoading ?? this.isLoading,
+      isRangeLoading: isRangeLoading ?? this.isRangeLoading,
+      timeRange: timeRange ?? this.timeRange,
+      rangeFrom: rangeFrom ?? this.rangeFrom,
+      rangeTo: rangeTo ?? this.rangeTo,
       error: error,
       device: device ?? this.device,
       events: events ?? this.events,
@@ -49,6 +76,10 @@ class DeviceDetailState extends Equatable {
   @override
   List<Object?> get props => [
     isLoading,
+    isRangeLoading,
+    timeRange,
+    rangeFrom,
+    rangeTo,
     error,
     device,
     events,
@@ -83,13 +114,87 @@ class DeviceDetailCubit extends Cubit<DeviceDetailState> {
   StreamSubscription<DeviceModel>? _deviceUpdatesSub;
   StreamSubscription<DeviceEventModel>? _deviceEventsSub;
 
+  (DateTime, DateTime) _calculateRange(
+    OverviewTimeRange range, {
+    DateTime? customFrom,
+    DateTime? customTo,
+  }) {
+    final now = DateTime.now();
+    switch (range) {
+      case OverviewTimeRange.today:
+        final from = DateTime(now.year, now.month, now.day, 0, 0, 0);
+        return (from, now);
+      case OverviewTimeRange.yesterday:
+        final yesterday = now.subtract(const Duration(days: 1));
+        final from = DateTime(
+          yesterday.year,
+          yesterday.month,
+          yesterday.day,
+          0,
+          0,
+          0,
+        );
+        final to = DateTime(
+          yesterday.year,
+          yesterday.month,
+          yesterday.day,
+          23,
+          59,
+          59,
+        );
+        return (from, to);
+      case OverviewTimeRange.last24h:
+        return (now.subtract(const Duration(hours: 24)), now);
+      case OverviewTimeRange.last7d:
+        return (now.subtract(const Duration(days: 7)), now);
+      case OverviewTimeRange.custom:
+        final from =
+            customFrom ?? DateTime(now.year, now.month, now.day, 0, 0, 0);
+        final to = customTo ?? now;
+        return (from, to);
+    }
+  }
+
+  Future<List<LocationModel>> _fetchLocationsForRange(
+    DateTime from,
+    DateTime to,
+  ) async {
+    try {
+      final response = await trackingRepo.getLocationHistoryRange(
+        deviceId,
+        from: from,
+        to: to,
+      );
+      if (response != null) {
+        return response.samples;
+      }
+    } catch (_) {
+      // Fallback nếu endpoint range không khả dụng
+    }
+
+    try {
+      final history = await trackingRepo.getLocationHistory(deviceId);
+      return history.where((loc) {
+        return !loc.measuredAt.isBefore(from) && !loc.measuredAt.isAfter(to);
+      }).toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
   Future<void> load() async {
     emit(state.copyWith(isLoading: true, error: null));
     try {
+      final (from, to) = _calculateRange(
+        state.timeRange,
+        customFrom: state.rangeFrom,
+        customTo: state.rangeTo,
+      );
+
       final results = await Future.wait([
         deviceRepo.getDevice(deviceId),
         trackingRepo.getEvents(deviceId),
-        trackingRepo.getLocationHistory(deviceId),
+        _fetchLocationsForRange(from, to),
       ]);
 
       final device = results[0] as DeviceModel?;
@@ -100,6 +205,8 @@ class DeviceDetailCubit extends Cubit<DeviceDetailState> {
           device: device,
           events: results[1] as List<DeviceEventModel>,
           locations: results[2] as List<LocationModel>,
+          rangeFrom: from,
+          rangeTo: to,
           clearAddress: true,
         ),
       );
@@ -109,6 +216,37 @@ class DeviceDetailCubit extends Cubit<DeviceDetailState> {
       }
     } catch (e) {
       emit(state.copyWith(isLoading: false, error: e.toString()));
+    }
+  }
+
+  Future<void> setTimeRange(
+    OverviewTimeRange range, {
+    DateTime? customFrom,
+    DateTime? customTo,
+  }) async {
+    final (from, to) = _calculateRange(
+      range,
+      customFrom: customFrom,
+      customTo: customTo,
+    );
+    emit(
+      state.copyWith(
+        timeRange: range,
+        rangeFrom: from,
+        rangeTo: to,
+        isRangeLoading: true,
+      ),
+    );
+    try {
+      final locations = await _fetchLocationsForRange(from, to);
+      emit(
+        state.copyWith(
+          locations: locations,
+          isRangeLoading: false,
+        ),
+      );
+    } catch (e) {
+      emit(state.copyWith(isRangeLoading: false));
     }
   }
 
@@ -122,9 +260,28 @@ class DeviceDetailCubit extends Cubit<DeviceDetailState> {
       updatedDevice.longitude,
     );
 
+    List<LocationModel> updatedLocations = state.locations;
+    if ((state.timeRange == OverviewTimeRange.today ||
+            state.timeRange == OverviewTimeRange.last24h) &&
+        updatedDevice.latitude != null &&
+        updatedDevice.longitude != null) {
+      final newLoc = LocationModel(
+        id: 'live-${DateTime.now().millisecondsSinceEpoch}',
+        deviceId: updatedDevice.id,
+        latitude: updatedDevice.latitude!,
+        longitude: updatedDevice.longitude!,
+        measuredAt: updatedDevice.lastSeenAt ?? DateTime.now(),
+        altitudeM: updatedDevice.currentAltitudeM,
+        speedMps: updatedDevice.currentSpeedMps,
+        headingDeg: updatedDevice.currentHeadingDeg,
+      );
+      updatedLocations = [newLoc, ...state.locations];
+    }
+
     emit(
       state.copyWith(
         device: updatedDevice,
+        locations: updatedLocations,
         clearAddress: previousKey != nextKey,
       ),
     );
@@ -135,7 +292,6 @@ class DeviceDetailCubit extends Cubit<DeviceDetailState> {
   }
 
   void _onDeviceEventReceived(DeviceEventModel newEvent) {
-    // Chèn sự kiện mới lên đầu danh sách (mới nhất xếp trước)
     final updatedEvents = [newEvent, ...state.events];
     emit(state.copyWith(events: updatedEvents));
   }

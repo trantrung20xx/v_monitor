@@ -8,6 +8,7 @@ import 'package:v_monitor/core/network/api_client.dart';
 import 'package:v_monitor/core/network/websocket_client.dart';
 import 'package:v_monitor/data/models/device_event_model.dart';
 import 'package:v_monitor/data/models/device_model.dart';
+import 'package:v_monitor/data/models/location_history_response.dart';
 import 'package:v_monitor/data/models/location_model.dart';
 import 'package:v_monitor/data/repositories/device_repository.dart';
 import 'package:v_monitor/data/repositories/geocoding_repository.dart';
@@ -169,6 +170,23 @@ class _MockTrackingRepository extends TrackingRepository {
   @override
   Future<List<LocationModel>> getLocationHistory(String id) async {
     return [];
+  }
+
+  @override
+  Future<LocationHistoryResponse?> getLocationHistoryRange(
+    String deviceId, {
+    required DateTime from,
+    required DateTime to,
+    int? maxSamples,
+  }) async {
+    return LocationHistoryResponse(
+      deviceId: deviceId,
+      fromTime: from,
+      toTime: to,
+      samples: const [],
+      totalCount: 0,
+      truncated: false,
+    );
   }
 }
 

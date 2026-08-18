@@ -13,6 +13,8 @@ import '../../data/models/device_model.dart';
 import '../../data/models/device_event_model.dart';
 import '../../data/models/location_model.dart';
 import '../../domain/entities/device_status_resolver.dart';
+import '../../domain/entities/gps_validator.dart';
+import '../../domain/entities/route_segment.dart';
 import 'device_detail_cubit.dart';
 
 import '../../data/repositories/device_repository.dart';
@@ -96,6 +98,7 @@ class _DeviceDetailView extends StatelessWidget {
                           locations: state.locations,
                           address: state.address,
                           events: state.events,
+                          state: state,
                         ),
                         _JourneyTab(device: device, locations: state.locations),
                         _EventsTab(events: state.events),
@@ -377,14 +380,19 @@ class _OverviewTab extends StatelessWidget {
     required this.locations,
     this.address,
     required this.events,
+    this.state,
   });
   final DeviceModel device;
   final List<LocationModel> locations;
   final String? address;
   final List<DeviceEventModel> events;
+  final DeviceDetailState? state;
 
   @override
   Widget build(BuildContext context) {
+    final cubitState = state ?? context.watch<DeviceDetailCubit>().state;
+    final cubit = context.read<DeviceDetailCubit>();
+
     final status = DeviceStatusResolver.resolve(
       isOnline: device.isOnline,
       lastSeenAt: device.lastSeenAt,
@@ -511,6 +519,15 @@ class _OverviewTab extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  _OverviewTimeRangeFilterBar(
+                    selectedRange: cubitState.timeRange,
+                    rangeFrom: cubitState.rangeFrom,
+                    rangeTo: cubitState.rangeTo,
+                    isLoading: cubitState.isRangeLoading,
+                    onSelectRange: (range) => cubit.setTimeRange(range),
+                    onPickCustomRange: () => _pickCustomRange(context),
+                  ),
+                  const SizedBox(height: 12),
                   if (isWide)
                     SizedBox(
                       height: topHeight,
@@ -538,6 +555,7 @@ class _OverviewTab extends StatelessWidget {
                               status: status,
                               journey: journey,
                               address: address,
+                              timeRangeLabel: cubitState.timeRange.label,
                             ),
                           ),
                         ],
@@ -557,6 +575,7 @@ class _OverviewTab extends StatelessWidget {
                       journey: journey,
                       address: address,
                       compact: true,
+                      timeRangeLabel: cubitState.timeRange.label,
                     ),
                   ],
                   if (!isWide) ...[
@@ -583,6 +602,52 @@ class _OverviewTab extends StatelessWidget {
         );
       },
     );
+  }
+
+  Future<void> _pickCustomRange(BuildContext context) async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: now,
+      initialDateRange: DateTimeRange(
+        start: now.subtract(const Duration(days: 1)),
+        end: now,
+      ),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+              primary: _refPrimaryBlue,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && context.mounted) {
+      final from = DateTime(
+        picked.start.year,
+        picked.start.month,
+        picked.start.day,
+        0,
+        0,
+        0,
+      );
+      final to = DateTime(
+        picked.end.year,
+        picked.end.month,
+        picked.end.day,
+        23,
+        59,
+        59,
+      );
+      context.read<DeviceDetailCubit>().setTimeRange(
+        OverviewTimeRange.custom,
+        customFrom: from,
+        customTo: to,
+      );
+    }
   }
 
   double _sectionCardExtent(int columns, int maxRows) {
@@ -1324,6 +1389,187 @@ BoxDecoration _referenceCardDecoration() {
   );
 }
 
+// ─── Overview Time Range Filter Bar ──────────────────────────────────────────
+
+class _OverviewTimeRangeFilterBar extends StatelessWidget {
+  const _OverviewTimeRangeFilterBar({
+    required this.selectedRange,
+    required this.rangeFrom,
+    required this.rangeTo,
+    required this.isLoading,
+    required this.onSelectRange,
+    required this.onPickCustomRange,
+  });
+
+  final OverviewTimeRange selectedRange;
+  final DateTime? rangeFrom;
+  final DateTime? rangeTo;
+  final bool isLoading;
+  final ValueChanged<OverviewTimeRange> onSelectRange;
+  final VoidCallback onPickCustomRange;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bannerText = _formatRangeBanner(selectedRange, rangeFrom, rangeTo);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: _refSurface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _refBorder),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final chips = SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: OverviewTimeRange.values.map((range) {
+                final isSelected = selectedRange == range;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () {
+                      if (range == OverviewTimeRange.custom) {
+                        onPickCustomRange();
+                      } else {
+                        onSelectRange(range);
+                      }
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? _refPrimaryBlue.withValues(alpha: 0.1)
+                            : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: isSelected
+                              ? _refPrimaryBlue
+                              : const Color(0xFFE2E8F0),
+                          width: isSelected ? 1.2 : 1.0,
+                        ),
+                      ),
+                      child: Text(
+                        range.label,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight:
+                              isSelected ? FontWeight.w700 : FontWeight.w500,
+                          color: isSelected
+                              ? _refPrimaryBlue
+                              : const Color(0xFF475569),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          );
+
+          final banner = ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.calendar_month_rounded,
+                  size: 14,
+                  color: _refPrimaryBlue,
+                ),
+                const SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    bannerText,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: const Color(0xFF334155),
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (isLoading) ...[
+                  const SizedBox(width: 6),
+                  const SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: _refPrimaryBlue,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+
+          return Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              chips,
+              banner,
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  static String _formatRangeBanner(
+    OverviewTimeRange range,
+    DateTime? from,
+    DateTime? to,
+  ) {
+    final now = DateTime.now();
+    final timeFmt = DateFormat('HH:mm');
+    final dateFmt = DateFormat('dd/MM/yyyy');
+    final shortDateFmt = DateFormat('dd/MM HH:mm');
+    final fullDateTimeFmt = DateFormat('dd/MM/yyyy HH:mm');
+
+    switch (range) {
+      case OverviewTimeRange.today:
+        final dateStr = dateFmt.format(now);
+        final toStr = to != null ? timeFmt.format(to) : timeFmt.format(now);
+        return 'Hôm nay, $dateStr • 00:00 – $toStr';
+      case OverviewTimeRange.yesterday:
+        final yesterday = now.subtract(const Duration(days: 1));
+        final dateStr = dateFmt.format(yesterday);
+        return 'Hôm qua, $dateStr • 00:00 – 23:59';
+      case OverviewTimeRange.last24h:
+        final fromStr = from != null ? shortDateFmt.format(from) : '--';
+        final toStr = to != null ? shortDateFmt.format(to) : '--';
+        return '24 giờ qua • $fromStr – $toStr';
+      case OverviewTimeRange.last7d:
+        final fromStr = from != null ? dateFmt.format(from) : '--';
+        final toStr = to != null ? dateFmt.format(to) : '--';
+        return '7 ngày qua • $fromStr – $toStr';
+      case OverviewTimeRange.custom:
+        final fromStr = from != null ? fullDateTimeFmt.format(from) : '--';
+        final toStr = to != null ? fullDateTimeFmt.format(to) : '--';
+        return 'Tùy chỉnh • $fromStr – $toStr';
+    }
+  }
+}
+
 class _CurrentSummaryPanel extends StatelessWidget {
   const _CurrentSummaryPanel({
     required this.device,
@@ -1331,6 +1577,7 @@ class _CurrentSummaryPanel extends StatelessWidget {
     required this.journey,
     this.address,
     this.compact = false,
+    this.timeRangeLabel,
   });
 
   final DeviceModel device;
@@ -1338,6 +1585,7 @@ class _CurrentSummaryPanel extends StatelessWidget {
   final _JourneySnapshot journey;
   final String? address;
   final bool compact;
+  final String? timeRangeLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -1470,7 +1718,9 @@ class _CurrentSummaryPanel extends StatelessWidget {
                       iconColor: const Color(0xFFEA580C),
                       label: 'QUÃNG ĐƯỜNG',
                       value: distanceText,
-                      subValue: 'Hành trình ghi nhận',
+                      subValue: timeRangeLabel != null
+                          ? 'Trong $timeRangeLabel'
+                          : 'Hành trình ghi nhận',
                     ),
                   ),
                 ],
@@ -1837,67 +2087,60 @@ class _JourneySnapshot {
       maxSpeedMps != null ||
       startedAt != null;
 
-  static _JourneySnapshot from(List<LocationModel> locations) {
-    final sorted = List<LocationModel>.from(locations)
+  static _JourneySnapshot from(
+    List<LocationModel> locations, {
+    Duration gapThreshold = const Duration(minutes: 5),
+    double movingThresholdMps = 0.5,
+  }) {
+    if (locations.isEmpty) return const _JourneySnapshot();
+
+    // 1. Sanitize GPS outliers & invalid coordinates
+    final validSamples = GpsValidator.sanitizeSamples(locations);
+    if (validSamples.isEmpty) return const _JourneySnapshot();
+
+    // 2. Split into segments using standard gap threshold
+    final segments = RouteSegment.splitIntoSegments(
+      validSamples,
+      gapThreshold: gapThreshold,
+      movingThresholdMps: movingThresholdMps,
+    );
+
+    var totalDistance = 0.0;
+    var totalMoving = 0;
+    var totalStopped = 0;
+    double? maxSpeed;
+    var speedSum = 0.0;
+    var speedCount = 0;
+
+    for (final segment in segments) {
+      totalDistance += segment.distanceM;
+      totalMoving += segment.movingDurationS;
+      totalStopped += segment.stoppedDurationS;
+      if (segment.maxSpeedMps != null) {
+        if (maxSpeed == null || segment.maxSpeedMps! > maxSpeed) {
+          maxSpeed = segment.maxSpeedMps;
+        }
+      }
+      if (segment.avgSpeedMps != null) {
+        speedSum += segment.avgSpeedMps! * segment.sampleCount;
+        speedCount += segment.sampleCount;
+      }
+    }
+
+    final avgSpeed = speedCount > 0 ? (speedSum / speedCount) : null;
+    final sorted = List<LocationModel>.from(validSamples)
       ..sort((a, b) => a.measuredAt.compareTo(b.measuredAt));
-    final distance = _distanceFromSamples(sorted);
-    final durations = _durationsFromSamples(sorted);
-    final speeds = sorted
-        .map((sample) => sample.speedMps)
-        .whereType<double>()
-        .where((speed) => speed >= 0)
-        .toList();
-    final avgSpeed = speeds.isEmpty
-        ? null
-        : speeds.reduce((a, b) => a + b) / speeds.length;
-    final maxSpeed = speeds.isEmpty
-        ? null
-        : speeds.reduce((a, b) => a > b ? a : b);
 
     return _JourneySnapshot(
-      distanceM: distance,
-      movingDurationS: durations.$1,
-      stoppedDurationS: durations.$2,
+      distanceM: totalDistance > 0 ? totalDistance : null,
+      movingDurationS: totalMoving > 0 ? totalMoving : null,
+      stoppedDurationS: totalStopped > 0 ? totalStopped : null,
       avgSpeedMps: avgSpeed,
       maxSpeedMps: maxSpeed,
       startedAt: sorted.isEmpty ? null : sorted.first.measuredAt,
       endedAt: sorted.length < 2 ? null : sorted.last.measuredAt,
-      sampleCount: sorted.length,
+      sampleCount: validSamples.length,
     );
-  }
-
-  static double? _distanceFromSamples(List<LocationModel> sorted) {
-    if (sorted.length < 2) return null;
-    const distance = Distance();
-    var total = 0.0;
-    for (var index = 1; index < sorted.length; index++) {
-      total += distance.as(
-        LengthUnit.Meter,
-        LatLng(sorted[index - 1].latitude, sorted[index - 1].longitude),
-        LatLng(sorted[index].latitude, sorted[index].longitude),
-      );
-    }
-    return total > 0 ? total : null;
-  }
-
-  static (int?, int?) _durationsFromSamples(List<LocationModel> sorted) {
-    if (sorted.length < 2) return (null, null);
-    var moving = 0;
-    var stopped = 0;
-    for (var index = 1; index < sorted.length; index++) {
-      final seconds = sorted[index].measuredAt
-          .difference(sorted[index - 1].measuredAt)
-          .inSeconds;
-      if (seconds <= 0 || seconds > 3600) continue;
-      final speed = sorted[index - 1].speedMps ?? sorted[index].speedMps;
-      if (speed == null) continue;
-      if (speed > DeviceStatusResolver.movingThresholdMps) {
-        moving += seconds;
-      } else {
-        stopped += seconds;
-      }
-    }
-    return (moving > 0 ? moving : null, stopped > 0 ? stopped : null);
   }
 }
 
@@ -1980,12 +2223,6 @@ class _MapWidgetState extends State<_MapWidget> {
       );
     }
 
-    final routePoints =
-        (List<LocationModel>.from(widget.locations)
-              ..sort((a, b) => a.measuredAt.compareTo(b.measuredAt)))
-            .map((location) => LatLng(location.latitude, location.longitude))
-            .toList();
-
     return Stack(
       children: [
         Positioned.fill(
@@ -2021,23 +2258,7 @@ class _MapWidgetState extends State<_MapWidget> {
                   tileProvider: NetworkTileProvider(silenceExceptions: true),
                   errorImage: MemoryImage(TileProvider.transparentImage),
                 ),
-                if (routePoints.length >= 2)
-                  PolylineLayer(
-                    polylines: [
-                      Polyline(
-                        points: routePoints,
-                        color: _refPrimaryBlue,
-                        strokeWidth: 3.8,
-                        borderStrokeWidth: 2,
-                        borderColor: Colors.white.withValues(alpha: 0.82),
-                        pattern: StrokePattern.dashed(
-                          segments: [10.0, 8.0],
-                          patternFit: PatternFit.scaleDown,
-                        ),
-                      ),
-                    ],
-                  ),
-                if (hasPosition)
+                if (hasPosition || widget.locations.isNotEmpty)
                   MarkerLayer(
                     markers: [
                       Marker(
@@ -2052,30 +2273,6 @@ class _MapWidgetState extends State<_MapWidget> {
                       ),
                     ],
                   ),
-                MarkerLayer(
-                  markers: widget.locations
-                      .where((location) => !location.isMoving)
-                      .map(
-                        (location) => Marker(
-                          point: LatLng(location.latitude, location.longitude),
-                          width: 12,
-                          height: 12,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: const Color(
-                                0xFFD97706,
-                              ).withValues(alpha: 0.8),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.white,
-                                width: 1.5,
-                              ),
-                            ),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                ),
               ],
             ),
           ),

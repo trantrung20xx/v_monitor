@@ -8,6 +8,7 @@ import 'package:v_monitor/core/network/api_client.dart';
 import 'package:v_monitor/core/network/websocket_client.dart';
 import 'package:v_monitor/data/models/device_event_model.dart';
 import 'package:v_monitor/data/models/device_model.dart';
+import 'package:v_monitor/data/models/location_history_response.dart';
 import 'package:v_monitor/data/models/location_model.dart';
 import 'package:v_monitor/data/repositories/device_repository.dart';
 import 'package:v_monitor/data/repositories/geocoding_repository.dart';
@@ -249,6 +250,24 @@ class _FakeTrackingRepository extends TrackingRepository {
         satelliteCount: 13,
       ),
     ];
+  }
+
+  @override
+  Future<LocationHistoryResponse?> getLocationHistoryRange(
+    String deviceId, {
+    required DateTime from,
+    required DateTime to,
+    int? maxSamples,
+  }) async {
+    final samples = await getLocationHistory(deviceId);
+    return LocationHistoryResponse(
+      deviceId: deviceId,
+      fromTime: from,
+      toTime: to,
+      samples: samples,
+      totalCount: samples.length,
+      truncated: false,
+    );
   }
 }
 
