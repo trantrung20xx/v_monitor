@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/utils/device_formatters.dart';
 import '../../../data/models/device_model.dart';
+import 'custom_gap_dialog.dart';
 
 class HistoryTimeSelector extends StatelessWidget {
   final List<DeviceModel> devices;
@@ -319,24 +320,55 @@ class HistoryTimeSelector extends StatelessWidget {
                 style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
               const SizedBox(width: 4),
-              DropdownButton<int>(
-                value: gapThreshold.inMinutes,
-                isDense: true,
-                underline: const SizedBox.shrink(),
-                style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold),
-                items: const [
-                  DropdownMenuItem(value: 1, child: Text('1 phút')),
-                  DropdownMenuItem(value: 5, child: Text('5 phút (chuẩn)')),
-                  DropdownMenuItem(value: 15, child: Text('15 phút')),
-                  DropdownMenuItem(value: 30, child: Text('30 phút')),
-                  DropdownMenuItem(value: 60, child: Text('1 giờ')),
-                ],
-                onChanged: (val) {
-                  if (val != null) {
-                    onGapThresholdChanged(Duration(minutes: val));
-                  }
-                },
-              ),
+              () {
+                const standardMinutes = [1, 5, 15, 30, 60];
+                final currentMinutes = gapThreshold.inMinutes;
+                final isCustom = !standardMinutes.contains(currentMinutes);
+
+                return DropdownButton<int>(
+                  value: currentMinutes,
+                  isDense: true,
+                  underline: const SizedBox.shrink(),
+                  style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold),
+                  items: [
+                    const DropdownMenuItem(value: 1, child: Text('1 phút')),
+                    const DropdownMenuItem(value: 5, child: Text('5 phút (chuẩn)')),
+                    const DropdownMenuItem(value: 15, child: Text('15 phút')),
+                    const DropdownMenuItem(value: 30, child: Text('30 phút')),
+                    const DropdownMenuItem(value: 60, child: Text('1 giờ')),
+                    if (isCustom)
+                      DropdownMenuItem(
+                        value: currentMinutes,
+                        child: Text('${formatGapDuration(gapThreshold)} (Tùy ý)'),
+                      ),
+                    const DropdownMenuItem(
+                      value: -1,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.tune_rounded, size: 13),
+                          SizedBox(width: 4),
+                          Text('Tùy ý...'),
+                        ],
+                      ),
+                    ),
+                  ],
+                  onChanged: (val) async {
+                    if (val == null) return;
+                    if (val == -1) {
+                      final customGap = await showCustomGapThresholdDialog(
+                        context,
+                        initialDuration: gapThreshold,
+                      );
+                      if (customGap != null) {
+                        onGapThresholdChanged(customGap);
+                      }
+                    } else {
+                      onGapThresholdChanged(Duration(minutes: val));
+                    }
+                  },
+                );
+              }(),
             ],
           ),
         ],

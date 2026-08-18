@@ -20,6 +20,7 @@ import '../../data/repositories/geocoding_repository.dart';
 import '../../data/repositories/tracking_repository.dart';
 import '../journey_history/journey_history_cubit.dart';
 import '../journey_history/journey_history_state.dart';
+import '../journey_history/widgets/custom_gap_dialog.dart';
 import '../journey_history/widgets/history_map_layers.dart';
 import '../journey_history/widgets/point_info_popup.dart';
 
@@ -3100,51 +3101,7 @@ class _JourneyFilterPanel extends StatelessWidget {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: _refBorder),
-                          ),
-                          child: DropdownButton<int>(
-                            value: gapThreshold.inMinutes,
-                            isDense: true,
-                            underline: const SizedBox.shrink(),
-                            icon: const Icon(
-                              Icons.arrow_drop_down_rounded,
-                              size: 18,
-                              color: _refText,
-                            ),
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w700,
-                              color: _refText,
-                            ),
-                            items: const [
-                              DropdownMenuItem(value: 1, child: Text('1 phút')),
-                              DropdownMenuItem(
-                                value: 5,
-                                child: Text('5 phút (chuẩn)'),
-                              ),
-                              DropdownMenuItem(
-                                value: 15,
-                                child: Text('15 phút'),
-                              ),
-                              DropdownMenuItem(
-                                value: 30,
-                                child: Text('30 phút'),
-                              ),
-                              DropdownMenuItem(value: 60, child: Text('1 giờ')),
-                            ],
-                            onChanged: (v) {
-                              if (v != null) onGapChanged(Duration(minutes: v));
-                            },
-                          ),
-                        ),
+                        _buildGapDropdown(context),
                         const SizedBox(width: 8),
                         FilledButton.icon(
                           style: FilledButton.styleFrom(
@@ -3255,40 +3212,7 @@ class _JourneyFilterPanel extends StatelessWidget {
                         'Ngắt quãng: ',
                         style: TextStyle(fontSize: 11, color: _refMuted),
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: _refBorder),
-                        ),
-                        child: DropdownButton<int>(
-                          value: gapThreshold.inMinutes,
-                          isDense: true,
-                          underline: const SizedBox.shrink(),
-                          style: const TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w700,
-                            color: _refText,
-                          ),
-                          items: const [
-                            DropdownMenuItem(value: 1, child: Text('1 phút')),
-                            DropdownMenuItem(
-                              value: 5,
-                              child: Text('5 phút (chuẩn)'),
-                            ),
-                            DropdownMenuItem(value: 15, child: Text('15 phút')),
-                            DropdownMenuItem(value: 30, child: Text('30 phút')),
-                            DropdownMenuItem(value: 60, child: Text('1 giờ')),
-                          ],
-                          onChanged: (v) {
-                            if (v != null) onGapChanged(Duration(minutes: v));
-                          },
-                        ),
-                      ),
+                      _buildGapDropdown(context),
                     ],
                   ),
                   FilledButton.icon(
@@ -3317,6 +3241,73 @@ class _JourneyFilterPanel extends StatelessWidget {
               ),
             ],
           );
+        },
+      ),
+    );
+  }
+
+  Widget _buildGapDropdown(BuildContext context) {
+    const standardMinutes = [1, 5, 15, 30, 60];
+    final currentMinutes = gapThreshold.inMinutes;
+    final isCustom = !standardMinutes.contains(currentMinutes);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _refBorder),
+      ),
+      child: DropdownButton<int>(
+        value: currentMinutes,
+        isDense: true,
+        underline: const SizedBox.shrink(),
+        icon: const Icon(
+          Icons.arrow_drop_down_rounded,
+          size: 18,
+          color: _refText,
+        ),
+        style: const TextStyle(
+          fontSize: 11.5,
+          fontWeight: FontWeight.w700,
+          color: _refText,
+        ),
+        items: [
+          const DropdownMenuItem(value: 1, child: Text('1 phút')),
+          const DropdownMenuItem(value: 5, child: Text('5 phút')),
+          const DropdownMenuItem(value: 15, child: Text('15 phút')),
+          const DropdownMenuItem(value: 30, child: Text('30 phút')),
+          const DropdownMenuItem(value: 60, child: Text('1 giờ')),
+          if (isCustom)
+            DropdownMenuItem(
+              value: currentMinutes,
+              child: Text('${formatGapDuration(gapThreshold)} (Tùy chỉnh)'),
+            ),
+          const DropdownMenuItem(
+            value: -1,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.tune_rounded, size: 14, color: _refPrimaryBlue),
+                SizedBox(width: 4),
+                Text('Tùy chỉnh'),
+              ],
+            ),
+          ),
+        ],
+        onChanged: (v) async {
+          if (v == null) return;
+          if (v == -1) {
+            final customGap = await showCustomGapThresholdDialog(
+              context,
+              initialDuration: gapThreshold,
+            );
+            if (customGap != null) {
+              onGapChanged(customGap);
+            }
+          } else {
+            onGapChanged(Duration(minutes: v));
+          }
         },
       ),
     );

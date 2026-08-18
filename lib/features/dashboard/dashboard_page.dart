@@ -620,6 +620,7 @@ class _FilterOption {
 }
 
 /// Sidebar stat items - compact vertical list for desktop left panel.
+// ignore: unused_element
 class _SidebarStats extends StatelessWidget {
   const _SidebarStats({required this.state});
   final DashboardState state;
@@ -741,6 +742,7 @@ class _StatRow {
   });
 }
 
+// ignore: unused_element
 class _SidebarLegend extends StatelessWidget {
   const _SidebarLegend();
 
