@@ -2643,8 +2643,8 @@ class _MapWidgetState extends State<_MapWidget> {
                     markers: [
                       Marker(
                         point: _targetCenter,
-                        width: 58,
-                        height: 66,
+                        width: 44,
+                        height: 50,
                         alignment: Alignment.topCenter,
                         child: _DeviceMapMarker(
                           icon: DeviceIcon.iconFor(widget.device.deviceType),
@@ -2723,18 +2723,19 @@ class _DeviceMapMarker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 58,
-      height: 66,
+      key: const Key('overview-device-marker'),
+      width: 44,
+      height: 50,
       child: Stack(
         alignment: Alignment.topCenter,
         children: [
           Positioned(
-            top: 34,
+            top: 28,
             child: Transform.rotate(
               angle: 0.785398,
               child: Container(
-                width: 18,
-                height: 18,
+                width: 14,
+                height: 14,
                 decoration: BoxDecoration(
                   color: color,
                   borderRadius: BorderRadius.circular(5),
@@ -2742,9 +2743,9 @@ class _DeviceMapMarker extends StatelessWidget {
                   boxShadow: [
                     BoxShadow(
                       color: color.withValues(alpha: 0.28),
-                      blurRadius: 16,
-                      spreadRadius: 2,
-                      offset: const Offset(0, 8),
+                      blurRadius: 12,
+                      spreadRadius: 1,
+                      offset: const Offset(0, 5),
                     ),
                   ],
                 ),
@@ -2752,22 +2753,22 @@ class _DeviceMapMarker extends StatelessWidget {
             ),
           ),
           Container(
-            width: 48,
-            height: 48,
+            width: 38,
+            height: 38,
             decoration: BoxDecoration(
               color: color,
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 4),
+              border: Border.all(color: Colors.white, width: 3),
               boxShadow: [
                 BoxShadow(
                   color: color.withValues(alpha: 0.32),
-                  blurRadius: 18,
-                  spreadRadius: 3,
-                  offset: const Offset(0, 7),
+                  blurRadius: 12,
+                  spreadRadius: 2,
+                  offset: const Offset(0, 5),
                 ),
               ],
             ),
-            child: Icon(icon, color: Colors.white, size: 22),
+            child: Icon(icon, color: Colors.white, size: 18),
           ),
         ],
       ),

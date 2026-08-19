@@ -103,6 +103,10 @@ void main() {
     expect(find.byTooltip('Phóng to bản đồ'), findsOneWidget);
     expect(find.byTooltip('Thu nhỏ bản đồ'), findsOneWidget);
     expect(find.byTooltip('Căn giữa thiết bị'), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('overview-device-marker'))),
+      const Size(44, 50),
+    );
 
     await tester.tap(find.byTooltip('Phóng to bản đồ'));
     await tester.pump();
