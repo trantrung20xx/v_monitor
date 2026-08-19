@@ -1606,11 +1606,11 @@ class _OverviewMetricsDashboard extends StatelessWidget {
         ? DeviceFormatters.speedMps(journey.maxSpeedMps)
         : '--';
     final startedStr = journey.startedAt != null
-        ? DeviceFormatters.dateTime(journey.startedAt)
+        ? _formatMetricDateTime(journey.startedAt)
         : '--';
     final endedStr = journey.endedAt != null
-        ? DeviceFormatters.dateTime(journey.endedAt)
-        : (journey.startedAt != null ? DeviceFormatters.dateTime(journey.startedAt) : '--');
+        ? _formatMetricDateTime(journey.endedAt)
+        : (journey.startedAt != null ? _formatMetricDateTime(journey.startedAt) : '--');
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1633,6 +1633,7 @@ class _OverviewMetricsDashboard extends StatelessWidget {
             icon: Icons.timer_outlined,
             iconColor: const Color(0xFF16A34A),
             accentBg: const Color(0xFFF0FDF4),
+            labelWidth: 42.0,
             dualRows: [
               (
                 icon: Icons.play_arrow_rounded,
@@ -1653,6 +1654,7 @@ class _OverviewMetricsDashboard extends StatelessWidget {
             icon: Icons.speed_rounded,
             iconColor: const Color(0xFF2563EB),
             accentBg: const Color(0xFFEFF6FF),
+            labelWidth: 66.0,
             dualRows: [
               (
                 icon: Icons.trending_flat_rounded,
@@ -1673,6 +1675,7 @@ class _OverviewMetricsDashboard extends StatelessWidget {
             icon: Icons.calendar_today_rounded,
             iconColor: const Color(0xFF7C3AED),
             accentBg: const Color(0xFFF5F3FF),
+            labelWidth: 56.0,
             dualRows: [
               (
                 icon: Icons.play_circle_outline_rounded,
@@ -1758,6 +1761,16 @@ class _OverviewMetricsDashboard extends StatelessWidget {
       },
     );
   }
+
+  static String _formatMetricDateTime(DateTime? dt) {
+    if (dt == null) return '--';
+    final local = dt.toLocal();
+    final now = DateTime.now();
+    if (local.year == now.year) {
+      return DateFormat('dd/MM HH:mm').format(local);
+    }
+    return DateFormat('dd/MM/yy HH:mm').format(local);
+  }
 }
 
 class _MetricDashboardCard extends StatelessWidget {
@@ -1770,6 +1783,7 @@ class _MetricDashboardCard extends StatelessWidget {
     this.primaryLabel,
     this.extraInfo,
     this.dualRows,
+    this.labelWidth,
   });
 
   final String title;
@@ -1780,10 +1794,17 @@ class _MetricDashboardCard extends StatelessWidget {
   final String? primaryLabel;
   final String? extraInfo;
   final List<({IconData icon, String label, String value, Color color})>? dualRows;
+  final double? labelWidth;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final effectiveLabelWidth = labelWidth ??
+        (dualRows != null && dualRows!.any((r) => r.label.length > 8)
+            ? 66.0
+            : (dualRows != null && dualRows!.any((r) => r.label.length > 5)
+                ? 56.0
+                : 42.0));
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -1902,10 +1923,16 @@ class _MetricDashboardCard extends StatelessWidget {
                       if (i > 0) const SizedBox(height: 5),
                       Row(
                         children: [
-                          Icon(dualRows![i].icon, size: 13, color: dualRows![i].color),
-                          const SizedBox(width: 4),
-                          Flexible(
-                            flex: 4,
+                          SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: Center(
+                              child: Icon(dualRows![i].icon, size: 13, color: dualRows![i].color),
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                          SizedBox(
+                            width: effectiveLabelWidth,
                             child: Text(
                               dualRows![i].label,
                               maxLines: 1,
@@ -1919,7 +1946,6 @@ class _MetricDashboardCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 4),
                           Expanded(
-                            flex: 5,
                             child: Text(
                               dualRows![i].value,
                               maxLines: 1,
