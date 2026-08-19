@@ -25,20 +25,15 @@ class AppRouter {
           GoRoute(
             path: '/',
             name: 'dashboard',
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: DashboardPage(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: DashboardPage()),
           ),
-          GoRoute(
-            path: '/dashboard',
-            redirect: (context, state) => '/',
-          ),
+          GoRoute(path: '/dashboard', redirect: (context, state) => '/'),
           GoRoute(
             path: '/map',
             name: 'map',
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: MapViewPage(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: MapViewPage()),
           ),
         ],
       ),
@@ -148,23 +143,32 @@ class _DesktopNavRail extends StatelessWidget {
             const SizedBox(height: 16),
             // Top App Logo
             Container(
+              key: const Key('app-brand-logo'),
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color: const Color(0xFF1677FF),
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE4E9ED)),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF1677FF).withValues(alpha: 0.22),
+                    color: const Color(0xFF1677FF).withValues(alpha: 0.14),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
                 ],
               ),
-              child: const Icon(
-                Icons.hub_rounded,
-                color: Colors.white,
-                size: 20,
+              clipBehavior: Clip.antiAlias,
+              child: Transform.scale(
+                scale: 1.85,
+                child: Image.asset(
+                  'assets/branding/v_monitor_logo.png',
+                  width: 38,
+                  height: 38,
+                  fit: BoxFit.cover,
+                  filterQuality: FilterQuality.high,
+                  semanticLabel: 'V Monitor',
+                ),
               ),
             ),
             const SizedBox(height: 20),
