@@ -3633,11 +3633,9 @@ class _JourneyMetricsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final segmentCount = state.segments.length;
     final parkCount = HistoryMapLayers.extractStopAndParkPoints(
       state.validSamples,
     ).where((stop) => stop.isPark).length;
-    final journeySubtitle = segmentCount > 1 ? '$segmentCount chặng' : null;
 
     final metrics = [
       _MetricItemData(
@@ -3678,8 +3676,7 @@ class _JourneyMetricsRow extends StatelessWidget {
       _MetricItemData(
         icon: Icons.local_parking_rounded,
         label: 'Số lần đỗ xe',
-        value: '$parkCount',
-        subtitle: journeySubtitle,
+        value: '$parkCount lần',
         tintColor: const Color(0xFFFFF7ED),
         iconColor: const Color(0xFFEA580C),
       ),
@@ -3742,32 +3739,16 @@ class _JourneyMetricsRow extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 2),
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                item.value,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: _refText,
-                                  height: 1.1,
-                                ),
-                              ),
-                            ),
-                            if (item.subtitle != null) ...[
-                              const SizedBox(width: 4),
-                              Text(
-                                item.subtitle!,
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: _refMuted,
-                                ),
-                              ),
-                            ],
-                          ],
+                        Text(
+                          item.value,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w700,
+                            color: _refText,
+                            height: 1.1,
+                          ),
                         ),
                       ],
                     ),
@@ -3786,7 +3767,6 @@ class _MetricItemData {
   final IconData icon;
   final String label;
   final String value;
-  final String? subtitle;
   final Color tintColor;
   final Color iconColor;
 
@@ -3794,7 +3774,6 @@ class _MetricItemData {
     required this.icon,
     required this.label,
     required this.value,
-    this.subtitle,
     required this.tintColor,
     required this.iconColor,
   });
@@ -4788,6 +4767,12 @@ class _JourneyTimelineCard extends StatelessWidget {
     final gapCount = timelineEvents
         .where((event) => event.type == _JourneyTimelineEventType.dataRestored)
         .length;
+    final locationSummary = gapCount == 0
+        ? 'Vị trí được ghi nhận liên tục'
+        : '$gapCount đoạn không ghi nhận được vị trí';
+    final journeySummary = parkCount == 0
+        ? locationSummary
+        : '$parkCount điểm đỗ · $locationSummary';
     final timeFormat = DateFormat('dd/MM/yyyy · HH:mm:ss');
 
     return Container(
@@ -4835,11 +4820,7 @@ class _JourneyTimelineCard extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            gapCount > 0
-                ? 'Đầy đủ ${timelineEvents.length} node · $parkCount lần đỗ · '
-                      '$gapCount khoảng mất dữ liệu'
-                : 'Đầy đủ ${timelineEvents.length} node trên toàn bộ lộ trình · '
-                      '$parkCount lần đỗ',
+            journeySummary,
             style: const TextStyle(fontSize: 11, color: _refMuted),
           ),
           const SizedBox(height: 10),

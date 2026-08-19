@@ -79,10 +79,13 @@ void main() {
       expect(find.text('Hướng đi'), findsNothing);
       expect(find.text('Đỗ từ 5 phút'), findsNothing);
       expect(find.text('Lộ trình di chuyển'), findsOneWidget);
+      expect(find.text('Vị trí được ghi nhận liên tục'), findsOneWidget);
+      expect(find.textContaining('Không có điểm đỗ'), findsNothing);
       expect(find.text('16/08/2026 · 08:00:00'), findsWidgets);
       expect(find.text('16/08/2026 · 08:02:00'), findsWidgets);
       expect(find.byTooltip('Ẩn nhãn mốc hành trình'), findsOneWidget);
       expect(find.text('Số lần đỗ xe'), findsOneWidget);
+      expect(find.textContaining('chặng'), findsNothing);
       expect(find.text('Số mẫu GPS'), findsNothing);
       expect(find.text('Vị trí GPS'), findsOneWidget);
       expect(find.textContaining('Hướng di chuyển'), findsNothing);
