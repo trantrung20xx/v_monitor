@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:go_router/go_router.dart';
@@ -405,13 +406,9 @@ class _OverviewTab extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final isWide = width >= 900;
-        final horizontalPadding = width < 600 ? 12.0 : 22.0;
-        final topHeight = isWide
-            ? (width >= 1280 ? 440.0 : 410.0)
-            : width >= 600
-            ? 380.0
-            : 320.0;
+        final isWide = width >= 960;
+        final horizontalPadding = width < 600 ? 12.0 : 20.0;
+        final mobileMapHeight = width >= 600 ? 380.0 : 320.0;
 
         return SingleChildScrollView(
           padding: EdgeInsets.all(horizontalPadding),
@@ -422,6 +419,7 @@ class _OverviewTab extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // 1. Khung chọn mốc thời gian (giữ nguyên ở đầu)
                   _OverviewTimeRangeFilterBar(
                     selectedRange: cubitState.timeRange,
                     rangeFrom: cubitState.rangeFrom,
@@ -431,42 +429,47 @@ class _OverviewTab extends StatelessWidget {
                     onCustomRangePressed: () => _pickCustomRange(context),
                     onRefresh: () => cubit.setTimeRange(cubitState.timeRange),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
+
+                  // 2. Vùng trung tâm: Bên trái Bản đồ, Bên phải các khung thông tin trạng thái & chỉ số
+                  // Chiều cao bản đồ tự động khớp theo đúng chiều cao tự nhiên của khung bên phải
                   if (isWide)
-                    SizedBox(
-                      height: topHeight,
-                      child: Row(
+                    _AdaptiveOverviewRow(
+                      spacing: 14,
+                      leftFlex: 57,
+                      rightFlex: 43,
+                      left: _MapOverviewCard(
+                        map: _MapWidget(
+                          device: device,
+                          locations: locations,
+                        ),
+                        strip: _SummaryStrip(
+                          device: device,
+                          status: status,
+                        ),
+                      ),
+                      right: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Expanded(
-                            flex: 60,
-                            child: _MapOverviewCard(
-                              map: _MapWidget(
-                                device: device,
-                                locations: locations,
-                              ),
-                              strip: _SummaryStrip(
-                                device: device,
-                                status: status,
-                              ),
-                            ),
+                          _OverviewLiveLocationCard(
+                            device: device,
+                            status: status,
+                            latestLocation: latestLocation,
+                            address: address,
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            flex: 40,
-                            child: _OverviewLiveLocationCard(
-                              device: device,
-                              status: status,
-                              latestLocation: latestLocation,
-                              address: address,
-                            ),
+                          const SizedBox(height: 12),
+                          _OverviewMetricsDashboard(
+                            journey: journey,
+                            timeRangeLabel: cubitState.timeRange.label,
                           ),
                         ],
                       ),
                     )
                   else ...[
+                    // Layout cho màn hình hẹp (Mobile / Tablet nhỏ)
                     SizedBox(
-                      height: topHeight,
+                      height: mobileMapHeight,
                       child: _MapSurface(
                         child: _MapWidget(device: device, locations: locations),
                       ),
@@ -479,17 +482,17 @@ class _OverviewTab extends StatelessWidget {
                       address: address,
                       compact: true,
                     ),
-                  ],
-                  if (!isWide) ...[
                     const SizedBox(height: 12),
                     _SummaryStrip(device: device, status: status),
+                    const SizedBox(height: 12),
+                    _OverviewMetricsDashboard(
+                      journey: journey,
+                      timeRangeLabel: cubitState.timeRange.label,
+                    ),
                   ],
                   const SizedBox(height: 16),
-                  _OverviewMetricsDashboard(
-                    journey: journey,
-                    timeRangeLabel: cubitState.timeRange.label,
-                  ),
-                  const SizedBox(height: 16),
+
+                  // 3. Khung hoạt động gần đây (ở dưới cùng)
                   _RecentActivityCard(
                     events: events,
                     device: device,
@@ -780,6 +783,147 @@ class _AddressInfoBlock extends StatelessWidget {
 }
 
 
+
+/// Widget chia 2 cột (Trái: Bản đồ, Phải: Thông tin) trong đó chiều cao của Bản đồ (trái)
+/// tự động co giãn bằng chính xác chiều cao tự nhiên của cụm thông tin (phải) theo layout 1-pass.
+class _AdaptiveOverviewRow extends MultiChildRenderObjectWidget {
+  _AdaptiveOverviewRow({
+    super.key,
+    required this.spacing,
+    required this.leftFlex,
+    required this.rightFlex,
+    required Widget left,
+    required Widget right,
+  }) : super(children: [left, right]);
+
+  final double spacing;
+  final int leftFlex;
+  final int rightFlex;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _RenderAdaptiveOverviewRow(
+      spacing: spacing,
+      leftFlex: leftFlex,
+      rightFlex: rightFlex,
+    );
+  }
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _RenderAdaptiveOverviewRow renderObject,
+  ) {
+    renderObject
+      ..spacing = spacing
+      ..leftFlex = leftFlex
+      ..rightFlex = rightFlex;
+  }
+}
+
+class _AdaptiveOverviewRowParentData extends ContainerBoxParentData<RenderBox> {}
+
+class _RenderAdaptiveOverviewRow extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _AdaptiveOverviewRowParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _AdaptiveOverviewRowParentData> {
+  _RenderAdaptiveOverviewRow({
+    required double spacing,
+    required int leftFlex,
+    required int rightFlex,
+  })  : _spacing = spacing,
+        _leftFlex = leftFlex,
+        _rightFlex = rightFlex;
+
+  double _spacing;
+  double get spacing => _spacing;
+  set spacing(double value) {
+    if (_spacing == value) return;
+    _spacing = value;
+    markNeedsLayout();
+  }
+
+  int _leftFlex;
+  int get leftFlex => _leftFlex;
+  set leftFlex(int value) {
+    if (_leftFlex == value) return;
+    _leftFlex = value;
+    markNeedsLayout();
+  }
+
+  int _rightFlex;
+  int get rightFlex => _rightFlex;
+  set rightFlex(int value) {
+    if (_rightFlex == value) return;
+    _rightFlex = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _AdaptiveOverviewRowParentData) {
+      child.parentData = _AdaptiveOverviewRowParentData();
+    }
+  }
+
+  @override
+  void performLayout() {
+    final leftChild = firstChild;
+    final rightChild = leftChild != null ? childAfter(leftChild) : null;
+
+    if (leftChild == null || rightChild == null) {
+      size = constraints.biggest;
+      return;
+    }
+
+    final totalWidth = constraints.maxWidth;
+    final totalFlex = leftFlex + rightFlex;
+    final availableWidth = (totalWidth - spacing).clamp(0.0, double.infinity);
+    final leftWidth = (availableWidth * leftFlex / totalFlex).floorToDouble();
+    final rightWidth = availableWidth - leftWidth;
+
+    // 1. Tính toán kích thước tự nhiên của cột bên phải trước
+    rightChild.layout(
+      BoxConstraints(
+        minWidth: rightWidth,
+        maxWidth: rightWidth,
+        minHeight: 0,
+        maxHeight: double.infinity,
+      ),
+      parentUsesSize: true,
+    );
+
+    final naturalHeight = rightChild.size.height;
+
+    // 2. Định kích thước bản đồ bên trái bằng chính xác chiều cao tự nhiên của bên phải
+    leftChild.layout(
+      BoxConstraints.tightFor(
+        width: leftWidth,
+        height: naturalHeight,
+      ),
+      parentUsesSize: true,
+    );
+
+    // 3. Định vị trí cho 2 cột
+    final leftParentData = leftChild.parentData! as _AdaptiveOverviewRowParentData;
+    leftParentData.offset = Offset.zero;
+
+    final rightParentData = rightChild.parentData! as _AdaptiveOverviewRowParentData;
+    rightParentData.offset = Offset(leftWidth + spacing, 0);
+
+    size = Size(totalWidth, naturalHeight);
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
+    return defaultHitTestChildren(result, position: position);
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    defaultPaint(context, offset);
+  }
+}
 
 class _MapOverviewCard extends StatelessWidget {
   const _MapOverviewCard({required this.map, required this.strip});
@@ -1164,7 +1308,7 @@ class _OverviewLiveLocationCard extends StatelessWidget {
         builder: (context, constraints) {
           final isTightlyBounded =
               constraints.hasBoundedHeight && constraints.maxHeight > 260;
-          final panelPadding = compact ? 12.0 : 16.0;
+          final panelPadding = compact ? 10.0 : 12.0;
 
           final content = Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1471,8 +1615,8 @@ class _OverviewMetricsDashboard extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final columns = width >= 1100 ? 4 : (width >= 620 ? 2 : 1);
-        const spacing = 12.0;
+        final columns = width >= 1100 ? 4 : (width >= 280 ? 2 : 1);
+        const spacing = 10.0;
 
         final cards = [
           _MetricDashboardCard(
@@ -1558,16 +1702,57 @@ class _OverviewMetricsDashboard extends StatelessWidget {
           );
         }
 
-        final itemWidth = (width - spacing * (columns - 1)) / columns;
-        return Wrap(
-          spacing: spacing,
-          runSpacing: spacing,
+        if (columns == 2) {
+          final isBounded = constraints.hasBoundedHeight;
+          final row1 = Row(
+            crossAxisAlignment: isBounded
+                ? CrossAxisAlignment.stretch
+                : CrossAxisAlignment.start,
+            children: [
+              Expanded(child: cards[0]),
+              const SizedBox(width: spacing),
+              Expanded(child: cards[1]),
+            ],
+          );
+          final row2 = Row(
+            crossAxisAlignment: isBounded
+                ? CrossAxisAlignment.stretch
+                : CrossAxisAlignment.start,
+            children: [
+              Expanded(child: cards[2]),
+              const SizedBox(width: spacing),
+              Expanded(child: cards[3]),
+            ],
+          );
+
+          if (isBounded) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: row1),
+                const SizedBox(height: spacing),
+                Expanded(child: row2),
+              ],
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              row1,
+              const SizedBox(height: spacing),
+              row2,
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (final card in cards)
-              SizedBox(
-                width: itemWidth,
-                child: card,
-              ),
+            for (var i = 0; i < cards.length; i++) ...[
+              if (i > 0) const SizedBox(width: spacing),
+              Expanded(child: cards[i]),
+            ],
           ],
         );
       },
@@ -1601,7 +1786,7 @@ class _MetricDashboardCard extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: _refSurface,
         borderRadius: BorderRadius.circular(12),
@@ -1614,116 +1799,148 @@ class _MetricDashboardCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Header: Icon + Title
-          Row(
+      child: LayoutBuilder(
+        builder: (context, cardConstraints) {
+          final isBounded = cardConstraints.hasBoundedHeight;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: isBounded
+                ? MainAxisAlignment.spaceBetween
+                : MainAxisAlignment.start,
+            mainAxisSize: isBounded ? MainAxisSize.max : MainAxisSize.min,
             children: [
-              Container(
-                width: 26,
-                height: 26,
-                decoration: BoxDecoration(
-                  color: accentBg,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Icon(icon, size: 14, color: iconColor),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: _refMuted,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 10.5,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ),
-              if (extraInfo != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    extraInfo!,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: const Color(0xFF475569),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 10),
-
-          // Body: Single Big Value OR Dual Rows
-          if (primaryValue != null) ...[
-            Text(
-              primaryValue!,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleLarge?.copyWith(
-                color: _refText,
-                fontWeight: FontWeight.w900,
-                fontSize: 21,
-                height: 1.15,
-              ),
-            ),
-            if (primaryLabel != null) ...[
-              const SizedBox(height: 3),
-              Text(
-                primaryLabel!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: _refMuted,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ] else if (dualRows != null) ...[
-            for (var i = 0; i < dualRows!.length; i++) ...[
-              if (i > 0) const SizedBox(height: 6),
+              // Header: Icon + Title + Extra info
               Row(
                 children: [
-                  Icon(dualRows![i].icon, size: 14, color: dualRows![i].color),
-                  const SizedBox(width: 5),
-                  Text(
-                    dualRows![i].label,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: _refMuted,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 11.5,
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: accentBg,
+                      borderRadius: BorderRadius.circular(6),
                     ),
+                    child: Icon(icon, size: 13, color: iconColor),
                   ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      dualRows![i].value,
+                      title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.end,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: _refText,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: _refMuted,
                         fontWeight: FontWeight.w700,
-                        fontSize: 12.5,
+                        fontSize: 10,
+                        letterSpacing: 0.2,
                       ),
                     ),
                   ),
+                  if (extraInfo != null) ...[
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          extraInfo!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: const Color(0xFF475569),
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
+              if (!isBounded) const SizedBox(height: 8),
+
+              // Body: Single Big Value OR Dual Rows
+              if (primaryValue != null) ...[
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      primaryValue!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: _refText,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 19,
+                        height: 1.15,
+                      ),
+                    ),
+                    if (primaryLabel != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        primaryLabel!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: _refMuted,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 10.5,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ] else if (dualRows != null) ...[
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (var i = 0; i < dualRows!.length; i++) ...[
+                      if (i > 0) const SizedBox(height: 5),
+                      Row(
+                        children: [
+                          Icon(dualRows![i].icon, size: 13, color: dualRows![i].color),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            flex: 4,
+                            child: Text(
+                              dualRows![i].label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: _refMuted,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            flex: 5,
+                            child: Text(
+                              dualRows![i].value,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.end,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: _refText,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 11.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ],
             ],
-          ],
-        ],
+          );
+        },
       ),
     );
   }
