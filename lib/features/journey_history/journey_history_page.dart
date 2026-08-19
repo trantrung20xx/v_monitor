@@ -7,6 +7,7 @@ import '../../core/config/map_tile_providers.dart';
 import '../../data/models/device_model.dart';
 import '../../data/models/location_model.dart';
 import '../../data/repositories/device_repository.dart';
+import '../../data/repositories/geocoding_repository.dart';
 import '../../data/repositories/tracking_repository.dart';
 import 'journey_history_cubit.dart';
 import 'journey_history_state.dart';
@@ -183,10 +184,21 @@ class _JourneyHistoryPageState extends State<JourneyHistoryPage> {
                         if (state.selectedPoint != null)
                           Positioned(
                             top: 16,
+                            left: 16,
                             right: 16,
-                            child: PointInfoPopup(
-                              point: state.selectedPoint!,
-                              onClose: () => _cubit.selectPoint(null),
+                            child: Align(
+                              alignment: Alignment.topRight,
+                              child: PointInfoPopup(
+                                point: state.selectedPoint!,
+                                stopPoint: HistoryMapLayers.findStopPoint(
+                                  state.validSamples,
+                                  state.selectedPoint!,
+                                ),
+                                resolveAddress: context
+                                    .read<GeocodingRepository>()
+                                    .reverseAddress,
+                                onClose: () => _cubit.selectPoint(null),
+                              ),
                             ),
                           ),
 
@@ -245,31 +257,83 @@ class _HistoryMapView extends StatefulWidget {
 
 class _HistoryMapViewState extends State<_HistoryMapView> {
   final MapController _mapController = MapController();
+  final Map<String, String> _nodeAddresses = {};
   bool _mapReady = false;
+  bool _didRequestInitialAddresses = false;
+  int _addressRequestVersion = 0;
   double _currentZoom = 13.0;
   bool _isSatellite = false;
+  bool _showRouteLabels = true;
   static const LatLng _defaultCenter = LatLng(21.0285, 105.8542);
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_didRequestInitialAddresses) {
+      _didRequestInitialAddresses = true;
+      _loadNodeAddresses(widget.state.validSamples);
+    }
+  }
 
   @override
   void didUpdateWidget(covariant _HistoryMapView oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (!_mapReady) return;
-
     final oldSamples = oldWidget.state.validSamples;
     final newSamples = widget.state.validSamples;
 
-    // Fit bounds khi danh sách mẫu thay đổi
     if (oldSamples != newSamples && newSamples.isNotEmpty) {
-      _fitRouteBounds(newSamples);
+      _loadNodeAddresses(newSamples);
+      if (_mapReady) {
+        _fitRouteBounds(newSamples);
+      }
     }
 
     // Follow camera theo vị trí replay nếu được bật
-    if (widget.state.followCamera && widget.state.currentPosition != null) {
+    if (_mapReady &&
+        widget.state.followCamera &&
+        widget.state.currentPosition != null) {
       if (widget.state.isPlaying || widget.state.isCompleted) {
         _mapController.move(widget.state.currentPosition!, _currentZoom);
       }
     }
+  }
+
+  Future<void> _loadNodeAddresses(List<LocationModel> samples) async {
+    final nodes = HistoryMapLayers.extractRouteNodes(samples);
+    if (nodes.isEmpty) return;
+
+    final missing = <JourneyRouteNode>[];
+    final queuedKeys = <String>{};
+    for (final node in nodes) {
+      final key = HistoryMapLayers.routeNodeKey(node.sample);
+      if (!_nodeAddresses.containsKey(key) && queuedKeys.add(key)) {
+        missing.add(node);
+      }
+    }
+    if (missing.isEmpty) return;
+
+    final requestVersion = ++_addressRequestVersion;
+    final repository = context.read<GeocodingRepository>();
+    final results = await Future.wait(
+      missing.map((node) async {
+        final address = await repository.reverseAddress(
+          node.sample.latitude,
+          node.sample.longitude,
+        );
+        return MapEntry(HistoryMapLayers.routeNodeKey(node.sample), address);
+      }),
+    );
+    if (!mounted || requestVersion != _addressRequestVersion) return;
+
+    setState(() {
+      for (final result in results) {
+        final address = result.value?.trim();
+        if (address != null && address.isNotEmpty) {
+          _nodeAddresses[result.key] = address;
+        }
+      }
+    });
   }
 
   void _fitRouteBounds(List<LocationModel> samples) {
@@ -331,6 +395,7 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
               _mapReady = true;
               if (state.validSamples.isNotEmpty) {
                 _fitRouteBounds(state.validSamples);
+                _loadNodeAddresses(state.validSamples);
               }
             },
             onPositionChanged: (camera, hasGesture) {
@@ -380,8 +445,8 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
                 markers: HistoryMapLayers.buildSamplePoints(
                   validSamples: state.validSamples,
                   onPointSelected: widget.onPointSelected,
-                  theme: theme,
-                  currentZoom: _currentZoom,
+                  nodeAddresses: _nodeAddresses,
+                  showLabels: _showRouteLabels,
                 ),
               ),
 
@@ -424,6 +489,9 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
             },
             onToggleMapType: () => setState(() => _isSatellite = !_isSatellite),
             isSatellite: _isSatellite,
+            onToggleLabels: () =>
+                setState(() => _showRouteLabels = !_showRouteLabels),
+            showLabels: _showRouteLabels,
           ),
         ),
 
@@ -530,14 +598,18 @@ class _MapZoomControls extends StatelessWidget {
   final VoidCallback onZoomOut;
   final VoidCallback onFitBounds;
   final VoidCallback onToggleMapType;
+  final VoidCallback onToggleLabels;
   final bool isSatellite;
+  final bool showLabels;
 
   const _MapZoomControls({
     required this.onZoomIn,
     required this.onZoomOut,
     required this.onFitBounds,
     required this.onToggleMapType,
+    required this.onToggleLabels,
     required this.isSatellite,
+    required this.showLabels,
   });
 
   @override
@@ -587,20 +659,38 @@ class _MapZoomControls extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        // Cụm 2: Chuyển đổi mode bản đồ riêng biệt
+        // Cụm 2: Kiểu bản đồ và bật/tắt nhãn node hành trình
         Container(
           decoration: _boxDecoration(),
-          child: IconButton(
-            icon: Icon(
-              isSatellite ? Icons.map_rounded : Icons.satellite_alt_rounded,
-              size: 18,
-              color: const Color(0xFF1677FF),
-            ),
-            tooltip: isSatellite
-                ? 'Chuyển sang bản đồ đường phố'
-                : 'Chuyển sang bản đồ vệ tinh',
-            onPressed: onToggleMapType,
-            visualDensity: VisualDensity.compact,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: Icon(
+                  isSatellite ? Icons.map_rounded : Icons.satellite_alt_rounded,
+                  size: 18,
+                  color: const Color(0xFF1677FF),
+                ),
+                tooltip: isSatellite
+                    ? 'Chuyển sang bản đồ đường phố'
+                    : 'Chuyển sang bản đồ vệ tinh',
+                onPressed: onToggleMapType,
+                visualDensity: VisualDensity.compact,
+              ),
+              const SizedBox(width: 32, child: Divider(height: 1)),
+              IconButton(
+                icon: Icon(
+                  showLabels ? Icons.label_off_rounded : Icons.label_rounded,
+                  size: 18,
+                  color: const Color(0xFF1677FF),
+                ),
+                tooltip: showLabels
+                    ? 'Ẩn nhãn mốc hành trình'
+                    : 'Hiện nhãn mốc hành trình',
+                onPressed: onToggleLabels,
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
           ),
         ),
       ],

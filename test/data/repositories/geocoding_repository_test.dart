@@ -9,8 +9,11 @@ void main() {
     final repository = GeocodingRepository(apiClient);
 
     final address = await repository.reverseAddress(21.147, 105.8048);
+    final cachedAddress = await repository.reverseAddress(21.147, 105.8048);
 
     expect(address, 'So 1 Trang Tien, Hoan Kiem, Ha Noi');
+    expect(cachedAddress, address);
+    expect(apiClient.requestCount, 1);
     expect(apiClient.lastPath, '/geocoding/reverse');
     expect(apiClient.lastQuery?['latitude'], 21.147);
     expect(apiClient.lastQuery?['longitude'], 105.8048);
@@ -20,12 +23,14 @@ void main() {
 class _FakeApiClient extends ApiClient {
   String? lastPath;
   Map<String, dynamic>? lastQuery;
+  int requestCount = 0;
 
   @override
   Future<Response> get(
     String path, {
     Map<String, dynamic>? queryParameters,
   }) async {
+    requestCount++;
     lastPath = path;
     lastQuery = queryParameters;
     return Response(

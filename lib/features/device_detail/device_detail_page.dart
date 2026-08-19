@@ -439,14 +439,8 @@ class _OverviewTab extends StatelessWidget {
                       leftFlex: 57,
                       rightFlex: 43,
                       left: _MapOverviewCard(
-                        map: _MapWidget(
-                          device: device,
-                          locations: locations,
-                        ),
-                        strip: _SummaryStrip(
-                          device: device,
-                          status: status,
-                        ),
+                        map: _MapWidget(device: device, locations: locations),
+                        strip: _SummaryStrip(device: device, status: status),
                       ),
                       right: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -782,13 +776,10 @@ class _AddressInfoBlock extends StatelessWidget {
   }
 }
 
-
-
 /// Widget chia 2 cột (Trái: Bản đồ, Phải: Thông tin) trong đó chiều cao của Bản đồ (trái)
 /// tự động co giãn bằng chính xác chiều cao tự nhiên của cụm thông tin (phải) theo layout 1-pass.
 class _AdaptiveOverviewRow extends MultiChildRenderObjectWidget {
   _AdaptiveOverviewRow({
-    super.key,
     required this.spacing,
     required this.leftFlex,
     required this.rightFlex,
@@ -802,11 +793,7 @@ class _AdaptiveOverviewRow extends MultiChildRenderObjectWidget {
 
   @override
   RenderObject createRenderObject(BuildContext context) {
-    return _RenderAdaptiveOverviewRow(
-      spacing: spacing,
-      leftFlex: leftFlex,
-      rightFlex: rightFlex,
-    );
+    return _RenderAdaptiveOverviewRow(spacing, leftFlex, rightFlex);
   }
 
   @override
@@ -821,19 +808,17 @@ class _AdaptiveOverviewRow extends MultiChildRenderObjectWidget {
   }
 }
 
-class _AdaptiveOverviewRowParentData extends ContainerBoxParentData<RenderBox> {}
+class _AdaptiveOverviewRowParentData
+    extends ContainerBoxParentData<RenderBox> {}
 
 class _RenderAdaptiveOverviewRow extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, _AdaptiveOverviewRowParentData>,
-        RenderBoxContainerDefaultsMixin<RenderBox, _AdaptiveOverviewRowParentData> {
-  _RenderAdaptiveOverviewRow({
-    required double spacing,
-    required int leftFlex,
-    required int rightFlex,
-  })  : _spacing = spacing,
-        _leftFlex = leftFlex,
-        _rightFlex = rightFlex;
+        RenderBoxContainerDefaultsMixin<
+          RenderBox,
+          _AdaptiveOverviewRowParentData
+        > {
+  _RenderAdaptiveOverviewRow(this._spacing, this._leftFlex, this._rightFlex);
 
   double _spacing;
   double get spacing => _spacing;
@@ -897,18 +882,17 @@ class _RenderAdaptiveOverviewRow extends RenderBox
 
     // 2. Định kích thước bản đồ bên trái bằng chính xác chiều cao tự nhiên của bên phải
     leftChild.layout(
-      BoxConstraints.tightFor(
-        width: leftWidth,
-        height: naturalHeight,
-      ),
+      BoxConstraints.tightFor(width: leftWidth, height: naturalHeight),
       parentUsesSize: true,
     );
 
     // 3. Định vị trí cho 2 cột
-    final leftParentData = leftChild.parentData! as _AdaptiveOverviewRowParentData;
+    final leftParentData =
+        leftChild.parentData! as _AdaptiveOverviewRowParentData;
     leftParentData.offset = Offset.zero;
 
-    final rightParentData = rightChild.parentData! as _AdaptiveOverviewRowParentData;
+    final rightParentData =
+        rightChild.parentData! as _AdaptiveOverviewRowParentData;
     rightParentData.offset = Offset(leftWidth + spacing, 0);
 
     size = Size(totalWidth, naturalHeight);
@@ -1042,10 +1026,7 @@ class _OverviewTimeRangeFilterBar extends StatelessWidget {
                   children: [
                     const Text(
                       'Từ ',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        color: _refMuted,
-                      ),
+                      style: TextStyle(fontSize: 11.5, color: _refMuted),
                     ),
                     const Icon(
                       Icons.calendar_today_rounded,
@@ -1071,10 +1052,7 @@ class _OverviewTimeRangeFilterBar extends StatelessWidget {
                     ),
                     const Text(
                       'Đến ',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        color: _refMuted,
-                      ),
+                      style: TextStyle(fontSize: 11.5, color: _refMuted),
                     ),
                     const Icon(
                       Icons.calendar_today_rounded,
@@ -1152,10 +1130,7 @@ class _OverviewTimeRangeFilterBar extends StatelessWidget {
           final reloadButton = FilledButton.icon(
             style: FilledButton.styleFrom(
               backgroundColor: _refPrimaryBlue,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -1174,10 +1149,7 @@ class _OverviewTimeRangeFilterBar extends StatelessWidget {
                 : const Icon(Icons.refresh_rounded, size: 15),
             label: const Text(
               'Tải lại',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
             ),
           );
 
@@ -1249,10 +1221,7 @@ class _OverviewTimeRangeFilterBar extends StatelessWidget {
               const SizedBox(height: 10),
               chips,
               const SizedBox(height: 10),
-              Align(
-                alignment: Alignment.centerRight,
-                child: reloadButton,
-              ),
+              Align(alignment: Alignment.centerRight, child: reloadButton),
             ],
           );
         },
@@ -1359,7 +1328,10 @@ class _OverviewLiveLocationCard extends StatelessWidget {
                     tooltip: 'Thông tin thiết bị',
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                    constraints: const BoxConstraints(
+                      minWidth: 28,
+                      minHeight: 28,
+                    ),
                   ),
                 ],
               ),
@@ -1367,7 +1339,10 @@ class _OverviewLiveLocationCard extends StatelessWidget {
 
               // 2. Speed & Movement Highlight Banner
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(10),
@@ -1416,7 +1391,10 @@ class _OverviewLiveLocationCard extends StatelessWidget {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: movementStatusColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(6),
@@ -1443,7 +1421,10 @@ class _OverviewLiveLocationCard extends StatelessWidget {
 
               // 4. Coordinates & Last Updated timestamp
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(8),
@@ -1453,7 +1434,11 @@ class _OverviewLiveLocationCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.my_location_rounded, size: 14, color: Color(0xFF0D9488)),
+                        const Icon(
+                          Icons.my_location_rounded,
+                          size: 14,
+                          color: Color(0xFF0D9488),
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           'Tọa độ GPS:',
@@ -1485,7 +1470,11 @@ class _OverviewLiveLocationCard extends StatelessWidget {
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        const Icon(Icons.schedule_rounded, size: 14, color: Color(0xFFEA580C)),
+                        const Icon(
+                          Icons.schedule_rounded,
+                          size: 14,
+                          color: Color(0xFFEA580C),
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           'Thời điểm:',
@@ -1503,7 +1492,8 @@ class _OverviewLiveLocationCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.end,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: status.freshness == DataFreshnessStatus.fresh
+                              color:
+                                  status.freshness == DataFreshnessStatus.fresh
                                   ? _refText
                                   : theme.colorScheme.error,
                               fontWeight: FontWeight.w700,
@@ -1580,10 +1570,7 @@ class _OverviewLiveLocationCard extends StatelessWidget {
 // ─── Metrics Dashboard (4 Core Statistic Cards) ──────────────────────────────
 
 class _OverviewMetricsDashboard extends StatelessWidget {
-  const _OverviewMetricsDashboard({
-    required this.journey,
-    this.timeRangeLabel,
-  });
+  const _OverviewMetricsDashboard({required this.journey, this.timeRangeLabel});
 
   final _JourneySnapshot journey;
   final String? timeRangeLabel;
@@ -1610,7 +1597,9 @@ class _OverviewMetricsDashboard extends StatelessWidget {
         : '--';
     final endedStr = journey.endedAt != null
         ? _formatMetricDateTime(journey.endedAt)
-        : (journey.startedAt != null ? _formatMetricDateTime(journey.startedAt) : '--');
+        : (journey.startedAt != null
+              ? _formatMetricDateTime(journey.startedAt)
+              : '--');
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1625,8 +1614,12 @@ class _OverviewMetricsDashboard extends StatelessWidget {
             iconColor: const Color(0xFFEA580C),
             accentBg: const Color(0xFFFFF7ED),
             primaryValue: distanceStr,
-            primaryLabel: timeRangeLabel != null ? 'Trong $timeRangeLabel' : 'Khoảng thời gian đã chọn',
-            extraInfo: journey.sampleCount > 0 ? '${journey.sampleCount} điểm GPS' : null,
+            primaryLabel: timeRangeLabel != null
+                ? 'Trong $timeRangeLabel'
+                : 'Khoảng thời gian đã chọn',
+            extraInfo: journey.sampleCount > 0
+                ? '${journey.sampleCount} điểm GPS'
+                : null,
           ),
           _MetricDashboardCard(
             title: 'THỜI GIAN HOẠT ĐỘNG',
@@ -1793,18 +1786,20 @@ class _MetricDashboardCard extends StatelessWidget {
   final String? primaryValue;
   final String? primaryLabel;
   final String? extraInfo;
-  final List<({IconData icon, String label, String value, Color color})>? dualRows;
+  final List<({IconData icon, String label, String value, Color color})>?
+  dualRows;
   final double? labelWidth;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final effectiveLabelWidth = labelWidth ??
+    final effectiveLabelWidth =
+        labelWidth ??
         (dualRows != null && dualRows!.any((r) => r.label.length > 8)
             ? 66.0
             : (dualRows != null && dualRows!.any((r) => r.label.length > 5)
-                ? 56.0
-                : 42.0));
+                  ? 56.0
+                  : 42.0));
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -1860,7 +1855,10 @@ class _MetricDashboardCard extends StatelessWidget {
                     const SizedBox(width: 4),
                     Flexible(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF1F5F9),
                           borderRadius: BorderRadius.circular(4),
@@ -1927,7 +1925,11 @@ class _MetricDashboardCard extends StatelessWidget {
                             width: 14,
                             height: 14,
                             child: Center(
-                              child: Icon(dualRows![i].icon, size: 13, color: dualRows![i].color),
+                              child: Icon(
+                                dualRows![i].icon,
+                                size: 13,
+                                color: dualRows![i].color,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 5),
@@ -2086,7 +2088,10 @@ void _showDeviceTechnicalInfoModal(
                     ),
                     const SizedBox(height: 10),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(10),
@@ -2094,16 +2099,34 @@ void _showDeviceTechnicalInfoModal(
                       ),
                       child: Column(
                         children: [
-                          _buildTechRow('Tên thiết bị', DeviceFormatters.displayName(device)),
+                          _buildTechRow(
+                            'Tên thiết bị',
+                            DeviceFormatters.displayName(device),
+                          ),
                           _buildTechRow('Mã định danh', device.deviceCode),
-                          _buildTechRow('Loại phương tiện', DeviceFormatters.deviceTypeLabel(device.deviceType)),
-                          _buildTechRow('Model / Hãng', modelManufacturer.isNotEmpty ? modelManufacturer : '--'),
-                          _buildTechRow('Số Serial / IMEI', device.serialNumber ?? '--'),
-                          _buildTechRow('Phiên bản Firmware', device.firmwareVersion ?? '--'),
+                          _buildTechRow(
+                            'Loại phương tiện',
+                            DeviceFormatters.deviceTypeLabel(device.deviceType),
+                          ),
+                          _buildTechRow(
+                            'Model / Hãng',
+                            modelManufacturer.isNotEmpty
+                                ? modelManufacturer
+                                : '--',
+                          ),
+                          _buildTechRow(
+                            'Số Serial / IMEI',
+                            device.serialNumber ?? '--',
+                          ),
+                          _buildTechRow(
+                            'Phiên bản Firmware',
+                            device.firmwareVersion ?? '--',
+                          ),
                           _buildTechRow(
                             'Trạng thái',
                             device.statusLabel,
-                            valueColor: status.connectivity == ConnectivityStatus.online
+                            valueColor:
+                                status.connectivity == ConnectivityStatus.online
                                 ? _refOnline
                                 : _refMuted,
                           ),
@@ -2119,7 +2142,10 @@ void _showDeviceTechnicalInfoModal(
                     ),
                     const SizedBox(height: 10),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(10),
@@ -2129,15 +2155,22 @@ void _showDeviceTechnicalInfoModal(
                         children: [
                           _buildTechRow(
                             'Tọa độ GPS',
-                            DeviceFormatters.coordinatePair(device.latitude, device.longitude),
+                            DeviceFormatters.coordinatePair(
+                              device.latitude,
+                              device.longitude,
+                            ),
                           ),
                           _buildTechRow(
                             'Độ cao',
-                            altitudeM != null ? '${altitudeM.toStringAsFixed(1)} m' : '--',
+                            altitudeM != null
+                                ? '${altitudeM.toStringAsFixed(1)} m'
+                                : '--',
                           ),
                           _buildTechRow(
                             'Độ chính xác vệ tinh',
-                            accuracyM != null ? '±${accuracyM.toStringAsFixed(0)} m' : '--',
+                            accuracyM != null
+                                ? '±${accuracyM.toStringAsFixed(0)} m'
+                                : '--',
                           ),
                           _buildTechRow(
                             'Số lượng vệ tinh',
@@ -2147,7 +2180,9 @@ void _showDeviceTechnicalInfoModal(
                           ),
                           _buildTechRow(
                             'Thời điểm GPS',
-                            DeviceFormatters.dateTime(latestLocation?.measuredAt ?? device.lastSeenAt),
+                            DeviceFormatters.dateTime(
+                              latestLocation?.measuredAt ?? device.lastSeenAt,
+                            ),
                           ),
                         ],
                       ),
@@ -3599,7 +3634,10 @@ class _JourneyMetricsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final segmentCount = state.segments.length;
-    final samplesSubtitle = segmentCount > 1 ? '($segmentCount đoạn)' : null;
+    final parkCount = HistoryMapLayers.extractStopAndParkPoints(
+      state.validSamples,
+    ).where((stop) => stop.isPark).length;
+    final journeySubtitle = segmentCount > 1 ? '$segmentCount chặng' : null;
 
     final metrics = [
       _MetricItemData(
@@ -3638,12 +3676,12 @@ class _JourneyMetricsRow extends StatelessWidget {
         iconColor: const Color(0xFF6366F1),
       ),
       _MetricItemData(
-        icon: Icons.scatter_plot_rounded,
-        label: 'Số mẫu GPS',
-        value: '${state.validSamples.length}',
-        subtitle: samplesSubtitle,
-        tintColor: const Color(0xFFECFEFF),
-        iconColor: const Color(0xFF0891B2),
+        icon: Icons.local_parking_rounded,
+        label: 'Số lần đỗ xe',
+        value: '$parkCount',
+        subtitle: journeySubtitle,
+        tintColor: const Color(0xFFFFF7ED),
+        iconColor: const Color(0xFFEA580C),
       ),
     ];
 
@@ -3777,6 +3815,11 @@ class _JourneyMapCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final selectedPoint = state.selectedPoint;
+    final selectedStop = selectedPoint == null
+        ? null
+        : HistoryMapLayers.findStopPoint(state.validSamples, selectedPoint);
+
     return Container(
       height: height,
       decoration: BoxDecoration(
@@ -3791,13 +3834,21 @@ class _JourneyMapCard extends StatelessWidget {
           _DeviceJourneyMapView(state: state, onPointSelected: onPointSelected),
 
           // Popup chi tiết điểm GPS khi bấm chọn
-          if (state.selectedPoint != null)
+          if (selectedPoint != null)
             Positioned(
               top: 12,
+              left: 12,
               right: 12,
-              child: PointInfoPopup(
-                point: state.selectedPoint!,
-                onClose: () => onPointSelected(null),
+              child: Align(
+                alignment: Alignment.topRight,
+                child: PointInfoPopup(
+                  point: selectedPoint,
+                  stopPoint: selectedStop,
+                  resolveAddress: context
+                      .read<GeocodingRepository>()
+                      .reverseAddress,
+                  onClose: () => onPointSelected(null),
+                ),
               ),
             ),
         ],
@@ -4381,26 +4432,42 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sample =
-        (state.currentSampleIndex >= 0 &&
-            state.currentSampleIndex < state.validSamples.length)
+        state.currentSampleIndex >= 0 &&
+            state.currentSampleIndex < state.validSamples.length
         ? state.validSamples[state.currentSampleIndex]
         : (state.validSamples.isNotEmpty ? state.validSamples.first : null);
-
-    final latStr = state.currentPosition != null
-        ? state.currentPosition!.latitude.toStringAsFixed(6)
-        : (sample != null ? sample.latitude.toStringAsFixed(6) : '--');
-    final lngStr = state.currentPosition != null
-        ? state.currentPosition!.longitude.toStringAsFixed(6)
-        : (sample != null ? sample.longitude.toStringAsFixed(6) : '--');
-
-    final altStr = sample?.altitudeM != null
-        ? '${sample!.altitudeM!.toStringAsFixed(1)} m'
+    final position =
+        state.currentPosition ??
+        (sample != null ? LatLng(sample.latitude, sample.longitude) : null);
+    final gpsPositionText = position != null
+        ? 'Lat: ${position.latitude.toStringAsFixed(6)} · '
+              'Lng: ${position.longitude.toStringAsFixed(6)}'
         : '--';
+    final gpsDetails = <String>[
+      if (sample?.accuracyM != null)
+        'Sai số ±${sample!.accuracyM!.toStringAsFixed(0)} m',
+      if (sample?.altitudeM != null)
+        'Độ cao ${sample!.altitudeM!.toStringAsFixed(1)} m',
+    ];
+    final gpsDetailsText = gpsDetails.isEmpty
+        ? 'Hệ tọa độ WGS84'
+        : gpsDetails.join(' · ');
     final speedStr = DeviceFormatters.speedMps(state.currentSpeedMps);
     final currDistStr = DeviceFormatters.distance(state.currentDistanceM);
     final totalDistStr = DeviceFormatters.distance(state.totalDistanceM);
     final distanceProgressStr = '$currDistStr / $totalDistStr';
-    final isMoving = (state.currentSpeedMps ?? 0) >= 0.5;
+    final hasSpeed = state.currentSpeedMps != null;
+    final isMoving = hasSpeed && state.currentSpeedMps! >= 0.5;
+    final movementLabel = !hasSpeed
+        ? 'Không rõ'
+        : isMoving
+        ? 'Đang di chuyển'
+        : 'Đang dừng';
+    final movementColor = !hasSpeed
+        ? const Color(0xFF64748B)
+        : isMoving
+        ? const Color(0xFF16A34A)
+        : const Color(0xFFD97706);
 
     final timeStr = state.currentReplayTime != null
         ? DateFormat(
@@ -4422,7 +4489,7 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
           if (isWide) {
             return Row(
               children: [
-                // 1. Vị trí hiện tại
+                // 1. Vị trí GPS
                 Expanded(
                   flex: 34,
                   child: Column(
@@ -4430,7 +4497,7 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Text(
-                        'Vị trí hiện tại',
+                        'Vị trí GPS',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -4439,7 +4506,7 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        '$latStr, $lngStr',
+                        gpsPositionText,
                         style: const TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w700,
@@ -4448,7 +4515,7 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 1),
                       Text(
-                        'Độ cao: $altStr  ·  Độ chính xác GPS: ±4 m',
+                        gpsDetailsText,
                         style: const TextStyle(fontSize: 10, color: _refMuted),
                       ),
                     ],
@@ -4545,19 +4612,19 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
                           Icon(
                             Icons.circle_rounded,
                             size: 7,
-                            color: isMoving
-                                ? const Color(0xFF16A34A)
-                                : const Color(0xFFD97706),
+                            color: movementColor,
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            isMoving ? 'Đang di chuyển' : 'Đang dừng',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: isMoving
-                                  ? const Color(0xFF16A34A)
-                                  : const Color(0xFFD97706),
+                          Flexible(
+                            child: Text(
+                              movementLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: movementColor,
+                              ),
                             ),
                           ),
                         ],
@@ -4610,15 +4677,19 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Vị trí hiện tại',
+                    'Vị trí GPS',
                     style: TextStyle(fontSize: 11, color: _refMuted),
                   ),
                   Text(
-                    '$latStr, $lngStr · Độ cao: $altStr',
+                    gpsPositionText,
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
+                  ),
+                  Text(
+                    gpsDetailsText,
+                    style: const TextStyle(fontSize: 10, color: _refMuted),
                   ),
                 ],
               ),
@@ -4662,13 +4733,11 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
                     style: TextStyle(fontSize: 11, color: _refMuted),
                   ),
                   Text(
-                    isMoving ? 'Đang di chuyển' : 'Đang dừng',
+                    movementLabel,
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: isMoving
-                          ? const Color(0xFF16A34A)
-                          : const Color(0xFFD97706),
+                      color: movementColor,
                     ),
                   ),
                 ],
@@ -4712,8 +4781,14 @@ class _JourneyTimelineCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final samples = state.validSamples;
-    final timeFormat = DateFormat('HH:mm:ss');
+    final timelineEvents = _buildJourneyTimelineEvents(state);
+    final parkCount = timelineEvents
+        .where((event) => event.type == _JourneyTimelineEventType.parked)
+        .length;
+    final gapCount = timelineEvents
+        .where((event) => event.type == _JourneyTimelineEventType.dataRestored)
+        .length;
+    final timeFormat = DateFormat('dd/MM/yyyy · HH:mm:ss');
 
     return Container(
       height: height,
@@ -4732,9 +4807,7 @@ class _JourneyTimelineCard extends StatelessWidget {
             children: [
               const Flexible(
                 child: Text(
-                  'Lịch trình chi tiết',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  'Lộ trình di chuyển',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
@@ -4750,7 +4823,7 @@ class _JourneyTimelineCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  '${state.segments.length} đoạn',
+                  '${timelineEvents.length} mốc',
                   style: const TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
@@ -4762,9 +4835,11 @@ class _JourneyTimelineCard extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            '${samples.length} mốc thời gian đã ghi nhận',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            gapCount > 0
+                ? 'Đầy đủ ${timelineEvents.length} node · $parkCount lần đỗ · '
+                      '$gapCount khoảng mất dữ liệu'
+                : 'Đầy đủ ${timelineEvents.length} node trên toàn bộ lộ trình · '
+                      '$parkCount lần đỗ',
             style: const TextStyle(fontSize: 11, color: _refMuted),
           ),
           const SizedBox(height: 10),
@@ -4773,7 +4848,7 @@ class _JourneyTimelineCard extends StatelessWidget {
 
           // List timeline cuộn độc lập
           Expanded(
-            child: samples.isEmpty
+            child: timelineEvents.isEmpty
                 ? const Center(
                     child: Text(
                       'Chưa có dữ liệu lịch trình',
@@ -4781,145 +4856,83 @@ class _JourneyTimelineCard extends StatelessWidget {
                     ),
                   )
                 : ListView.builder(
-                    itemCount: samples.length,
+                    itemCount: timelineEvents.length,
                     itemBuilder: (context, index) {
-                      final s = samples[index];
-                      final isFirst = index == 0;
-                      final isLast = index == samples.length - 1;
-                      final isStopped = (s.speedMps ?? 0) < 0.5;
+                      final event = timelineEvents[index];
+                      final s = event.sample;
+                      final isFirstEvent = index == 0;
+                      final isFinalEvent = index == timelineEvents.length - 1;
 
                       // Dot color
-                      final dotColor = isFirst
-                          ? const Color(0xFF16A34A)
-                          : (isLast
-                                ? const Color(0xFFEF4444)
-                                : (isStopped
-                                      ? const Color(0xFFD97706)
-                                      : const Color(0xFF1677FF)));
-
-                      final titleLabel = isFirst
-                          ? 'Bắt đầu'
-                          : (isLast
-                                ? 'Kết thúc'
-                                : (isStopped ? 'Điểm dừng' : 'Di chuyển'));
-
-                      final speedLabel = s.speedMps != null
-                          ? '${(s.speedMps! * 3.6).toStringAsFixed(0)} km/h'
-                          : '';
+                      final dotColor = event.color;
+                      final titleLabel = event.title;
 
                       return InkWell(
                         onTap: () => onSelectSample(s),
                         borderRadius: BorderRadius.circular(6),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: IntrinsicHeight(
                           child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              // Timeline vertical line + dot
+                              // Đường timeline chạy xuyên chính giữa node.
                               SizedBox(
                                 width: 20,
-                                child: Column(
-                                  children: [
-                                    Container(
-                                      width: 8,
-                                      height: 8,
-                                      margin: const EdgeInsets.only(top: 3),
-                                      decoration: BoxDecoration(
-                                        color: dotColor,
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: Colors.white,
-                                          width: 1.5,
-                                        ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: dotColor.withValues(
-                                              alpha: 0.3,
-                                            ),
-                                            blurRadius: 3,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    if (!isLast)
-                                      Container(
-                                        width: 1.5,
-                                        height: 28,
-                                        color: const Color(0xFFE2E8F0),
-                                      ),
-                                  ],
+                                child: CustomPaint(
+                                  painter: _JourneyTimelineRailPainter(
+                                    nodeColor: dotColor,
+                                    drawTop: !isFirstEvent,
+                                    drawBottom: !isFinalEvent,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 6),
 
                               // Content
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Flexible(
-                                          child: Text(
-                                            timeFormat.format(
-                                              s.measuredAt.toLocal(),
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontSize: 11.5,
-                                              fontWeight: FontWeight.w700,
-                                              color: _refText,
-                                            ),
-                                          ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 6,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        timeFormat.format(
+                                          s.measuredAt.toLocal(),
                                         ),
-                                        if (speedLabel.isNotEmpty &&
-                                            !isFirst &&
-                                            !isLast) ...[
-                                          const SizedBox(width: 4),
+                                        style: const TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: _refText,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 1),
+                                      Wrap(
+                                        crossAxisAlignment:
+                                            WrapCrossAlignment.center,
+                                        children: [
                                           Text(
-                                            speedLabel,
-                                            style: const TextStyle(
-                                              fontSize: 11,
-                                              color: _refMuted,
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Flexible(
-                                          child: Text(
                                             titleLabel,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
                                             style: TextStyle(
                                               fontSize: 10.5,
                                               fontWeight: FontWeight.w600,
                                               color: dotColor,
                                             ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Flexible(
-                                          child: Text(
-                                            '${s.latitude.toStringAsFixed(4)}, ${s.longitude.toStringAsFixed(4)}',
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
+                                          Text(
+                                            ' · ${event.detail}',
                                             style: const TextStyle(
                                               fontSize: 9.5,
                                               color: _refMuted,
                                             ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                                        ],
+                                      ),
+                                      const SizedBox(height: 3),
+                                      _JourneyEventAddress(sample: s),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],
@@ -4931,6 +4944,222 @@ class _JourneyTimelineCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _JourneyTimelineRailPainter extends CustomPainter {
+  const _JourneyTimelineRailPainter({
+    required this.nodeColor,
+    required this.drawTop,
+    required this.drawBottom,
+  });
+
+  final Color nodeColor;
+  final bool drawTop;
+  final bool drawBottom;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const nodeY = 12.0;
+    final centerX = size.width / 2;
+    final linePaint = Paint()
+      ..color = const Color(0xFFE2E8F0)
+      ..strokeWidth = 1.5;
+
+    if (drawTop) {
+      canvas.drawLine(Offset(centerX, 0), Offset(centerX, nodeY), linePaint);
+    }
+    if (drawBottom) {
+      canvas.drawLine(
+        Offset(centerX, nodeY),
+        Offset(centerX, size.height),
+        linePaint,
+      );
+    }
+
+    canvas.drawCircle(Offset(centerX, nodeY), 5, Paint()..color = Colors.white);
+    canvas.drawCircle(Offset(centerX, nodeY), 3.5, Paint()..color = nodeColor);
+  }
+
+  @override
+  bool shouldRepaint(covariant _JourneyTimelineRailPainter oldDelegate) {
+    return oldDelegate.nodeColor != nodeColor ||
+        oldDelegate.drawTop != drawTop ||
+        oldDelegate.drawBottom != drawBottom;
+  }
+}
+
+enum _JourneyTimelineEventType { start, moving, parked, dataRestored, end }
+
+class _JourneyTimelineEvent {
+  const _JourneyTimelineEvent({
+    required this.sample,
+    required this.type,
+    required this.detail,
+  });
+
+  final LocationModel sample;
+  final _JourneyTimelineEventType type;
+  final String detail;
+
+  String get title => switch (type) {
+    _JourneyTimelineEventType.start => 'Bắt đầu hành trình',
+    _JourneyTimelineEventType.moving => 'Mốc địa điểm',
+    _JourneyTimelineEventType.parked => 'Đỗ xe',
+    _JourneyTimelineEventType.dataRestored => 'Có lại dữ liệu vị trí',
+    _JourneyTimelineEventType.end => 'Kết thúc hành trình',
+  };
+
+  Color get color => switch (type) {
+    _JourneyTimelineEventType.start => const Color(0xFF16A34A),
+    _JourneyTimelineEventType.moving => const Color(0xFF1677FF),
+    _JourneyTimelineEventType.parked => const Color(0xFFEA580C),
+    _JourneyTimelineEventType.dataRestored => const Color(0xFF64748B),
+    _JourneyTimelineEventType.end => const Color(0xFFEF4444),
+  };
+}
+
+List<_JourneyTimelineEvent> _buildJourneyTimelineEvents(
+  JourneyHistoryState state,
+) {
+  final samples = state.validSamples;
+  if (samples.isEmpty) return const [];
+
+  String sampleKey(LocationModel sample) {
+    return '${sample.id}:${sample.measuredAt.microsecondsSinceEpoch}:'
+        '${sample.latitude}:${sample.longitude}';
+  }
+
+  final eventsBySample = <String, _JourneyTimelineEvent>{};
+  final first = samples.first;
+  final last = samples.last;
+
+  // Dùng đúng tập node đang hiển thị trên bản đồ để timeline và bản đồ luôn
+  // khớp nhau, kể cả khi thiết bị không gửi trường tốc độ.
+  for (final node in HistoryMapLayers.extractRouteNodes(samples)) {
+    if (node.type != JourneyRouteNodeType.place) continue;
+    final sample = node.sample;
+    eventsBySample.putIfAbsent(
+      sampleKey(sample),
+      () => _JourneyTimelineEvent(
+        sample: sample,
+        type: _JourneyTimelineEventType.moving,
+        detail: sample.speedMps != null
+            ? DeviceFormatters.speedMps(sample.speedMps)
+            : 'Mốc trên lộ trình',
+      ),
+    );
+  }
+
+  // Một phân đoạn mới bắt đầu nghĩa là trước đó có khoảng mất dữ liệu.
+  for (var i = 1; i < state.segments.length; i++) {
+    final previous = state.segments[i - 1];
+    final current = state.segments[i];
+    if (previous.samples.isEmpty || current.samples.isEmpty) continue;
+    final restoredAt = current.samples.first;
+    final gap = restoredAt.measuredAt.difference(
+      previous.samples.last.measuredAt,
+    );
+    eventsBySample[sampleKey(restoredAt)] = _JourneyTimelineEvent(
+      sample: restoredAt,
+      type: _JourneyTimelineEventType.dataRestored,
+      detail: 'Gián đoạn ${DeviceFormatters.secondsDuration(gap.inSeconds)}',
+    );
+  }
+
+  // Điểm đỗ có ý nghĩa hơn mốc di chuyển nếu cùng rơi vào một mẫu GPS.
+  for (final stop in HistoryMapLayers.extractStopAndParkPoints(samples)) {
+    if (!stop.isPark) continue;
+    eventsBySample[sampleKey(stop.sample)] = _JourneyTimelineEvent(
+      sample: stop.sample,
+      type: _JourneyTimelineEventType.parked,
+      detail: stop.durationLabel,
+    );
+  }
+
+  eventsBySample[sampleKey(first)] = _JourneyTimelineEvent(
+    sample: first,
+    type: _JourneyTimelineEventType.start,
+    detail: 'Điểm xuất phát',
+  );
+  if (samples.length > 1) {
+    eventsBySample[sampleKey(last)] = _JourneyTimelineEvent(
+      sample: last,
+      type: _JourneyTimelineEventType.end,
+      detail: 'Điểm đến cuối cùng',
+    );
+  }
+
+  final events = eventsBySample.values.toList()
+    ..sort((a, b) => a.sample.measuredAt.compareTo(b.sample.measuredAt));
+  return events;
+}
+
+class _JourneyEventAddress extends StatefulWidget {
+  const _JourneyEventAddress({required this.sample});
+
+  final LocationModel sample;
+
+  @override
+  State<_JourneyEventAddress> createState() => _JourneyEventAddressState();
+}
+
+class _JourneyEventAddressState extends State<_JourneyEventAddress> {
+  late Future<String?> _addressFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveAddress();
+  }
+
+  @override
+  void didUpdateWidget(covariant _JourneyEventAddress oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.sample.latitude != widget.sample.latitude ||
+        oldWidget.sample.longitude != widget.sample.longitude) {
+      _resolveAddress();
+    }
+  }
+
+  void _resolveAddress() {
+    _addressFuture = context.read<GeocodingRepository>().reverseAddress(
+      widget.sample.latitude,
+      widget.sample.longitude,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String?>(
+      future: _addressFuture,
+      builder: (context, snapshot) {
+        final address = snapshot.data?.trim();
+        final text = snapshot.connectionState == ConnectionState.waiting
+            ? 'Đang xác định địa điểm...'
+            : address != null && address.isNotEmpty
+            ? address
+            : '${widget.sample.latitude.toStringAsFixed(6)}, '
+                  '${widget.sample.longitude.toStringAsFixed(6)}';
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.location_on_outlined, size: 12, color: _refMuted),
+            const SizedBox(width: 3),
+            Expanded(
+              child: Text(
+                text,
+                style: const TextStyle(
+                  fontSize: 9.5,
+                  color: _refMuted,
+                  height: 1.25,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -4950,29 +5179,82 @@ class _DeviceJourneyMapView extends StatefulWidget {
 
 class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
   final MapController _mapController = MapController();
+  final Map<String, String> _nodeAddresses = {};
   bool _mapReady = false;
+  bool _didRequestInitialAddresses = false;
+  int _addressRequestVersion = 0;
   double _currentZoom = 14.0;
   bool _isSatellite = false;
+  bool _showRouteLabels = true;
   static const LatLng _defaultCenter = LatLng(21.0285, 105.8542);
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_didRequestInitialAddresses) {
+      _didRequestInitialAddresses = true;
+      _loadNodeAddresses(widget.state.validSamples);
+    }
+  }
 
   @override
   void didUpdateWidget(covariant _DeviceJourneyMapView oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (!_mapReady) return;
-
     final oldSamples = oldWidget.state.validSamples;
     final newSamples = widget.state.validSamples;
 
     if (oldSamples != newSamples && newSamples.isNotEmpty) {
-      _fitRouteBounds(newSamples);
+      _loadNodeAddresses(newSamples);
+      if (_mapReady) {
+        _fitRouteBounds(newSamples);
+      }
     }
 
-    if (widget.state.followCamera && widget.state.currentPosition != null) {
+    if (_mapReady &&
+        widget.state.followCamera &&
+        widget.state.currentPosition != null) {
       if (widget.state.isPlaying || widget.state.isCompleted) {
         _mapController.move(widget.state.currentPosition!, _currentZoom);
       }
     }
+  }
+
+  Future<void> _loadNodeAddresses(List<LocationModel> samples) async {
+    final nodes = HistoryMapLayers.extractRouteNodes(samples);
+    if (nodes.isEmpty) return;
+
+    final missing = <JourneyRouteNode>[];
+    final queuedKeys = <String>{};
+    for (final node in nodes) {
+      final key = HistoryMapLayers.routeNodeKey(node.sample);
+      if (!_nodeAddresses.containsKey(key) && queuedKeys.add(key)) {
+        missing.add(node);
+      }
+    }
+    if (missing.isEmpty) return;
+
+    final requestVersion = ++_addressRequestVersion;
+    final repository = context.read<GeocodingRepository>();
+    final results = await Future.wait(
+      missing.map((node) async {
+        final address = await repository.reverseAddress(
+          node.sample.latitude,
+          node.sample.longitude,
+        );
+        return MapEntry(HistoryMapLayers.routeNodeKey(node.sample), address);
+      }),
+    );
+    if (!mounted || requestVersion != _addressRequestVersion) return;
+
+    setState(() {
+      for (final result in results) {
+        final address = result.value?.trim();
+        if (address != null && address.isNotEmpty) {
+          _nodeAddresses[result.key] = address;
+        }
+      }
+    });
   }
 
   void _fitRouteBounds(List<LocationModel> samples) {
@@ -5040,6 +5322,7 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
               _mapReady = true;
               if (state.validSamples.isNotEmpty) {
                 _fitRouteBounds(state.validSamples);
+                _loadNodeAddresses(state.validSamples);
               }
             },
             onPositionChanged: (camera, hasGesture) {
@@ -5067,10 +5350,17 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
             // Polyline Layer cho lộ trình
             if (state.segments.isNotEmpty)
               PolylineLayer(
-                polylines: HistoryMapLayers.buildPolylines(
-                  segments: state.segments,
-                  primaryColor: _refPrimaryBlue,
-                ),
+                polylines: [
+                  ...HistoryMapLayers.buildGapPolylines(
+                    segments: state.segments,
+                    currentZoom: _currentZoom,
+                  ),
+                  ...HistoryMapLayers.buildPolylines(
+                    segments: state.segments,
+                    primaryColor: _refPrimaryBlue,
+                    currentZoom: _currentZoom,
+                  ),
+                ],
               ),
 
             // Mũi tên chỉ hướng di chuyển
@@ -5079,23 +5369,24 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
                 markers: HistoryMapLayers.buildDirectionArrows(
                   segments: state.segments,
                   currentZoom: _currentZoom,
-                  arrowColor: const Color(0xFF0F172A),
+                  arrowColor: Colors.white,
                 ),
               ),
 
-            // Các mốc GPS: Start, End, Waypoints chống chồng chéo Google Maps style (đầy đủ ngày tháng năm)
+            // Node hành trình luôn hiển thị: xuất phát, địa điểm, đỗ xe, kết thúc.
             if (state.validSamples.isNotEmpty)
               MarkerLayer(
                 markers: HistoryMapLayers.buildSamplePoints(
                   validSamples: state.validSamples,
                   onPointSelected: widget.onPointSelected,
-                  theme: theme,
-                  currentZoom: _currentZoom,
+                  nodeAddresses: _nodeAddresses,
+                  showLabels: _showRouteLabels,
                 ),
               ),
 
             // Replay Device Marker
-            if (state.currentPosition != null)
+            if (state.currentPosition != null &&
+                (state.isPlaying || state.isPaused || state.isCompleted))
               MarkerLayer(
                 markers: [
                   HistoryMapLayers.buildReplayMarker(
@@ -5116,14 +5407,14 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
               if (!_mapReady) return;
               _mapController.move(
                 _mapController.camera.center,
-                _currentZoom + 1,
+                (_currentZoom + 1).clamp(4.0, 19.0),
               );
             },
             onZoomOut: () {
               if (!_mapReady) return;
               _mapController.move(
                 _mapController.camera.center,
-                _currentZoom - 1,
+                (_currentZoom - 1).clamp(4.0, 19.0),
               );
             },
             onFitBounds: () {
@@ -5133,6 +5424,9 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
             },
             onToggleMapType: () => setState(() => _isSatellite = !_isSatellite),
             isSatellite: _isSatellite,
+            onToggleLabels: () =>
+                setState(() => _showRouteLabels = !_showRouteLabels),
+            showLabels: _showRouteLabels,
           ),
         ),
 
@@ -5244,14 +5538,18 @@ class _MapZoomControls extends StatelessWidget {
   final VoidCallback onZoomOut;
   final VoidCallback onFitBounds;
   final VoidCallback onToggleMapType;
+  final VoidCallback onToggleLabels;
   final bool isSatellite;
+  final bool showLabels;
 
   const _MapZoomControls({
     required this.onZoomIn,
     required this.onZoomOut,
     required this.onFitBounds,
     required this.onToggleMapType,
+    required this.onToggleLabels,
     required this.isSatellite,
+    required this.showLabels,
   });
 
   @override
@@ -5266,21 +5564,33 @@ class _MapZoomControls extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                icon: const Icon(Icons.add_rounded, size: 18, color: _refPrimaryBlue),
+                icon: const Icon(
+                  Icons.add_rounded,
+                  size: 18,
+                  color: _refPrimaryBlue,
+                ),
                 tooltip: 'Phóng to',
                 onPressed: onZoomIn,
                 visualDensity: VisualDensity.compact,
               ),
               const SizedBox(width: 28, child: Divider(height: 1)),
               IconButton(
-                icon: const Icon(Icons.remove_rounded, size: 18, color: _refPrimaryBlue),
+                icon: const Icon(
+                  Icons.remove_rounded,
+                  size: 18,
+                  color: _refPrimaryBlue,
+                ),
                 tooltip: 'Thu nhỏ',
                 onPressed: onZoomOut,
                 visualDensity: VisualDensity.compact,
               ),
               const SizedBox(width: 28, child: Divider(height: 1)),
               IconButton(
-                icon: const Icon(Icons.fit_screen_rounded, size: 16, color: _refPrimaryBlue),
+                icon: const Icon(
+                  Icons.fit_screen_rounded,
+                  size: 16,
+                  color: _refPrimaryBlue,
+                ),
                 tooltip: 'Vừa toàn bộ lộ trình',
                 onPressed: onFitBounds,
                 visualDensity: VisualDensity.compact,
@@ -5289,20 +5599,38 @@ class _MapZoomControls extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        // Cụm 2: Chuyển đổi mode bản đồ riêng biệt
+        // Cụm 2: Kiểu bản đồ và bật/tắt nhãn node hành trình
         Container(
           decoration: _boxDecoration(),
-          child: IconButton(
-            icon: Icon(
-              isSatellite ? Icons.map_rounded : Icons.satellite_alt_rounded,
-              size: 18,
-              color: _refPrimaryBlue,
-            ),
-            tooltip: isSatellite
-                ? 'Chuyển sang bản đồ đường phố'
-                : 'Chuyển sang bản đồ vệ tinh',
-            onPressed: onToggleMapType,
-            visualDensity: VisualDensity.compact,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: Icon(
+                  isSatellite ? Icons.map_rounded : Icons.satellite_alt_rounded,
+                  size: 18,
+                  color: _refPrimaryBlue,
+                ),
+                tooltip: isSatellite
+                    ? 'Chuyển sang bản đồ đường phố'
+                    : 'Chuyển sang bản đồ vệ tinh',
+                onPressed: onToggleMapType,
+                visualDensity: VisualDensity.compact,
+              ),
+              const SizedBox(width: 28, child: Divider(height: 1)),
+              IconButton(
+                icon: Icon(
+                  showLabels ? Icons.label_off_rounded : Icons.label_rounded,
+                  size: 18,
+                  color: _refPrimaryBlue,
+                ),
+                tooltip: showLabels
+                    ? 'Ẩn nhãn mốc hành trình'
+                    : 'Hiện nhãn mốc hành trình',
+                onPressed: onToggleLabels,
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
           ),
         ),
       ],
@@ -5777,8 +6105,6 @@ class _ShareLocationInlineButton extends StatelessWidget {
     );
   }
 }
-
-
 
 List<PopupMenuEntry<String>> _shareLocationMenuItems(
   BuildContext context,

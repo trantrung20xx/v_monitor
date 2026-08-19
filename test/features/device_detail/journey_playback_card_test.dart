@@ -14,64 +14,97 @@ import 'package:v_monitor/data/repositories/tracking_repository.dart';
 import 'package:v_monitor/features/device_detail/device_detail_page.dart';
 
 void main() {
-  testWidgets('DeviceDetailPage Journey tab renders 30s step buttons and 16x speed option', (tester) async {
-    tester.view.physicalSize = const Size(1280, 800);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(() {
-      tester.view.resetPhysicalSize();
-      tester.view.resetDevicePixelRatio();
-    });
+  testWidgets(
+    'DeviceDetailPage Journey tab renders 30s step buttons and 16x speed option',
+    (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
 
-    final deviceRepo = _FakeDeviceRepository();
-    final trackingRepo = _FakeTrackingRepository();
-    final geocodingRepo = _FakeGeocodingRepository();
+      final deviceRepo = _FakeDeviceRepository();
+      final trackingRepo = _FakeTrackingRepository();
+      final geocodingRepo = _FakeGeocodingRepository();
 
-    final t0 = DateTime(2026, 8, 16, 8, 0, 0);
-    final t1 = DateTime(2026, 8, 16, 8, 2, 0);
+      final t0 = DateTime(2026, 8, 16, 8, 0, 0);
+      final t1 = DateTime(2026, 8, 16, 8, 2, 0);
 
-    trackingRepo.historyResponse = LocationHistoryResponse(
-      deviceId: 'device-100',
-      fromTime: t0,
-      toTime: t1,
-      samples: [
-        LocationModel(id: '1', deviceId: 'device-100', measuredAt: t0, latitude: 21.00, longitude: 105.00),
-        LocationModel(id: '2', deviceId: 'device-100', measuredAt: t1, latitude: 21.01, longitude: 105.01),
-      ],
-      totalCount: 2,
-    );
-
-    await tester.pumpWidget(
-      MultiRepositoryProvider(
-        providers: [
-          RepositoryProvider<DeviceRepository>.value(value: deviceRepo),
-          RepositoryProvider<TrackingRepository>.value(value: trackingRepo),
-          RepositoryProvider<GeocodingRepository>.value(value: geocodingRepo),
+      trackingRepo.historyResponse = LocationHistoryResponse(
+        deviceId: 'device-100',
+        fromTime: t0,
+        toTime: t1,
+        samples: [
+          LocationModel(
+            id: '1',
+            deviceId: 'device-100',
+            measuredAt: t0,
+            latitude: 21.00,
+            longitude: 105.00,
+          ),
+          LocationModel(
+            id: '2',
+            deviceId: 'device-100',
+            measuredAt: t1,
+            latitude: 21.01,
+            longitude: 105.01,
+          ),
         ],
-        child: MaterialApp(
-          theme: AppTheme.light,
-          home: const DeviceDetailPage(deviceId: 'device-100'),
+        totalCount: 2,
+      );
+
+      await tester.pumpWidget(
+        MultiRepositoryProvider(
+          providers: [
+            RepositoryProvider<DeviceRepository>.value(value: deviceRepo),
+            RepositoryProvider<TrackingRepository>.value(value: trackingRepo),
+            RepositoryProvider<GeocodingRepository>.value(value: geocodingRepo),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: const DeviceDetailPage(deviceId: 'device-100'),
+          ),
         ),
-      ),
-    );
+      );
 
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    // Switch to Journey tab (Hành trình)
-    await tester.tap(find.text('Hành trình').first);
-    await tester.pumpAndSettle();
+      // Switch to Journey tab (Hành trình)
+      await tester.tap(find.text('Hành trình').first);
+      await tester.pumpAndSettle();
 
-    // Verify 60s and 30s replay buttons and speed
-    expect(find.byIcon(Icons.fast_rewind_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.replay_30_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.forward_30_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.fast_forward_rounded), findsOneWidget);
-    expect(find.text('1x'), findsWidgets);
+      // Timeline và nhãn bản đồ mô tả đầy đủ các node của lộ trình.
+      expect(find.text('Lộ trình'), findsNothing);
+      expect(find.text('Hướng đi'), findsNothing);
+      expect(find.text('Đỗ từ 5 phút'), findsNothing);
+      expect(find.text('Lộ trình di chuyển'), findsOneWidget);
+      expect(find.text('16/08/2026 · 08:00:00'), findsWidgets);
+      expect(find.text('16/08/2026 · 08:02:00'), findsWidgets);
+      expect(find.byTooltip('Ẩn nhãn mốc hành trình'), findsOneWidget);
+      expect(find.text('Số lần đỗ xe'), findsOneWidget);
+      expect(find.text('Số mẫu GPS'), findsNothing);
+      expect(find.text('Vị trí GPS'), findsOneWidget);
+      expect(find.textContaining('Hướng di chuyển'), findsNothing);
+      expect(find.text('Hà Nội'), findsWidgets);
 
-    // Tap speed dropdown
-    await tester.tap(find.text('1x').first);
-    await tester.pumpAndSettle();
-    expect(find.text('16x'), findsWidgets);
-  });
+      await tester.tap(find.byTooltip('Ẩn nhãn mốc hành trình'));
+      await tester.pump();
+      expect(find.byTooltip('Hiện nhãn mốc hành trình'), findsOneWidget);
+
+      // Verify 60s and 30s replay buttons and speed
+      expect(find.byIcon(Icons.fast_rewind_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.replay_30_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.forward_30_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.fast_forward_rounded), findsOneWidget);
+      expect(find.text('1x'), findsWidgets);
+
+      // Tap speed dropdown
+      await tester.tap(find.text('1x').first);
+      await tester.pumpAndSettle();
+      expect(find.text('16x'), findsWidgets);
+    },
+  );
 }
 
 class _FakeDeviceRepository extends DeviceRepository {
@@ -120,5 +153,6 @@ class _FakeGeocodingRepository extends GeocodingRepository {
   _FakeGeocodingRepository() : super(ApiClient());
 
   @override
-  Future<String?> reverseAddress(double latitude, double longitude) async => 'Hà Nội';
+  Future<String?> reverseAddress(double latitude, double longitude) async =>
+      'Hà Nội';
 }
