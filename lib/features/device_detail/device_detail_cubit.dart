@@ -207,7 +207,7 @@ class DeviceDetailCubit extends Cubit<DeviceDetailState> {
           locations: results[2] as List<LocationModel>,
           rangeFrom: from,
           rangeTo: to,
-          clearAddress: true,
+          clearAddress: device?.latitude == null || device?.longitude == null,
         ),
       );
 
@@ -282,7 +282,7 @@ class DeviceDetailCubit extends Cubit<DeviceDetailState> {
       state.copyWith(
         device: updatedDevice,
         locations: updatedLocations,
-        clearAddress: previousKey != nextKey,
+        clearAddress: nextKey == null,
       ),
     );
 
