@@ -2961,6 +2961,7 @@ class _JourneyTabState extends State<_JourneyTab> {
               final width = constraints.maxWidth;
               final padding = width < 720 ? 12.0 : 20.0;
               final isDesktop = width >= 1100;
+              const desktopMainPanelHeight = 596.0;
 
               return ListView(
                 padding: EdgeInsets.all(padding),
@@ -2993,66 +2994,72 @@ class _JourneyTabState extends State<_JourneyTab> {
 
                           // ─── TẦNG 3: Vùng Vận Hành Chính (Main Area) ─────────
                           if (isDesktop)
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // CỘT TRÁI (~77%): Map + Playback + Current Info
-                                Expanded(
-                                  flex: 77,
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      // 1. Map Card
-                                      _JourneyMapCard(
-                                        state: state,
-                                        height: 380,
-                                        onPointSelected: (pt) =>
-                                            _cubit.selectPoint(pt),
+                            SizedBox(
+                              height: desktopMainPanelHeight,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  // CỘT TRÁI (~77%): Map tự co + Playback + Current Info
+                                  Expanded(
+                                    flex: 77,
+                                    child: Column(
+                                      key: const Key(
+                                        'journey-desktop-left-panel',
                                       ),
-                                      const SizedBox(height: 10),
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        // 1. Map nhận toàn bộ chiều cao còn lại.
+                                        Expanded(
+                                          child: _JourneyMapCard(
+                                            state: state,
+                                            onPointSelected: (pt) =>
+                                                _cubit.selectPoint(pt),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 10),
 
-                                      // 2. Playback Card
-                                      _JourneyPlaybackCard(
-                                        state: state,
-                                        onPlay: () => _cubit.play(),
-                                        onPause: () => _cubit.pause(),
-                                        onResume: () => _cubit.resume(),
-                                        onReset: () => _cubit.reset(),
-                                        onStepBackward30s: _stepBackward30s,
-                                        onStepBackward60s: _stepBackward60s,
-                                        onStepForward30s: _stepForward30s,
-                                        onStepForward60s: _stepForward60s,
-                                        onSeekProgress: (p) =>
-                                            _cubit.seekToProgress(p),
-                                        onSpeedChanged: (s) =>
-                                            _cubit.setPlaybackSpeed(s),
-                                        onFollowChanged: (f) =>
-                                            _cubit.toggleFollowCamera(f),
-                                      ),
-                                      const SizedBox(height: 10),
+                                        // 2. Playback Card
+                                        _JourneyPlaybackCard(
+                                          state: state,
+                                          onPlay: () => _cubit.play(),
+                                          onPause: () => _cubit.pause(),
+                                          onResume: () => _cubit.resume(),
+                                          onReset: () => _cubit.reset(),
+                                          onStepBackward30s: _stepBackward30s,
+                                          onStepBackward60s: _stepBackward60s,
+                                          onStepForward30s: _stepForward30s,
+                                          onStepForward60s: _stepForward60s,
+                                          onSeekProgress: (p) =>
+                                              _cubit.seekToProgress(p),
+                                          onSpeedChanged: (s) =>
+                                              _cubit.setPlaybackSpeed(s),
+                                          onFollowChanged: (f) =>
+                                              _cubit.toggleFollowCamera(f),
+                                        ),
+                                        const SizedBox(height: 10),
 
-                                      // 3. Current Info Card
-                                      _JourneyCurrentInfoCard(state: state),
-                                    ],
+                                        // 3. Current Info Card
+                                        _JourneyCurrentInfoCard(state: state),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 12),
+                                  const SizedBox(width: 12),
 
-                                // CỘT PHẢI (~23%): Vertical Timeline
-                                Expanded(
-                                  flex: 23,
-                                  child: _JourneyTimelineCard(
-                                    state: state,
-                                    height:
-                                        596, // Cân đối hoàn hảo với tổng chiều cao cột trái
-                                    onSelectSample: (s) {
-                                      _cubit.seekToTime(s.measuredAt);
-                                      _cubit.selectPoint(s);
-                                    },
+                                  // CỘT PHẢI (~23%): Vertical Timeline
+                                  Expanded(
+                                    flex: 23,
+                                    child: _JourneyTimelineCard(
+                                      key: const Key('journey-timeline-card'),
+                                      state: state,
+                                      onSelectSample: (s) {
+                                        _cubit.seekToTime(s.measuredAt);
+                                        _cubit.selectPoint(s);
+                                      },
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             )
                           else
                             // Layout xếp tầng dọc cho Mobile / Tablet
@@ -3784,12 +3791,12 @@ class _MetricItemData {
 class _JourneyMapCard extends StatelessWidget {
   const _JourneyMapCard({
     required this.state,
-    required this.height,
     required this.onPointSelected,
+    this.height,
   });
 
   final JourneyHistoryState state;
-  final double height;
+  final double? height;
   final ValueChanged<LocationModel?> onPointSelected;
 
   @override
@@ -3800,6 +3807,7 @@ class _JourneyMapCard extends StatelessWidget {
         : HistoryMapLayers.findStopPoint(state.validSamples, selectedPoint);
 
     return Container(
+      key: const Key('journey-map-card-surface'),
       height: height,
       decoration: BoxDecoration(
         color: _refSurface,
@@ -4419,8 +4427,7 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
         state.currentPosition ??
         (sample != null ? LatLng(sample.latitude, sample.longitude) : null);
     final gpsPositionText = position != null
-        ? 'Lat: ${position.latitude.toStringAsFixed(6)} · '
-              'Lng: ${position.longitude.toStringAsFixed(6)}'
+        ? DeviceFormatters.coordinates(position.latitude, position.longitude)
         : '--';
     final gpsDetails = <String>[
       if (sample?.accuracyM != null)
@@ -4749,13 +4756,14 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
 
 class _JourneyTimelineCard extends StatelessWidget {
   const _JourneyTimelineCard({
+    super.key,
     required this.state,
-    required this.height,
     required this.onSelectSample,
+    this.height,
   });
 
   final JourneyHistoryState state;
-  final double height;
+  final double? height;
   final ValueChanged<LocationModel> onSelectSample;
 
   @override
@@ -5121,8 +5129,10 @@ class _JourneyEventAddressState extends State<_JourneyEventAddress> {
             ? 'Đang xác định địa điểm...'
             : address != null && address.isNotEmpty
             ? address
-            : '${widget.sample.latitude.toStringAsFixed(6)}, '
-                  '${widget.sample.longitude.toStringAsFixed(6)}';
+            : DeviceFormatters.coordinates(
+                widget.sample.latitude,
+                widget.sample.longitude,
+              );
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

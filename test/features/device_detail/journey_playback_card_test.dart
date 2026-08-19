@@ -74,6 +74,17 @@ void main() {
       await tester.tap(find.text('Hành trình').first);
       await tester.pumpAndSettle();
 
+      final leftPanel = find.byKey(const Key('journey-desktop-left-panel'));
+      final timelinePanel = find.byKey(const Key('journey-timeline-card'));
+      final mapPanel = find.byKey(const Key('journey-map-card-surface'));
+      expect(tester.getSize(leftPanel).height, 596);
+      expect(tester.getSize(timelinePanel).height, 596);
+      expect(
+        tester.getBottomLeft(leftPanel).dy,
+        closeTo(tester.getBottomLeft(timelinePanel).dy, 0.01),
+      );
+      expect(tester.getSize(mapPanel).height, lessThan(596));
+
       // Timeline và nhãn bản đồ mô tả đầy đủ các node của lộ trình.
       expect(find.text('Lộ trình'), findsNothing);
       expect(find.text('Hướng đi'), findsNothing);
@@ -88,6 +99,7 @@ void main() {
       expect(find.textContaining('chặng'), findsNothing);
       expect(find.text('Số mẫu GPS'), findsNothing);
       expect(find.text('Vị trí GPS'), findsOneWidget);
+      expect(find.text('21.00000° N, 105.00000° E'), findsOneWidget);
       expect(find.textContaining('Hướng di chuyển'), findsNothing);
       expect(find.text('Hà Nội'), findsWidgets);
 
@@ -103,6 +115,8 @@ void main() {
       expect(find.text('1x'), findsWidgets);
 
       // Tap speed dropdown
+      await tester.ensureVisible(find.text('1x').first);
+      await tester.pumpAndSettle();
       await tester.tap(find.text('1x').first);
       await tester.pumpAndSettle();
       expect(find.text('16x'), findsWidgets);

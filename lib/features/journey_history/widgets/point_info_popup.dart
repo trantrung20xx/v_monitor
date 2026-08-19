@@ -194,9 +194,10 @@ class _PointInfoPopupState extends State<PointInfoPopup> {
                     _PopupInfoRow(
                       icon: Icons.my_location_rounded,
                       label: 'Tọa độ',
-                      value:
-                          '${point.latitude.toStringAsFixed(6)}, '
-                          '${point.longitude.toStringAsFixed(6)}',
+                      value: DeviceFormatters.coordinates(
+                        point.latitude,
+                        point.longitude,
+                      ),
                       accentColor: accentColor,
                     ),
                   ],

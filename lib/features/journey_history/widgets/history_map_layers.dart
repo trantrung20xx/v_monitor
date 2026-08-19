@@ -620,8 +620,7 @@ class HistoryMapLayers {
     Map<String, String> nodeAddresses,
   ) {
     return nodeAddresses[routeNodeKey(sample)] ??
-        '${sample.latitude.toStringAsFixed(6)}, '
-            '${sample.longitude.toStringAsFixed(6)}';
+        DeviceFormatters.coordinates(sample.latitude, sample.longitude);
   }
 
   static Widget _buildPlaceNodeWidget({

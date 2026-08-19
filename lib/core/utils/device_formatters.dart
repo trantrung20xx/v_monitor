@@ -108,18 +108,17 @@ class DeviceFormatters {
   }
 
   static String coordinatePair(double? latitude, double? longitude) {
-    if (latitude == null || longitude == null) return '--';
-    return '${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}';
+    return coordinates(latitude, longitude);
   }
 
   static String latitudeText(double latitude) {
     final direction = latitude >= 0 ? 'N' : 'S';
-    return '${latitude.abs().toStringAsFixed(6)}° $direction';
+    return '${latitude.abs().toStringAsFixed(5)}° $direction';
   }
 
   static String longitudeText(double longitude) {
     final direction = longitude >= 0 ? 'E' : 'W';
-    return '${longitude.abs().toStringAsFixed(6)}° $direction';
+    return '${longitude.abs().toStringAsFixed(5)}° $direction';
   }
 
   static String location(DeviceModel device, String? address) {
@@ -174,10 +173,7 @@ class DeviceFormatters {
       return (firstLine, secondLine);
     }
     if (latitude != null && longitude != null) {
-      return (
-        '${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}',
-        '',
-      );
+      return (coordinates(latitude, longitude), '');
     }
     return ('Chưa có dữ liệu vị trí', '');
   }

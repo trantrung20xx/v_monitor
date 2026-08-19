@@ -36,7 +36,7 @@ void main() {
     expect(find.text('Tốc độ:'), findsOneWidget);
     expect(find.text('Địa chỉ:'), findsOneWidget);
     expect(find.text('Tọa độ:'), findsOneWidget);
-    expect(find.text('21.028511, 105.854211'), findsOneWidget);
+    expect(find.text('21.02851° N, 105.85421° E'), findsOneWidget);
     expect(find.text('45 km/h'), findsOneWidget);
     expect(find.textContaining('Hướng di chuyển'), findsNothing);
     expect(find.byIcon(Icons.close_rounded), findsOneWidget);

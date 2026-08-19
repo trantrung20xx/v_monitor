@@ -5,23 +5,20 @@ void main() {
   test('coordinates include precision and hemisphere labels', () {
     expect(
       DeviceFormatters.coordinates(21.147, 105.8048),
-      '21.147000° N, 105.804800° E',
+      '21.14700° N, 105.80480° E',
     );
     expect(
       DeviceFormatters.coordinates(-21.147, -105.8048),
-      '21.147000° S, 105.804800° W',
+      '21.14700° S, 105.80480° W',
     );
   });
 
-  test(
-    'coordinatePair uses decimal latitude and longitude for operations UI',
-    () {
-      expect(
-        DeviceFormatters.coordinatePair(21.147, 105.8048),
-        '21.147000, 105.804800',
-      );
-    },
-  );
+  test('coordinatePair uses readable decimal degrees with hemispheres', () {
+    expect(
+      DeviceFormatters.coordinatePair(21.147, 105.8048),
+      '21.14700° N, 105.80480° E',
+    );
+  });
 
   test('heading includes Vietnamese compass direction and degree value', () {
     expect(DeviceFormatters.heading(0), 'Bắc · 0°');
