@@ -1,48 +1,50 @@
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.core.config import settings
-from contextlib import asynccontextmanager
-from app.services.mqtt_service import mqtt_service
 
-# Quản lý vòng đời của ứng dụng FastAPI.
-# Các lệnh trước từ khóa `yield` sẽ chạy khi server khởi động (Startup).
-# Các lệnh sau từ khóa `yield` sẽ chạy khi server chuẩn bị tắt (Shutdown).
+from app.core.config import settings
+from app.services.mqtt_service import mqtt_service
+from app.services.presence_service import presence_service
+
+
+logger = logging.getLogger(__name__)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Khởi động dịch vụ MQTT chạy ngầm để liên tục lắng nghe dữ liệu từ thiết bị
+    # Hai dịch vụ nền độc lập: nhận telemetry và phát hiện thiết bị mất kết nối.
+    await presence_service.start()
     try:
         await mqtt_service.start()
-    except Exception as e:
-        print(f"Lỗi khi khởi động dịch vụ MQTT: {e}")
-
+    except Exception:
+        logger.exception("Không thể khởi động MQTT; API vẫn tiếp tục phục vụ")
     yield
-
-    # Ngắt kết nối MQTT an toàn khi tắt server để không bị treo luồng (thread)
     await mqtt_service.stop()
+    await presence_service.stop()
 
-# Khởi tạo đối tượng ứng dụng FastAPI chính
+
 app = FastAPI(
     title="v_monitor Backend",
-    description="Hệ thống Backend API quản lý và theo dõi thiết bị",
+    description="Backend giám sát vị trí và trạng thái thiết bị",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
-# Cấu hình CORS (Cross-Origin Resource Sharing)
-# Cho phép ứng dụng Frontend (Flutter Web/Mobile) gọi API từ các domain khác mà không bị chặn
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
-    allow_credentials=True,
-    allow_methods=["*"], # Cho phép mọi phương thức (GET, POST, PUT, DELETE, v.v.)
-    allow_headers=["*"], # Cho phép mọi headers
+    allow_credentials=settings.cors_origin_list != ["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# Đăng ký các router (đường dẫn API) từ thư mục api/v1
 from app.api.v1.router import api_router
+
 app.include_router(api_router, prefix=settings.api_prefix)
 
-# Endpoint để kiểm tra xem server có đang hoạt động hay không
+
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}

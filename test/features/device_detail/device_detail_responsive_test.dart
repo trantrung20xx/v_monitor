@@ -50,7 +50,7 @@ void main() {
         geocodingRepo: geocodingRepo,
       );
 
-      expect(find.text('Flycam 100'), findsWidgets);
+      expect(find.text('Tay điều khiển 100'), findsWidgets);
       expect(find.text('Tổng quan'), findsOneWidget);
       expect(find.text('Hành trình'), findsWidgets);
       expect(find.text('Sự kiện'), findsOneWidget);
@@ -182,8 +182,8 @@ class _FakeDeviceRepository extends DeviceRepository {
   Future<DeviceModel?> getDevice(String id) async {
     return DeviceModel(
       id: id,
-      deviceCode: 'UAV-100',
-      name: 'Flycam 100',
+      deviceCode: 'CTRL-100',
+      name: 'Tay điều khiển 100',
       type: 'UAV_CONTROLLER',
       status: 'UNKNOWN',
       isOnline: true,

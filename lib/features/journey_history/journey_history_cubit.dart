@@ -357,7 +357,7 @@ class JourneyHistoryCubit extends Cubit<JourneyHistoryState> {
 
     final segmentGap = p2Time.difference(p1Time);
 
-    // Nếu khoảng cách giữa 2 điểm này vượt quá Gap Threshold (mất GPS / tắt máy lâu)
+    // Khoảng cách thời gian vượt ngưỡng nghĩa là GPS mất tín hiệu hoặc thiết bị tắt lâu.
     // -> Tự động nhảy thẳng tới p2 (Section 31)
     if (segmentGap > state.gapThreshold) {
       emit(state.copyWith(

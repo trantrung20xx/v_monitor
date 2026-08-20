@@ -19,6 +19,7 @@ void main() {
       longitude: 105.804817,
       currentSpeedMps: 8.4,
       currentHeadingDeg: 45.0,
+      batteryPct: 73,
       lastSeenAt: DateTime.now().subtract(const Duration(seconds: 20)),
     );
 
@@ -39,6 +40,7 @@ void main() {
     expect(find.text('Đông Bắc · 45°'), findsOneWidget);
     expect(find.text('Tốc độ'), findsOneWidget);
     expect(find.text('30 km/h'), findsOneWidget);
+    expect(find.text('73%'), findsOneWidget);
     expect(find.text('Kết nối'), findsOneWidget);
     expect(find.text('Trực tuyến'), findsOneWidget);
     expect(
@@ -62,6 +64,7 @@ void main() {
 
     expect(find.text('Xe tuần tra khu vực trung tâm'), findsOneWidget);
     expect(find.text('30 km/h'), findsOneWidget);
+    expect(find.text('73%'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -70,9 +73,9 @@ void main() {
   ) async {
     final device = DeviceModel(
       id: 'device-2',
-      deviceCode: 'UAV-EXTREME-LONG-CODE-99999',
+      deviceCode: 'CTRL-EXTREME-LONG-CODE-99999',
       name:
-          'Flycam giám sát hành trình tuần tra biên giới và cứu hộ cứu nạn trên không',
+          'Tay điều khiển giám sát hành trình tuần tra biên giới và cứu hộ cứu nạn',
       type: 'UAV_CONTROLLER',
       status: 'ACTIVE',
       isOnline: true,
@@ -80,6 +83,7 @@ void main() {
       longitude: 105.804817,
       currentSpeedMps: 12.5,
       currentHeadingDeg: 245.0,
+      batteryPct: 42,
       lastSeenAt: DateTime.now().subtract(const Duration(minutes: 1)),
     );
 
@@ -101,6 +105,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('45 km/h'), findsOneWidget);
+    expect(find.text('42%'), findsOneWidget);
     expect(find.text('Tây Nam · 245°'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

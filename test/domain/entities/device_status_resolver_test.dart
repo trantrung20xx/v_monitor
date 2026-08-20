@@ -53,6 +53,22 @@ void main() {
       expect(status.color, equals(Colors.redAccent));
     });
 
+    test('gói đến trễ không làm thời gian GPS trông như vừa mới đo', () {
+      final now = DateTime.now();
+      final status = DeviceStatusResolver.resolve(
+        isOnline: true,
+        lastSeenAt: now.subtract(const Duration(seconds: 5)),
+        latestMeasuredAt: now.subtract(const Duration(minutes: 10)),
+        currentSpeedMps: 10.0,
+        baseStatus: 'ACTIVE',
+      );
+
+      expect(status.connectivity, equals(ConnectivityStatus.online));
+      expect(status.freshness, equals(DataFreshnessStatus.stale));
+      expect(status.movement, equals(MovementStatus.unknown));
+      expect(status.label, equals('Mất tín hiệu GPS'));
+    });
+
     test('resolve() unknown freshness and offline when lastSeenAt is null', () {
       final status = DeviceStatusResolver.resolve(
         isOnline: true,

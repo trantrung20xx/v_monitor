@@ -67,6 +67,7 @@ class DashboardCubit extends Cubit<DashboardState> {
       final status = DeviceStatusResolver.resolve(
         isOnline: dev.isOnline,
         lastSeenAt: dev.lastSeenAt,
+        latestMeasuredAt: dev.latestMeasuredAt,
         currentSpeedMps: dev.currentSpeedMps,
         baseStatus: dev.status,
       );

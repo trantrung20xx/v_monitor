@@ -14,14 +14,13 @@ class DeviceStatus(str, enum.Enum):
     MAINTENANCE = "MAINTENANCE"
     RETIRED = "RETIRED"
 
-class UsageStatus(str, enum.Enum):
-    ACTIVE = "ACTIVE"
-    COMPLETED = "COMPLETED"
-    CANCELLED = "CANCELLED"
-    UNKNOWN = "UNKNOWN"
-
 class ProcessingStatus(str, enum.Enum):
     PENDING = "PENDING"
     PROCESSED = "PROCESSED"
     FAILED = "FAILED"
     SKIPPED = "SKIPPED"
+
+
+class UserRole(str, enum.Enum):
+    ADMIN = "ADMIN"
+    USER = "USER"

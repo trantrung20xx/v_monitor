@@ -346,7 +346,7 @@ class HistoryTimeSelector extends StatelessWidget {
             },
           ),
           const SizedBox(width: 16),
-          // Cấu hình Ngưỡng ngắt quãng (Gap threshold)
+          // Cấu hình ngưỡng thời gian ngắt quãng.
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [

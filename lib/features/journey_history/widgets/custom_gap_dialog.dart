@@ -29,7 +29,7 @@ Future<Duration?> showCustomGapThresholdDialog(
   );
 }
 
-/// Hộp thoại cấu hình khoảng thời gian ngắt quãng tùy ý (Gap threshold)
+/// Hộp thoại cấu hình khoảng thời gian ngắt quãng tùy ý.
 /// Hỗ trợ cả chọn nhanh các mốc thực tế và nhập tùy ý theo Phút / Giờ.
 class CustomGapThresholdDialog extends StatefulWidget {
   final Duration initialDuration;

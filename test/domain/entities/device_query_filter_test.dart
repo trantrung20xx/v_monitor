@@ -6,16 +6,11 @@ void main() {
   group('DeviceQueryFilter', () {
     test('matches device name, code, and type', () {
       final devices = [
-        _device(
-          id: '1',
-          name: 'Truck 01',
-          code: 'XE-001',
-          type: 'VEHICLE',
-        ),
+        _device(id: '1', name: 'Truck 01', code: 'XE-001', type: 'VEHICLE'),
         _device(
           id: '2',
-          name: 'Flycam Alpha',
-          code: 'UAV-002',
+          name: 'Tay điều khiển Alpha',
+          code: 'CTRL-002',
           type: 'UAV_CONTROLLER',
         ),
       ];
@@ -23,8 +18,12 @@ void main() {
       expect(DeviceQueryFilter.filter(devices, query: 'truck 01'), [
         devices[0],
       ]);
-      expect(DeviceQueryFilter.filter(devices, query: 'uav-002'), [devices[1]]);
-      expect(DeviceQueryFilter.filter(devices, query: 'uav_controller'), [devices[1]]);
+      expect(DeviceQueryFilter.filter(devices, query: 'ctrl-002'), [
+        devices[1],
+      ]);
+      expect(DeviceQueryFilter.filter(devices, query: 'uav_controller'), [
+        devices[1],
+      ]);
     });
 
     test('filters by resolved status', () {

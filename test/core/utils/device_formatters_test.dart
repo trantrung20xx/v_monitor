@@ -34,4 +34,10 @@ void main() {
     expect(DeviceFormatters.speedMps(0), '0 km/h');
     expect(DeviceFormatters.speedMps(12.5), '45 km/h');
   });
+
+  test('batteryPct distinguishes missing data from an empty battery', () {
+    expect(DeviceFormatters.batteryPct(null), '--');
+    expect(DeviceFormatters.batteryPct(0), '0%');
+    expect(DeviceFormatters.batteryPct(87), '87%');
+  });
 }

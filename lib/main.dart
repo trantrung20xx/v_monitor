@@ -13,8 +13,6 @@ void main() async {
   final apiClient = ApiClient();
   final websocketClient = WebsocketClient();
 
-  websocketClient.connect();
-
   runApp(
     DevicePreview(
       enabled: !kReleaseMode && AppConfig.enableDevicePreview,

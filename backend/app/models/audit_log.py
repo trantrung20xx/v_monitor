@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import ForeignKey, Index, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP, JSONB
 from sqlalchemy import func
 from typing import Optional
@@ -13,10 +13,11 @@ from app.models.base import Base, UUIDMixin
 class AuditLog(Base, UUIDMixin):
     __tablename__ = "audit_logs"                              # Tên bảng lưu lịch sử thao tác
 
-    actor_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    actor_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True),
-        nullable=True
-    )                                                         # ID người/hệ thống thực hiện thao tác
+        ForeignKey("user_accounts.id", ondelete="SET NULL"),
+        nullable=True,
+    )                                                         # Tài khoản thực hiện thao tác
 
     action: Mapped[str] = mapped_column(
         String,
@@ -35,7 +36,6 @@ class AuditLog(Base, UUIDMixin):
 
     occurred_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
-        index=True,
         nullable=False
     )                                                         # Thời điểm thao tác xảy ra
 
@@ -60,3 +60,19 @@ class AuditLog(Base, UUIDMixin):
         default=func.now(),
         nullable=False
     )                                                         # Thời điểm bản ghi audit được tạo
+
+    actor_user = relationship("UserAccount")
+
+    __table_args__ = (
+        Index(
+            "ix_audit_logs_actor_occurred",
+            "actor_user_id",
+            "occurred_at",
+        ),
+        Index(
+            "ix_audit_logs_entity_occurred",
+            "entity_type",
+            "entity_id",
+            "occurred_at",
+        ),
+    )

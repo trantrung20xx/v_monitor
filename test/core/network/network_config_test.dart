@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v_monitor/core/config/app_config.dart';
 import 'package:v_monitor/core/network/api_client.dart';
@@ -13,6 +15,31 @@ void main() {
 
     expect(client.baseUrl, AppConfig.apiBaseUrl);
   });
+
+  test(
+    'ApiClient attaches the stored credential and reports HTTP 401',
+    () async {
+      final adapter = _RecordingHttpClientAdapter();
+      final dio = Dio(BaseOptions(baseUrl: 'http://example.test'))
+        ..httpClientAdapter = adapter;
+      final client = ApiClient(dio: dio);
+      var unauthorizedCount = 0;
+      client
+        ..setAccessToken('persistent-credential')
+        ..setUnauthorizedHandler(() async => unauthorizedCount++);
+
+      await client.get('/devices');
+      expect(
+        adapter.lastOptions?.headers['Authorization'],
+        'Bearer persistent-credential',
+      );
+
+      adapter.statusCode = 401;
+      await expectLater(client.get('/devices'), throwsA(isA<DioException>()));
+      await Future<void>.delayed(Duration.zero);
+      expect(unauthorizedCount, 1);
+    },
+  );
 
   test('WebsocketClient uses AppConfig WebSocket URL', () {
     final client = WebsocketClient();
@@ -72,12 +99,69 @@ void main() {
     client.dispose();
     channel.closeFromServer();
   });
+
+  test('WebsocketClient sends credential and stops after revocation', () async {
+    late _FakeWebSocketChannel channel;
+    late Uri openedUri;
+    var attempts = 0;
+    var unauthorizedCount = 0;
+    final client = WebsocketClient(
+      connectionUri: Uri.parse('ws://example.test/ws'),
+      reconnectDelay: const Duration(milliseconds: 10),
+      heartbeatInterval: Duration.zero,
+      channelFactory: (uri) {
+        attempts++;
+        openedUri = uri;
+        channel = _FakeWebSocketChannel();
+        return channel;
+      },
+    );
+    client
+      ..setAccessToken('persistent-credential')
+      ..setUnauthorizedHandler(() async => unauthorizedCount++)
+      ..connect();
+
+    expect(openedUri.queryParameters['access_token'], isNull);
+    expect(
+      channel.sentMessages.any(
+        (message) =>
+            message.contains('"type":"AUTH"') &&
+            message.contains('persistent-credential'),
+      ),
+      isTrue,
+    );
+    channel.closeFromServer(4401);
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+
+    expect(unauthorizedCount, 1);
+    expect(attempts, 1);
+    client.dispose();
+  });
+}
+
+class _RecordingHttpClientAdapter implements HttpClientAdapter {
+  RequestOptions? lastOptions;
+  int statusCode = 200;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    lastOptions = options;
+    return ResponseBody.fromString('{}', statusCode);
+  }
+
+  @override
+  void close({bool force = false}) {}
 }
 
 class _FakeWebSocketChannel extends StreamChannelMixin
     implements WebSocketChannel {
   final _incoming = StreamController<dynamic>();
   final _sink = _FakeWebSocketSink();
+  int? _closeCode;
 
   @override
   Stream<dynamic> get stream => _incoming.stream;
@@ -89,7 +173,7 @@ class _FakeWebSocketChannel extends StreamChannelMixin
   String? get protocol => null;
 
   @override
-  int? get closeCode => null;
+  int? get closeCode => _closeCode;
 
   @override
   String? get closeReason => null;
@@ -99,7 +183,8 @@ class _FakeWebSocketChannel extends StreamChannelMixin
 
   List<String> get sentMessages => _sink.sentMessages;
 
-  void closeFromServer() {
+  void closeFromServer([int? closeCode]) {
+    _closeCode = closeCode;
     _incoming.close();
   }
 }

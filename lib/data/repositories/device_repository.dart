@@ -15,7 +15,10 @@ class DeviceRepository {
   /// Lấy danh sách toàn bộ thiết bị từ Backend thông qua endpoint `/devices/`.
   Future<List<DeviceModel>> getDevices() async {
     try {
-      final response = await _apiClient.get('/devices/');
+      final response = await _apiClient.get(
+        '/devices/',
+        queryParameters: const {'limit': 5000},
+      );
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data;
         return data.map((json) => DeviceModel.fromJson(json)).toList();

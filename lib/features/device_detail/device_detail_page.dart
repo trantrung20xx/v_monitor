@@ -28,7 +28,7 @@ import '../journey_history/widgets/custom_gap_dialog.dart';
 import '../journey_history/widgets/history_map_layers.dart';
 import '../journey_history/widgets/point_info_popup.dart';
 
-/// Chi tiết thiết bị — tracking dashboard cho Overview/Journey/Usage/Event.
+/// Màn hình chi tiết phục vụ tổng quan, hành trình và sự kiện của thiết bị.
 class DeviceDetailPage extends StatelessWidget {
   const DeviceDetailPage({super.key, required this.deviceId});
 
@@ -75,6 +75,7 @@ class _DeviceDetailView extends StatelessWidget {
         final status = DeviceStatusResolver.resolve(
           isOnline: device.isOnline,
           lastSeenAt: device.lastSeenAt,
+          latestMeasuredAt: device.latestMeasuredAt,
           currentSpeedMps: device.currentSpeedMps,
           baseStatus: device.status,
         );
@@ -397,6 +398,7 @@ class _OverviewTab extends StatelessWidget {
     final status = DeviceStatusResolver.resolve(
       isOnline: device.isOnline,
       lastSeenAt: device.lastSeenAt,
+      latestMeasuredAt: device.latestMeasuredAt,
       currentSpeedMps: device.currentSpeedMps,
       baseStatus: device.status,
     );
@@ -576,7 +578,10 @@ class _SummaryStripState extends State<_SummaryStrip> {
         icon: status.freshness == DataFreshnessStatus.fresh
             ? Icons.gps_fixed_rounded
             : Icons.gps_not_fixed_rounded,
-        label: DeviceFormatters.gpsFreshness(status, device.lastSeenAt),
+        label: DeviceFormatters.gpsFreshness(
+          status,
+          device.latestMeasuredAt ?? device.lastSeenAt,
+        ),
         color: status.freshness == DataFreshnessStatus.fresh
             ? const Color(0xFF16A34A)
             : theme.colorScheme.error,
@@ -1262,7 +1267,9 @@ class _OverviewLiveLocationCard extends StatelessWidget {
         ? 'Vị trí gần nhất'
         : 'Vị trí hiện tại';
     final lastUpdatedTime = DeviceFormatters.dateTime(
-      latestLocation?.measuredAt ?? device.lastSeenAt,
+      latestLocation?.measuredAt ??
+          device.latestMeasuredAt ??
+          device.lastSeenAt,
     );
 
     return Card(
@@ -1880,7 +1887,7 @@ class _MetricDashboardCard extends StatelessWidget {
               ),
               if (!isBounded) const SizedBox(height: 8),
 
-              // Body: Single Big Value OR Dual Rows
+              // Nội dung: một giá trị lớn hoặc hai hàng giá trị.
               if (primaryValue != null) ...[
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2122,6 +2129,12 @@ void _showDeviceTechnicalInfoModal(
                             'Phiên bản Firmware',
                             device.firmwareVersion ?? '--',
                           ),
+                          // Mức pin lấy từ trạng thái mới nhất của chính thiết bị.
+                          // Giá trị chưa được thiết bị gửi sẽ hiển thị "--" thay vì 0%.
+                          _buildTechRow(
+                            'Pin thiết bị',
+                            DeviceFormatters.batteryPct(device.batteryPct),
+                          ),
                           _buildTechRow(
                             'Trạng thái',
                             device.statusLabel,
@@ -2181,7 +2194,9 @@ void _showDeviceTechnicalInfoModal(
                           _buildTechRow(
                             'Thời điểm GPS',
                             DeviceFormatters.dateTime(
-                              latestLocation?.measuredAt ?? device.lastSeenAt,
+                              latestLocation?.measuredAt ??
+                                  device.latestMeasuredAt ??
+                                  device.lastSeenAt,
                             ),
                           ),
                         ],
@@ -2474,7 +2489,7 @@ class _JourneySnapshot {
   }) {
     if (locations.isEmpty) return const _JourneySnapshot();
 
-    // 1. Sanitize GPS outliers & invalid coordinates
+    // 1. Loại tọa độ sai và các điểm GPS nhảy bất thường.
     final validSamples = GpsValidator.sanitizeSamples(locations);
     if (validSamples.isEmpty) return const _JourneySnapshot();
 
@@ -2577,6 +2592,7 @@ class _MapWidgetState extends State<_MapWidget> {
     final status = DeviceStatusResolver.resolve(
       isOnline: widget.device.isOnline,
       lastSeenAt: widget.device.lastSeenAt,
+      latestMeasuredAt: widget.device.latestMeasuredAt,
       currentSpeedMps: widget.device.currentSpeedMps,
       baseStatus: widget.device.status,
     );
@@ -3047,7 +3063,7 @@ class _JourneyTabState extends State<_JourneyTab> {
                                   ),
                                   const SizedBox(width: 12),
 
-                                  // CỘT PHẢI (~23%): Vertical Timeline
+                                  // CỘT PHẢI (~23%): dòng thời gian dọc.
                                   Expanded(
                                     flex: 23,
                                     child: _JourneyTimelineCard(
@@ -4363,7 +4379,7 @@ class _JourneyPlaybackCard extends StatelessWidget {
           ],
           const SizedBox(height: 4),
 
-          // ── HÀNG CUỐI: Timeline Slider ────────────────────────
+          // ── HÀNG CUỐI: thanh trượt dòng thời gian ─────────────
           Row(
             children: [
               Text(
@@ -4753,7 +4769,7 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
   }
 }
 
-// ─── TẦNG 3.4: Right Timeline Card (Lịch trình chi tiết) ─────────────────────
+// ─── TẦNG 3.4: thẻ dòng thời gian bên phải ──────────────────────────────────
 
 class _JourneyTimelineCard extends StatelessWidget {
   const _JourneyTimelineCard({
@@ -5641,7 +5657,7 @@ class _MapZoomControls extends StatelessWidget {
   }
 }
 
-// ─── Tab 3: Events — Timeline visual ─────────────────────────────────────────
+// ─── Tab 3: sự kiện theo dòng thời gian ──────────────────────────────────────
 
 class _EventsTab extends StatefulWidget {
   const _EventsTab({required this.events});
@@ -5875,7 +5891,7 @@ class _EventTimelineItem extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Timeline column
+          // Cột dòng thời gian.
           SizedBox(
             width: 36,
             child: Column(
@@ -6102,16 +6118,17 @@ List<PopupMenuEntry<String>> _shareLocationMenuItems(
   BuildContext context,
   DeviceModel device,
 ) {
+  final gpsTime = device.latestMeasuredAt ?? device.lastSeenAt;
   final isStale =
-      device.lastSeenAt != null &&
-      DateTime.now().difference(device.lastSeenAt!.toLocal()).inMinutes > 5;
+      gpsTime != null &&
+      DateTime.now().difference(gpsTime.toLocal()).inMinutes > 5;
 
   return [
     if (isStale) ...[
       PopupMenuItem<String>(
         enabled: false,
         child: Text(
-          'Vị trí cũ (${DeviceFormatters.dateTime(device.lastSeenAt)})',
+          'Vị trí cũ (${DeviceFormatters.dateTime(gpsTime)})',
           style: TextStyle(
             fontSize: 12,
             color: Theme.of(context).colorScheme.outline,

@@ -259,18 +259,25 @@ class DeviceDetailCubit extends Cubit<DeviceDetailState> {
       updatedDevice.latitude,
       updatedDevice.longitude,
     );
+    final hasNewPosition =
+        previousKey != nextKey ||
+        state.device?.latestMeasuredAt != updatedDevice.latestMeasuredAt;
 
     List<LocationModel> updatedLocations = state.locations;
     if ((state.timeRange == OverviewTimeRange.today ||
             state.timeRange == OverviewTimeRange.last24h) &&
         updatedDevice.latitude != null &&
-        updatedDevice.longitude != null) {
+        updatedDevice.longitude != null &&
+        hasNewPosition) {
       final newLoc = LocationModel(
         id: 'live-${DateTime.now().millisecondsSinceEpoch}',
         deviceId: updatedDevice.id,
         latitude: updatedDevice.latitude!,
         longitude: updatedDevice.longitude!,
-        measuredAt: updatedDevice.lastSeenAt ?? DateTime.now(),
+        measuredAt:
+            updatedDevice.latestMeasuredAt ??
+            updatedDevice.lastSeenAt ??
+            DateTime.now(),
         altitudeM: updatedDevice.currentAltitudeM,
         speedMps: updatedDevice.currentSpeedMps,
         headingDeg: updatedDevice.currentHeadingDeg,

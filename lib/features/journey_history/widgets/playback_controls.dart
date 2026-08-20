@@ -231,7 +231,7 @@ class PlaybackControls extends StatelessWidget {
             ),
             const SizedBox(height: 4),
 
-            // 2. Timeline Slider
+            // 2. Thanh trượt dòng thời gian.
             Row(
               children: [
                 Text(

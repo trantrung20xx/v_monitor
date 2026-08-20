@@ -1,14 +1,15 @@
-"""Alembic async migration environment for v_monitor."""
+"""Môi trường migration Alembic bất đồng bộ của v_monitor."""
 
 import asyncio
 from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import pool
+import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.core.config import settings
-from app.models import Base  # noqa: F401 — registers all models
+from app.models import Base  # noqa: F401 - nạp toàn bộ model vào metadata
 
 config = context.config
 
@@ -17,7 +18,39 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
-# Override sqlalchemy.url from .env so credentials are not duplicated
+
+def include_object(object_, name, type_, reflected, compare_to):
+    """Bỏ qua hạ tầng do PostGIS quản lý khi Alembic so sánh schema."""
+    if type_ == "table" and name == "spatial_ref_sys":
+        return False
+    return True
+
+
+def _is_upgrade_command() -> bool:
+    """Chỉ cho phép khởi tạo schema trong lệnh Alembic upgrade."""
+    command = getattr(getattr(config, "cmd_opts", None), "cmd", None)
+    if not isinstance(command, tuple) or not command:
+        return False
+    return getattr(command[0], "__name__", "") == "upgrade"
+
+
+def _bootstrap_empty_database(connection) -> None:
+    """Khởi tạo schema khi database PostGIS hoàn toàn chưa có bảng nghiệp vụ."""
+    if not _is_upgrade_command():
+        return
+    infrastructure_tables = {"alembic_version", "spatial_ref_sys"}
+    application_tables = set(sa.inspect(connection).get_table_names()) - infrastructure_tables
+    if not application_tables:
+        # Kiểu geography của các bảng vị trí do PostGIS cung cấp. Extension phải
+        # được tạo trước create_all để database PostgreSQL hoàn toàn mới có thể
+        # dựng các cột và chỉ mục không gian ngay trong lần upgrade đầu tiên.
+        connection.execute(sa.text("CREATE EXTENSION IF NOT EXISTS postgis"))
+        target_metadata.create_all(connection)
+    # Cả thao tác inspect và create_all đều có thể mở transaction ngầm;
+    # kết thúc transaction này trước khi Alembic ghi nhận revision.
+    connection.commit()
+
+# Lấy URL từ .env để không phải lặp thông tin xác thực trong alembic.ini.
 config.set_main_option(
     "sqlalchemy.url",
     settings.database_url,
@@ -25,11 +58,12 @@ config.set_main_option(
 
 
 def run_migrations_offline() -> None:
-    """Run migrations in 'offline' mode — emit SQL to stdout."""
+    """Chạy migration ngoại tuyến và xuất câu lệnh SQL ra stdout."""
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
         target_metadata=target_metadata,
+        include_object=include_object,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
@@ -38,13 +72,18 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection):
-    context.configure(connection=connection, target_metadata=target_metadata)
+    _bootstrap_empty_database(connection)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        include_object=include_object,
+    )
     with context.begin_transaction():
         context.run_migrations()
 
 
 async def run_async_migrations() -> None:
-    """Run migrations in 'online' mode with async engine."""
+    """Chạy migration trực tuyến bằng engine bất đồng bộ."""
     connectable = async_engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",

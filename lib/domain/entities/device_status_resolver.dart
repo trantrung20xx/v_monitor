@@ -48,24 +48,31 @@ class DeviceStatusResolver {
   static ResolvedDeviceStatus resolve({
     required bool isOnline,
     required DateTime? lastSeenAt,
+    DateTime? latestMeasuredAt,
     required double? currentSpeedMps,
     required String baseStatus,
     DeviceStateThresholds? thresholds,
   }) {
     final activeThresholds = thresholds ?? defaultThresholds;
     final now = DateTime.now();
-    final age = lastSeenAt == null
+    final connectionAge = lastSeenAt == null
         ? null
         : now.difference(lastSeenAt.toLocal());
+    // Khi backend cũ chưa trả trường mới, dùng lastSeenAt để giữ tương thích.
+    final gpsTimestamp = latestMeasuredAt ?? lastSeenAt;
+    final gpsAge = gpsTimestamp == null
+        ? null
+        : now.difference(gpsTimestamp.toLocal());
 
-    final freshness = age == null
+    final freshness = gpsAge == null
         ? DataFreshnessStatus.unknown
-        : age > activeThresholds.gpsStaleTimeout
+        : gpsAge > activeThresholds.gpsStaleTimeout
         ? DataFreshnessStatus.stale
         : DataFreshnessStatus.fresh;
 
     final hasRecentConnection =
-        age != null && age <= activeThresholds.onlineTimeout;
+        connectionAge != null &&
+        connectionAge <= activeThresholds.onlineTimeout;
     final connectivity = isOnline && hasRecentConnection
         ? ConnectivityStatus.online
         : ConnectivityStatus.offline;

@@ -1,38 +1,45 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
-from typing import List
+from datetime import datetime, timezone
+from typing import List, Optional
 import uuid
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
 from app.models.device import Device
+from app.models.audit_log import AuditLog
 from app.models.device_latest_state import DeviceLatestState
 from app.schemas.device import DeviceCreate
 
+
 class DeviceService:
     @staticmethod
-    async def get_devices(db: AsyncSession, skip: int = 0, limit: int = 100) -> List[dict]:
+    async def get_devices(
+        db: AsyncSession,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> List[dict]:
         result = await db.execute(
             select(Device)
-            .options(
-                selectinload(Device.latest_state)
-            )
-            .offset(skip).limit(limit)
+            .options(selectinload(Device.latest_state))
+            .order_by(Device.device_code.asc())
+            .offset(skip)
+            .limit(limit)
         )
-        devices = result.scalars().all()
-        return [DeviceService._format_device(d) for d in devices]
+        return [DeviceService._format_device(device) for device in result.scalars()]
 
     @staticmethod
-    async def get_device(db: AsyncSession, device_id: uuid.UUID) -> dict:
+    async def get_device(
+        db: AsyncSession,
+        device_id: uuid.UUID,
+    ) -> Optional[dict]:
         result = await db.execute(
             select(Device)
-            .options(
-                selectinload(Device.latest_state)
-            )
-            .filter(Device.id == device_id)
+            .options(selectinload(Device.latest_state))
+            .where(Device.id == device_id)
         )
-        device = result.scalars().first()
-        if device:
-            return DeviceService._format_device(device)
-        return None # pyright: ignore[reportReturnType]
+        device = result.scalar_one_or_none()
+        return DeviceService._format_device(device) if device else None
 
     @staticmethod
     def _format_device(device: Device) -> dict:
@@ -50,30 +57,57 @@ class DeviceService:
             "created_at": device.created_at.isoformat() if device.created_at else None,
             "updated_at": device.updated_at.isoformat() if device.updated_at else None,
         }
-
         if device.latest_state:
-            data.update({
-                "is_online": device.latest_state.is_online,
-                "current_latitude": device.latest_state.current_latitude,
-                "current_longitude": device.latest_state.current_longitude,
-                "current_altitude_m": getattr(device.latest_state, "current_altitude_m", None),
-                "current_speed_mps": device.latest_state.current_speed_mps,
-                "current_heading_deg": device.latest_state.current_heading_deg,
-                "last_seen_at": device.latest_state.last_seen_at.isoformat() if device.latest_state.last_seen_at else None
-            })
+            state = device.latest_state
+            data.update(
+                {
+                    "is_online": state.is_online,
+                    "current_latitude": state.current_latitude,
+                    "current_longitude": state.current_longitude,
+                    "current_altitude_m": state.current_altitude_m,
+                    "current_speed_mps": state.current_speed_mps,
+                    "current_heading_deg": state.current_heading_deg,
+                    "battery_pct": state.battery_pct,
+                    "last_seen_at": state.last_seen_at.isoformat()
+                    if state.last_seen_at
+                    else None,
+                    "latest_measured_at": state.latest_measured_at.isoformat()
+                    if state.latest_measured_at
+                    else None,
+                }
+            )
         return data
 
     @staticmethod
-    async def create_device(db: AsyncSession, device_in: DeviceCreate) -> dict:
+    async def create_device(
+        db: AsyncSession,
+        device_in: DeviceCreate,
+        *,
+        actor_user_id: uuid.UUID | None = None,
+    ) -> dict:
         device = Device(**device_in.model_dump())
         db.add(device)
-        await db.commit()
-        await db.refresh(device)
+        await db.flush()
 
-        # Initialize latest state
+        # Tạo trạng thái rỗng trong cùng giao dịch để không có thiết bị dở dang.
         latest_state = DeviceLatestState(device_id=device.id)
         db.add(latest_state)
+        db.add(
+            AuditLog(
+                actor_user_id=actor_user_id,
+                action="DEVICE_CREATED",
+                entity_type="device",
+                entity_id=device.id,
+                occurred_at=datetime.now(timezone.utc),
+                new_value={
+                    "device_code": device.device_code,
+                    "name": device.name,
+                    "device_type": device.device_type.value,
+                },
+            )
+        )
         await db.commit()
+        await db.refresh(device)
 
         device.latest_state = latest_state
         return DeviceService._format_device(device)

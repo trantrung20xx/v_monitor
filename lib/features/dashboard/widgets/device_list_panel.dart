@@ -80,7 +80,7 @@ class DeviceGrid extends StatelessWidget {
       builder: (context, constraints) {
         final totalWidth = constraints.maxWidth;
 
-        // Single column list for mobile & narrow viewports
+        // Danh sách một cột cho màn hình di động và khung nhìn hẹp.
         if (totalWidth < 600) {
           return ListView.separated(
             padding: const EdgeInsets.only(top: 8, bottom: 24),
@@ -100,7 +100,7 @@ class DeviceGrid extends StatelessWidget {
           );
         }
 
-        // Multi-column responsive grid: at least 3+ cards on desktop
+        // Lưới đáp ứng nhiều cột, tối thiểu ba thẻ trên màn hình máy tính.
         final int columnCount;
         if (totalWidth >= 1200) {
           columnCount = 4;

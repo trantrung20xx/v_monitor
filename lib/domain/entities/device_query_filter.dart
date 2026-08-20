@@ -32,6 +32,7 @@ class DeviceQueryFilter {
     final status = DeviceStatusResolver.resolve(
       isOnline: device.isOnline,
       lastSeenAt: device.lastSeenAt,
+      latestMeasuredAt: device.latestMeasuredAt,
       currentSpeedMps: device.currentSpeedMps,
       baseStatus: device.status,
     );

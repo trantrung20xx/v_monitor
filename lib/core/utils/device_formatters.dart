@@ -84,6 +84,13 @@ class DeviceFormatters {
     return '${kmh.toStringAsFixed(1)} km/h';
   }
 
+  /// Định dạng mức pin của chính thiết bị. Giá trị null được hiển thị bằng dấu
+  /// gạch để phân biệt trạng thái chưa nhận dữ liệu với mức pin thực tế bằng 0%.
+  static String batteryPct(int? value) {
+    if (value == null) return '--';
+    return '$value%';
+  }
+
   static String heading(double? degrees) {
     if (degrees == null) return '--';
     final normalized = degrees % 360;

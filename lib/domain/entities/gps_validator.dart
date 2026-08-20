@@ -25,7 +25,7 @@ class GpsValidator {
     return isValidCoordinate(sample.latitude, sample.longitude);
   }
 
-  /// Lọc và loại bỏ các điểm GPS invalid hoặc teleport outlier khỏi danh sách vẽ lộ trình.
+  /// Loại các tọa độ GPS sai hoặc điểm nhảy vị trí bất thường khỏi lộ trình.
   /// Lưu ý: Không làm mất dữ liệu gốc, chỉ trả về danh sách điểm hợp lệ phục vụ render/replay.
   static List<LocationModel> sanitizeSamples(
     List<LocationModel> rawSamples, {

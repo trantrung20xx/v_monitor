@@ -69,6 +69,7 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
       final s = DeviceStatusResolver.resolve(
         isOnline: d.isOnline,
         lastSeenAt: d.lastSeenAt,
+        latestMeasuredAt: d.latestMeasuredAt,
         currentSpeedMps: d.currentSpeedMps,
         baseStatus: d.status,
       );
@@ -460,6 +461,7 @@ class _DeviceMapCard extends StatelessWidget {
     final status = DeviceStatusResolver.resolve(
       isOnline: device.isOnline,
       lastSeenAt: device.lastSeenAt,
+      latestMeasuredAt: device.latestMeasuredAt,
       currentSpeedMps: device.currentSpeedMps,
       baseStatus: device.status,
     );

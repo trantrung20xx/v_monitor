@@ -22,6 +22,7 @@ class DeviceCard extends StatelessWidget {
     final status = DeviceStatusResolver.resolve(
       isOnline: device.isOnline,
       lastSeenAt: device.lastSeenAt,
+      latestMeasuredAt: device.latestMeasuredAt,
       currentSpeedMps: device.currentSpeedMps,
       baseStatus: device.status,
     );
@@ -38,6 +39,7 @@ class DeviceCard extends StatelessWidget {
       status: status,
     );
     final fullLocation = DeviceFormatters.location(device, address);
+    final batteryText = DeviceFormatters.batteryPct(device.batteryPct);
 
     final String displayName = device.name.trim().isNotEmpty
         ? device.name.trim()
@@ -171,6 +173,30 @@ class DeviceCard extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if (device.batteryPct != null) ...[
+                          const SizedBox(height: 2),
+                          // Pin hiển thị tại thẻ danh sách là pin của chính thiết bị,
+                          // không phụ thuộc thiết bị là ô tô hay tay điều khiển UAV.
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.battery_std_rounded,
+                                size: 11,
+                                color: Color(0xFF16A34A),
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                batteryText,
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF166534),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                     const SizedBox(width: 2),

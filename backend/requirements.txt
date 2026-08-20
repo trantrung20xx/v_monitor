@@ -8,3 +8,6 @@ paho-mqtt>=1.6.1
 websockets>=11.0.3
 alembic>=1.11.0
 GeoAlchemy2>=0.14.1
+PyJWT>=2.10.0
+pwdlib[argon2]>=0.3.0
+tzdata>=2024.1

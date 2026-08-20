@@ -1,26 +1,8 @@
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, Enum
+from sqlalchemy import CheckConstraint, Enum, String
 from sqlalchemy.dialects.postgresql import JSONB
+from app.domain.enums import DeviceStatus, DeviceType
 from app.models.base import Base, UUIDMixin, TimestampMixin
-import enum
-
-
-# Loại thiết bị được quản lý trong hệ thống
-class DeviceType(str, enum.Enum):
-    UAV_CONTROLLER = "UAV_CONTROLLER"  # Tay cầm điều khiển UAV
-    VEHICLE = "VEHICLE"                # Ô tô
-    OTHER = "OTHER"                    # Loại thiết bị khác
-
-
-# Trạng thái hiện tại của thiết bị
-class DeviceStatus(str, enum.Enum):
-    UNKNOWN = "UNKNOWN"                # Chưa xác định trạng thái
-    OFFLINE = "OFFLINE"                # Thiết bị đang ngoại tuyến
-    ONLINE = "ONLINE"                  # Thiết bị đang kết nối
-    ACTIVE = "ACTIVE"                  # Thiết bị đang hoạt động
-    INACTIVE = "INACTIVE"              # Thiết bị không hoạt động
-    MAINTENANCE = "MAINTENANCE"        # Thiết bị đang bảo trì
-    RETIRED = "RETIRED"                # Thiết bị đã ngừng sử dụng
 
 
 class Device(Base, UUIDMixin, TimestampMixin):
@@ -53,7 +35,26 @@ class Device(Base, UUIDMixin, TimestampMixin):
     # Thông tin mở rộng của thiết bị dưới dạng JSON
     metadata_json: Mapped[dict] = mapped_column(JSONB, nullable=True)
 
-    # Relationships
+    # Các quan hệ dữ liệu
 
     # Trạng thái mới nhất của thiết bị
     latest_state = relationship("DeviceLatestState", back_populates="device", uselist=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "length(btrim(device_code)) >= 1",
+            name="ck_devices_code_not_blank",
+        ),
+        CheckConstraint(
+            "length(btrim(name)) >= 1",
+            name="ck_devices_name_not_blank",
+        ),
+        CheckConstraint(
+            "device_code = btrim(device_code)",
+            name="ck_devices_code_trimmed",
+        ),
+        CheckConstraint(
+            "name = btrim(name)",
+            name="ck_devices_name_trimmed",
+        ),
+    )

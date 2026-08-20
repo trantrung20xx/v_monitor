@@ -72,34 +72,55 @@ void main() {
       expect(cubit.state.followCamera, isTrue);
     });
 
-    test('Loads history and sorts samples chronologically ascending (Section 68)', () async {
-      final t0 = DateTime(2026, 8, 16, 8, 0, 0);
-      final t1 = DateTime(2026, 8, 16, 8, 15, 0);
-      final t2 = DateTime(2026, 8, 16, 8, 30, 0);
+    test(
+      'Loads history and sorts samples chronologically ascending (Section 68)',
+      () async {
+        final t0 = DateTime(2026, 8, 16, 8, 0, 0);
+        final t1 = DateTime(2026, 8, 16, 8, 15, 0);
+        final t2 = DateTime(2026, 8, 16, 8, 30, 0);
 
-      // Trả về không đúng thứ tự từ nguồn
-      fakeTracking.rangeResponse = LocationHistoryResponse(
-        deviceId: 'dev-1',
-        fromTime: t0,
-        toTime: t2,
-        samples: [
-          LocationModel(id: '2', deviceId: 'dev-1', measuredAt: t1, latitude: 21.01, longitude: 105.01),
-          LocationModel(id: '3', deviceId: 'dev-1', measuredAt: t2, latitude: 21.02, longitude: 105.02),
-          LocationModel(id: '1', deviceId: 'dev-1', measuredAt: t0, latitude: 21.00, longitude: 105.00),
-        ],
-        totalCount: 3,
-      );
+        // Trả về không đúng thứ tự từ nguồn
+        fakeTracking.rangeResponse = LocationHistoryResponse(
+          deviceId: 'dev-1',
+          fromTime: t0,
+          toTime: t2,
+          samples: [
+            LocationModel(
+              id: '2',
+              deviceId: 'dev-1',
+              measuredAt: t1,
+              latitude: 21.01,
+              longitude: 105.01,
+            ),
+            LocationModel(
+              id: '3',
+              deviceId: 'dev-1',
+              measuredAt: t2,
+              latitude: 21.02,
+              longitude: 105.02,
+            ),
+            LocationModel(
+              id: '1',
+              deviceId: 'dev-1',
+              measuredAt: t0,
+              latitude: 21.00,
+              longitude: 105.00,
+            ),
+          ],
+          totalCount: 3,
+        );
 
-      await cubit.loadHistory(deviceId: 'dev-1', from: t0, to: t2);
+        await cubit.loadHistory(deviceId: 'dev-1', from: t0, to: t2);
 
-      expect(cubit.state.status, equals(JourneyHistoryStatus.ready));
-      expect(cubit.state.validSamples.length, equals(3));
-      // Kiểm tra thứ tự đúng: t0 -> t1 -> t2
-      expect(cubit.state.validSamples[0].id, equals('1'));
-      expect(cubit.state.validSamples[1].id, equals('2'));
-      expect(cubit.state.validSamples[2].id, equals('3'));
-      expect(cubit.state.currentPosition, isNotNull);
-    });
+        expect(cubit.state.status, equals(JourneyHistoryStatus.ready));
+        expect(cubit.state.validSamples.length, equals(3));
+        // Kiểm tra thứ tự đúng: t0 -> t1 -> t2
+        expect(cubit.state.validSamples[0].id, equals('1'));
+        expect(cubit.state.validSamples[1].id, equals('2'));
+        expect(cubit.state.validSamples[2].id, equals('3'));
+        expect(cubit.state.currentPosition, isNotNull);
+      },
+    );
 
     test('Handles empty history data gracefully (Section 44)', () async {
       final t0 = DateTime(2026, 8, 16, 8, 0, 0);
@@ -129,7 +150,13 @@ void main() {
         fromTime: t0,
         toTime: t1,
         samples: [
-          LocationModel(id: '1', deviceId: 'dev-1', measuredAt: t0, latitude: 21.00, longitude: 105.00),
+          LocationModel(
+            id: '1',
+            deviceId: 'dev-1',
+            measuredAt: t0,
+            latitude: 21.00,
+            longitude: 105.00,
+          ),
         ],
         totalCount: 1,
       );
@@ -140,73 +167,100 @@ void main() {
       expect(cubit.state.hasRoute, isFalse);
     });
 
-    test('Play, Pause, Resume, Reset, Seek, Speed, and Device Switch (Section 71 & 47)', () async {
-      final t0 = DateTime(2026, 8, 16, 8, 0, 0);
-      final t1 = DateTime(2026, 8, 16, 8, 2, 0);
+    test(
+      'Play, Pause, Resume, Reset, Seek, Speed, and Device Switch (Section 71 & 47)',
+      () async {
+        final t0 = DateTime(2026, 8, 16, 8, 0, 0);
+        final t1 = DateTime(2026, 8, 16, 8, 2, 0);
 
-      fakeTracking.rangeResponse = LocationHistoryResponse(
-        deviceId: 'dev-1',
-        fromTime: t0,
-        toTime: t1,
-        samples: [
-          LocationModel(id: '1', deviceId: 'dev-1', measuredAt: t0, latitude: 21.00, longitude: 105.00),
-          LocationModel(id: '2', deviceId: 'dev-1', measuredAt: t1, latitude: 21.01, longitude: 105.01),
-        ],
-        totalCount: 2,
-      );
+        fakeTracking.rangeResponse = LocationHistoryResponse(
+          deviceId: 'dev-1',
+          fromTime: t0,
+          toTime: t1,
+          samples: [
+            LocationModel(
+              id: '1',
+              deviceId: 'dev-1',
+              measuredAt: t0,
+              latitude: 21.00,
+              longitude: 105.00,
+            ),
+            LocationModel(
+              id: '2',
+              deviceId: 'dev-1',
+              measuredAt: t1,
+              latitude: 21.01,
+              longitude: 105.01,
+            ),
+          ],
+          totalCount: 2,
+        );
 
-      await cubit.loadHistory(deviceId: 'dev-1', from: t0, to: t1);
+        await cubit.loadHistory(deviceId: 'dev-1', from: t0, to: t1);
 
-      // Play
-      cubit.play();
-      expect(cubit.state.status, equals(JourneyHistoryStatus.playing));
+        // Play
+        cubit.play();
+        expect(cubit.state.status, equals(JourneyHistoryStatus.playing));
 
-      // Pause
-      cubit.pause();
-      expect(cubit.state.status, equals(JourneyHistoryStatus.paused));
+        // Pause
+        cubit.pause();
+        expect(cubit.state.status, equals(JourneyHistoryStatus.paused));
 
-      // Resume
-      cubit.resume();
-      expect(cubit.state.status, equals(JourneyHistoryStatus.playing));
+        // Resume
+        cubit.resume();
+        expect(cubit.state.status, equals(JourneyHistoryStatus.playing));
 
-      // Change speed to 16x
-      cubit.setPlaybackSpeed(16.0);
-      expect(cubit.state.playbackSpeed, equals(16.0));
+        // Change speed to 16x
+        cubit.setPlaybackSpeed(16.0);
+        expect(cubit.state.playbackSpeed, equals(16.0));
 
-      // Seek progress 50% (1 minute in, 8:01:00)
-      cubit.seekToProgress(0.5);
-      expect(cubit.state.currentPosition, isNotNull);
-      final midTime = cubit.state.currentReplayTime!;
-      expect(midTime, equals(DateTime(2026, 8, 16, 8, 1, 0)));
+        // Seek progress 50% (1 minute in, 8:01:00)
+        cubit.seekToProgress(0.5);
+        expect(cubit.state.currentPosition, isNotNull);
+        final midTime = cubit.state.currentReplayTime!;
+        expect(midTime, equals(DateTime(2026, 8, 16, 8, 1, 0)));
 
-      // Step forward 30s (8:01:30)
-      cubit.stepForward(const Duration(seconds: 30));
-      expect(cubit.state.currentReplayTime, equals(DateTime(2026, 8, 16, 8, 1, 30)));
+        // Step forward 30s (8:01:30)
+        cubit.stepForward(const Duration(seconds: 30));
+        expect(
+          cubit.state.currentReplayTime,
+          equals(DateTime(2026, 8, 16, 8, 1, 30)),
+        );
 
-      // Step forward 60s (8:02:00 / clamps to t1)
-      cubit.stepForward(const Duration(seconds: 60));
-      expect(cubit.state.currentReplayTime, equals(t1));
+        // Step forward 60s (8:02:00 / clamps to t1)
+        cubit.stepForward(const Duration(seconds: 60));
+        expect(cubit.state.currentReplayTime, equals(t1));
 
-      // Seek back to 8:01:30
-      cubit.seekToTime(DateTime(2026, 8, 16, 8, 1, 30));
+        // Seek back to 8:01:30
+        cubit.seekToTime(DateTime(2026, 8, 16, 8, 1, 30));
 
-      // Step backward 30s (8:01:00)
-      cubit.stepBackward(const Duration(seconds: 30));
-      expect(cubit.state.currentReplayTime, equals(DateTime(2026, 8, 16, 8, 1, 0)));
+        // Step backward 30s (8:01:00)
+        cubit.stepBackward(const Duration(seconds: 30));
+        expect(
+          cubit.state.currentReplayTime,
+          equals(DateTime(2026, 8, 16, 8, 1, 0)),
+        );
 
-      // Step backward 60s (8:00:00 / clamps to t0)
-      cubit.stepBackward(const Duration(seconds: 60));
-      expect(cubit.state.currentReplayTime, equals(t0));
+        // Step backward 60s (8:00:00 / clamps to t0)
+        cubit.stepBackward(const Duration(seconds: 60));
+        expect(cubit.state.currentReplayTime, equals(t0));
 
-      // Reset
-      cubit.reset();
-      expect(cubit.state.currentReplayTime, equals(t0));
+        // Reset
+        cubit.reset();
+        expect(cubit.state.currentReplayTime, equals(t0));
 
-      // Switch device
-      final dev2 = DeviceModel(id: 'dev-2', deviceCode: 'FLY-002', name: 'Flycam 2', type: 'UAV_CONTROLLER', status: 'ONLINE');
-      cubit.selectDevice(dev2);
-      expect(cubit.state.selectedDevice?.id, equals('dev-2'));
-      expect(cubit.state.validSamples, isEmpty);
-    });
+        // Chuyển sang một thiết bị khác phải xóa dữ liệu phát lại của thiết bị cũ.
+        final dev2 = DeviceModel(
+          id: 'dev-2',
+          deviceCode: 'CTRL-002',
+          name: 'Tay điều khiển 2',
+          type: 'UAV_CONTROLLER',
+          status: 'ONLINE',
+        );
+        cubit.selectDevice(dev2);
+        expect(cubit.state.selectedDevice?.id, equals('dev-2'));
+        expect(cubit.state.validSamples, isEmpty);
+      },
+    );
   });
 }

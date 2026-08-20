@@ -10,12 +10,21 @@ os.environ.setdefault(
     "DATABASE_URL",
     "postgresql+asyncpg://test:test@localhost:5432/v_monitor_test",
 )
+os.environ.setdefault("JWT_SECRET", "x" * 48)
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.core.config import Settings  # noqa: E402
 
 
 class SettingsTest(unittest.TestCase):
+    def test_authentication_is_required_by_default(self):
+        settings = Settings(
+            _env_file=None,
+            database_url="postgresql+asyncpg://user:pass@localhost:5432/app",
+        )
+
+        self.assertTrue(settings.auth_required)
+
     def test_loads_database_and_mqtt_settings(self):
         settings = Settings(
             _env_file=None,

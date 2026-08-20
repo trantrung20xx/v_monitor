@@ -26,7 +26,7 @@ class MapTileProviders {
     }
   }
 
-  /// Max zoom hỗ trợ theo từng loại bản đồ
+  /// Mức phóng to tối đa của từng loại bản đồ.
   static int getMaxZoom(AppMapType type) {
     switch (type) {
       case AppMapType.satellite:

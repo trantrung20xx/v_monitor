@@ -12,7 +12,7 @@ engine = create_async_engine(
     pool_recycle=1800,     # Khởi tạo lại kết nối sau mỗi 30 phút để tránh lỗi timeout
 )
 
-# Tạo một factory (nhà máy) chuyên sản xuất các Session (phiên làm việc) với cơ sở dữ liệu
+# Tạo bộ sinh ngữ cảnh giao dịch cho từng lần làm việc với cơ sở dữ liệu.
 AsyncSessionLocal = async_sessionmaker(
     bind=engine, 
     class_=AsyncSession, 

@@ -17,7 +17,11 @@ class DeviceModel {
   final double? currentAltitudeM;
   final double? currentSpeedMps;
   final double? currentHeadingDeg;
+
+  /// Phần trăm pin của chính thiết bị; null khi thiết bị chưa gửi dữ liệu pin.
+  final int? batteryPct;
   final DateTime? lastSeenAt;
+  final DateTime? latestMeasuredAt;
 
   DeviceModel({
     required this.id,
@@ -38,7 +42,9 @@ class DeviceModel {
     this.currentAltitudeM,
     this.currentSpeedMps,
     this.currentHeadingDeg,
+    this.batteryPct,
     this.lastSeenAt,
+    this.latestMeasuredAt,
   });
 
   String get deviceType => type;
@@ -84,7 +90,9 @@ class DeviceModel {
       currentAltitudeM: _doubleOrNull(json['current_altitude_m']),
       currentSpeedMps: _doubleOrNull(json['current_speed_mps']),
       currentHeadingDeg: _doubleOrNull(json['current_heading_deg']),
+      batteryPct: _intOrNull(json['battery_pct']),
       lastSeenAt: _dateOrNull(json['last_seen_at']),
+      latestMeasuredAt: _dateOrNull(json['latest_measured_at']),
     );
   }
 
@@ -98,6 +106,13 @@ class DeviceModel {
     if (value == null) return null;
     if (value is num) return value.toDouble();
     return double.tryParse(value.toString());
+  }
+
+  static int? _intOrNull(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
   }
 
   static DateTime? _dateOrNull(dynamic value) {

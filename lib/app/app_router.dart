@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/dashboard/dashboard_page.dart';
 import '../features/device_detail/device_detail_page.dart';
 import '../features/map/map_view_page.dart';
+import '../features/auth/auth_cubit.dart';
+import '../features/auth/change_password_dialog.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(
   debugLabel: 'root',
@@ -12,7 +15,7 @@ final GlobalKey<NavigatorState> _shellNavigatorKey = GlobalKey<NavigatorState>(
   debugLabel: 'shell',
 );
 
-/// Application route configuration.
+/// Cấu hình điều hướng của phần ứng dụng đã xác thực.
 class AppRouter {
   static final GoRouter router = GoRouter(
     navigatorKey: _rootNavigatorKey,
@@ -50,7 +53,7 @@ class AppRouter {
   );
 }
 
-/// Shell with NavigationRail for desktop / bottom nav for mobile.
+/// Khung điều hướng dùng thanh bên trên desktop và thanh đáy trên màn hình nhỏ.
 class _AppShell extends StatefulWidget {
   const _AppShell({required this.child});
   final Widget child;
@@ -63,6 +66,10 @@ class _AppShellState extends State<_AppShell> {
   int _selectedIndex = 0;
 
   void _onDestinationSelected(int index) {
+    if (index == 2) {
+      _showMobileAccountActions();
+      return;
+    }
     setState(() => _selectedIndex = index);
     switch (index) {
       case 0:
@@ -72,9 +79,54 @@ class _AppShellState extends State<_AppShell> {
     }
   }
 
+  Future<void> _showMobileAccountActions() async {
+    final authCubit = context.read<AuthCubit>();
+    final user = authCubit.state.user;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const CircleAvatar(
+                  child: Icon(Icons.person_outline_rounded),
+                ),
+                title: Text(user?.fullName ?? user?.username ?? 'Tài khoản'),
+                subtitle: Text(
+                  user?.isAdmin == true ? 'Quản trị viên' : 'Người xem',
+                ),
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.password_rounded),
+                title: const Text('Đổi mật khẩu'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _showChangePasswordDialog(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.logout_rounded),
+                title: const Text('Đăng xuất'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  authCubit.logout();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Determine current index from location
+    // Xác định mục điều hướng hiện tại từ đường dẫn.
     final location = GoRouterState.of(context).uri.toString();
     final currentIndex = location.startsWith('/map') ? 1 : 0;
     if (currentIndex != _selectedIndex) {
@@ -97,7 +149,8 @@ class _AppShellState extends State<_AppShell> {
       );
     }
 
-    // Mobile layout with bottom nav
+    // Trên màn hình nhỏ, thanh điều hướng đáy giữ các chức năng chính trong
+    // vùng dễ thao tác và đưa tác vụ tài khoản vào một mục riêng biệt.
     return Scaffold(
       body: widget.child,
       bottomNavigationBar: NavigationBar(
@@ -113,6 +166,11 @@ class _AppShellState extends State<_AppShell> {
             icon: Icon(Icons.map_outlined),
             selectedIcon: Icon(Icons.map_rounded),
             label: 'Bản đồ',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.account_circle_outlined),
+            selectedIcon: Icon(Icons.account_circle_rounded),
+            label: 'Tài khoản',
           ),
         ],
       ),
@@ -141,7 +199,7 @@ class _DesktopNavRail extends StatelessWidget {
         child: Column(
           children: [
             const SizedBox(height: 16),
-            // Top App Logo
+            // Logo phía trên giúp nhận diện ứng dụng khi thanh bên được thu gọn.
             Container(
               key: const Key('app-brand-logo'),
               width: 38,
@@ -172,7 +230,7 @@ class _DesktopNavRail extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            // Nav Items
+            // Các mục điều hướng dùng chung cùng chỉ số với cấu hình router.
             _NavItem(
               index: 0,
               isSelected: selectedIndex == 0,
@@ -188,11 +246,111 @@ class _DesktopNavRail extends StatelessWidget {
               label: 'Bản đồ',
               onTap: () => onDestinationSelected(1),
             ),
+            const Spacer(),
+            const _DesktopAccountMenu(),
+            const SizedBox(height: 12),
           ],
         ),
       ),
     );
   }
+}
+
+class _DesktopAccountMenu extends StatelessWidget {
+  const _DesktopAccountMenu();
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<AuthCubit>().state;
+    final user = state.user;
+    final displayName = user?.fullName.trim().isNotEmpty == true
+        ? user!.fullName.trim()
+        : user?.username ?? 'Tài khoản';
+
+    return PopupMenuButton<String>(
+      tooltip: displayName,
+      onSelected: (value) {
+        if (value == 'change-password') {
+          _showChangePasswordDialog(context);
+        } else if (value == 'logout') {
+          context.read<AuthCubit>().logout();
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem<String>(
+          enabled: false,
+          child: SizedBox(
+            width: 220,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                Text(
+                  user?.isAdmin == true ? 'Quản trị viên' : 'Người xem',
+                  style: const TextStyle(color: Color(0xFF66727D)),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: 'change-password',
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.password_rounded),
+            title: Text('Đổi mật khẩu'),
+          ),
+        ),
+        const PopupMenuItem<String>(
+          value: 'logout',
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.logout_rounded),
+            title: Text('Đăng xuất'),
+          ),
+        ),
+      ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: const Color(0xFF1677FF).withValues(alpha: 0.12),
+              child: const Icon(
+                Icons.person_outline_rounded,
+                size: 20,
+                color: Color(0xFF1677FF),
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Tài khoản',
+              style: TextStyle(fontSize: 10.5, color: Color(0xFF66727D)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> _showChangePasswordDialog(BuildContext context) {
+  return showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => BlocProvider.value(
+      value: context.read<AuthCubit>(),
+      child: const ChangePasswordDialog(),
+    ),
+  );
 }
 
 class _NavItem extends StatelessWidget {

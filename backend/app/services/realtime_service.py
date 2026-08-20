@@ -5,8 +5,9 @@ class RealtimeService:
     def __init__(self):
         self.active_connections: list[WebSocket] = []
 
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
+    async def connect(self, websocket: WebSocket, *, already_accepted: bool = False):
+        if not already_accepted:
+            await websocket.accept()
         if websocket not in self.active_connections:
             self.active_connections.append(websocket)
 

@@ -3,20 +3,26 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:device_preview/device_preview.dart';
 import 'app_router.dart';
 import 'app_theme.dart';
+import '../core/auth/auth_token_store.dart';
 import '../core/network/api_client.dart';
 import '../core/network/websocket_client.dart';
 import '../data/repositories/device_repository.dart';
 import '../data/repositories/geocoding_repository.dart';
 import '../data/repositories/tracking_repository.dart';
+import '../features/auth/auth_cubit.dart';
+import '../features/auth/auth_state.dart';
+import '../features/auth/login_page.dart';
 
 class VMonitorApp extends StatelessWidget {
   final ApiClient apiClient;
   final WebsocketClient websocketClient;
+  final AuthTokenStore? authTokenStore;
 
   const VMonitorApp({
     super.key,
     required this.apiClient,
     required this.websocketClient,
+    this.authTokenStore,
   });
 
   @override
@@ -34,27 +40,63 @@ class VMonitorApp extends StatelessWidget {
         ),
         RepositoryProvider<WebsocketClient>.value(value: websocketClient),
       ],
-      child: MaterialApp.router(
-        title: 'v_monitor',
-        theme: AppTheme.light,
-        darkTheme: AppTheme.dark,
-        routerConfig: AppRouter.router,
-        debugShowCheckedModeBanner: false,
-        locale: DevicePreview.locale(context),
-        builder: (context, child) {
-          final childWidget = DevicePreview.appBuilder(context, child);
-          final data = MediaQuery.of(context);
-          return MediaQuery(
-            data: data.copyWith(
-              textScaler: data.textScaler.clamp(
-                minScaleFactor: 1.0,
-                maxScaleFactor: 1.0,
-              ),
-            ),
-            child: childWidget,
-          );
-        },
+      child: BlocProvider(
+        create: (_) => AuthCubit(
+          apiClient,
+          websocketClient,
+          authTokenStore ?? SecureAuthTokenStore(),
+        )..initialize(),
+        child: const _AuthenticatedApplication(),
       ),
     );
   }
+}
+
+class _AuthenticatedApplication extends StatelessWidget {
+  const _AuthenticatedApplication();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<AuthCubit, AuthState>(
+      builder: (context, state) {
+        if (state.isAuthenticated) {
+          return MaterialApp.router(
+            title: 'v_monitor',
+            theme: AppTheme.light,
+            darkTheme: AppTheme.dark,
+            routerConfig: AppRouter.router,
+            debugShowCheckedModeBanner: false,
+            locale: DevicePreview.locale(context),
+            builder: _fixedTextScaleBuilder,
+          );
+        }
+
+        return MaterialApp(
+          title: 'v_monitor',
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          debugShowCheckedModeBanner: false,
+          locale: DevicePreview.locale(context),
+          builder: _fixedTextScaleBuilder,
+          home: state.status == AuthStatus.checking
+              ? const AuthCheckingPage()
+              : const LoginPage(),
+        );
+      },
+    );
+  }
+}
+
+Widget _fixedTextScaleBuilder(BuildContext context, Widget? child) {
+  final childWidget = DevicePreview.appBuilder(context, child);
+  final data = MediaQuery.of(context);
+  return MediaQuery(
+    data: data.copyWith(
+      textScaler: data.textScaler.clamp(
+        minScaleFactor: 1.0,
+        maxScaleFactor: 1.0,
+      ),
+    ),
+    child: childWidget,
+  );
 }

@@ -11,7 +11,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-# revision identifiers, used by Alembic.
+# Các mã revision để Alembic xác định thứ tự migration.
 revision: str = 'ad46b8bbfdf3'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
@@ -19,7 +19,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Create composite index on location_samples (device_id, measured_at) for high-performance time-range history queries
+    # Tạo chỉ mục ghép để tăng tốc truy vấn lịch sử theo thiết bị và thời gian.
     op.create_index(
         'ix_location_samples_device_measured',
         'location_samples',

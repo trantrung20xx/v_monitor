@@ -1,49 +1,62 @@
-from pydantic import BaseModel
-from typing import Optional, Dict
 from datetime import datetime
+from typing import Dict, Optional
 import uuid
 
+from pydantic import Field, field_validator
+
+from app.domain.enums import DeviceStatus, DeviceType
 from app.schemas.common import BaseSchema
-from app.domain.enums import DeviceType, DeviceStatus
 
 
 class DeviceBase(BaseSchema):
-    device_code: str                                       # Mã định danh thiết bị
-    name: str                                              # Tên hiển thị thiết bị
-    device_type: DeviceType                                # Loại thiết bị
-    serial_number: Optional[str] = None                    # Số serial thiết bị
-    manufacturer: Optional[str] = None                     # Nhà sản xuất
-    model: Optional[str] = None                            # Model thiết bị
-    firmware_version: Optional[str] = None                 # Phiên bản firmware
-    status: DeviceStatus = DeviceStatus.UNKNOWN            # Trạng thái thiết bị
-    metadata_json: Optional[Dict] = None                   # Thông tin mở rộng dạng key-value
+    device_code: str = Field(min_length=1, max_length=50)
+    name: str = Field(min_length=1, max_length=255)
+    device_type: DeviceType
+    serial_number: Optional[str] = Field(default=None, max_length=100)
+    manufacturer: Optional[str] = Field(default=None, max_length=100)
+    model: Optional[str] = Field(default=None, max_length=100)
+    firmware_version: Optional[str] = Field(default=None, max_length=50)
+    status: DeviceStatus = DeviceStatus.UNKNOWN
+    metadata_json: Optional[Dict] = None
+
+    @field_validator("device_code", "name")
+    @classmethod
+    def _strip_required_text(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Giá trị không được chỉ chứa khoảng trắng")
+        return normalized
 
 
 class DeviceCreate(DeviceBase):
-    pass                                                   # Schema tạo thiết bị
+    pass
 
 
 class DeviceResponse(DeviceBase):
-    id: uuid.UUID                                          # ID duy nhất trong database
-    created_at: Optional[datetime] = None                  # Thời điểm tạo bản ghi
-    updated_at: Optional[datetime] = None                  # Thời điểm cập nhật bản ghi
+    id: uuid.UUID
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
-    # Latest state
-    is_online: Optional[bool] = False                      # Trạng thái online hiện tại
-    current_latitude: Optional[float] = None               # Vĩ độ GPS hiện tại
-    current_longitude: Optional[float] = None              # Kinh độ GPS hiện tại
-    current_altitude_m: Optional[float] = None             # Độ cao GPS hiện tại (m)
-    current_speed_mps: Optional[float] = None              # Vận tốc hiện tại (m/s)
-    current_heading_deg: Optional[float] = None            # Hướng di chuyển hiện tại (độ)
-    last_seen_at: Optional[datetime] = None                # Thời điểm nhận dữ liệu gần nhất
+    # Trạng thái tổng hợp mới nhất để giao diện hiển thị nhanh.
+    is_online: Optional[bool] = False
+    current_latitude: Optional[float] = None
+    current_longitude: Optional[float] = None
+    current_altitude_m: Optional[float] = None
+    current_speed_mps: Optional[float] = None
+    current_heading_deg: Optional[float] = None
+    battery_pct: Optional[int] = None
+    last_seen_at: Optional[datetime] = None
+    latest_measured_at: Optional[datetime] = None
 
 
 class DeviceLatestStateResponse(BaseSchema):
-    device_id: uuid.UUID                                   # ID thiết bị
-    last_seen_at: datetime                                 # Thời điểm nhận dữ liệu gần nhất
-    is_online: bool                                        # Trạng thái online hiện tại
-    current_latitude: Optional[float] = None               # Vĩ độ GPS hiện tại
-    current_longitude: Optional[float] = None              # Kinh độ GPS hiện tại
-    current_altitude_m: Optional[float] = None             # Độ cao GPS hiện tại (m)
-    current_speed_mps: Optional[float] = None              # Vận tốc hiện tại (m/s)
-    current_heading_deg: Optional[float] = None            # Hướng di chuyển hiện tại (độ)
+    device_id: uuid.UUID
+    last_seen_at: Optional[datetime] = None
+    latest_measured_at: Optional[datetime] = None
+    is_online: bool
+    current_latitude: Optional[float] = None
+    current_longitude: Optional[float] = None
+    current_altitude_m: Optional[float] = None
+    current_speed_mps: Optional[float] = None
+    current_heading_deg: Optional[float] = None
+    battery_pct: Optional[int] = None
