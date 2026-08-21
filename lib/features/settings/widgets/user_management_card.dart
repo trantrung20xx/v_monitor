@@ -4,7 +4,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../data/models/user_model.dart';
 import '../settings_cubit.dart';
 
-class UserManagementCard extends StatelessWidget {
+enum _UserRoleFilter { all, member, admin }
+
+class UserManagementCard extends StatefulWidget {
   const UserManagementCard({
     super.key,
     required this.users,
@@ -17,7 +19,56 @@ class UserManagementCard extends StatelessWidget {
   final bool operationInProgress;
 
   @override
+  State<UserManagementCard> createState() => _UserManagementCardState();
+}
+
+class _UserManagementCardState extends State<UserManagementCard> {
+  final TextEditingController _searchController = TextEditingController();
+  _UserRoleFilter _roleFilter = _UserRoleFilter.all;
+  String _normalizedQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<UserModel> get _visibleUsers {
+    return widget.users
+        .where((user) {
+          final matchesRole = switch (_roleFilter) {
+            _UserRoleFilter.all => true,
+            _UserRoleFilter.member => !user.isAdmin,
+            _UserRoleFilter.admin => user.isAdmin,
+          };
+          if (!matchesRole) return false;
+          if (_normalizedQuery.isEmpty) return true;
+          final searchableText = _normalizeSearchText(
+            '${user.fullName} ${user.username} ${user.email ?? ''}',
+          );
+          return searchableText.contains(_normalizedQuery);
+        })
+        .toList(growable: false);
+  }
+
+  void _updateSearch(String value) {
+    setState(() => _normalizedQuery = _normalizeSearchText(value));
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    _updateSearch('');
+  }
+
+  void _selectRole(_UserRoleFilter value) {
+    if (_roleFilter != value) setState(() => _roleFilter = value);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final visibleUsers = _visibleUsers;
+    final memberCount = widget.users.where((user) => !user.isAdmin).length;
+    final adminCount = widget.users.length - memberCount;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -42,7 +93,7 @@ class UserManagementCard extends StatelessWidget {
                     ),
                     IconButton(
                       tooltip: 'Tải lại danh sách',
-                      onPressed: loading
+                      onPressed: widget.loading
                           ? null
                           : () => context.read<SettingsCubit>().loadUsers(),
                       icon: const Icon(Icons.refresh_rounded),
@@ -51,9 +102,9 @@ class UserManagementCard extends StatelessWidget {
                 );
                 final createButton = FilledButton.icon(
                   key: const Key('create-user-button'),
-                  onPressed: operationInProgress
+                  onPressed: widget.operationInProgress
                       ? null
-                      : () => _showUserDialog(context),
+                      : () => showUserEditorDialog(context),
                   icon: const Icon(Icons.person_add_alt_1_rounded),
                   label: const Text('Thêm tài khoản'),
                 );
@@ -78,20 +129,130 @@ class UserManagementCard extends StatelessWidget {
               style: TextStyle(color: Theme.of(context).colorScheme.outline),
             ),
             const SizedBox(height: 16),
-            if (loading)
+            TextField(
+              key: const Key('user-search-field'),
+              controller: _searchController,
+              onChanged: _updateSearch,
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
+                hintText: 'Tìm theo tên, username hoặc email',
+                prefixIcon: const Icon(Icons.search_rounded),
+                suffixIcon: _normalizedQuery.isEmpty
+                    ? null
+                    : IconButton(
+                        key: const Key('clear-user-search'),
+                        tooltip: 'Xóa tìm kiếm',
+                        onPressed: _clearSearch,
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Bộ lọc cuộn ngang giữ bố cục gọn trên điện thoại và vẫn hiển thị
+            // đầy đủ tên nhóm, tương tự các bộ lọc hội thoại phổ biến.
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _UserFilterChip(
+                    key: const Key('user-filter-all'),
+                    label: 'Tất cả (${widget.users.length})',
+                    selected: _roleFilter == _UserRoleFilter.all,
+                    onSelected: () => _selectRole(_UserRoleFilter.all),
+                  ),
+                  const SizedBox(width: 8),
+                  _UserFilterChip(
+                    key: const Key('user-filter-member'),
+                    label: 'Thành viên ($memberCount)',
+                    selected: _roleFilter == _UserRoleFilter.member,
+                    onSelected: () => _selectRole(_UserRoleFilter.member),
+                  ),
+                  const SizedBox(width: 8),
+                  _UserFilterChip(
+                    key: const Key('user-filter-admin'),
+                    label: 'Quản trị viên ($adminCount)',
+                    selected: _roleFilter == _UserRoleFilter.admin,
+                    onSelected: () => _selectRole(_UserRoleFilter.admin),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (widget.loading)
               const LinearProgressIndicator(minHeight: 2)
-            else if (users.isEmpty)
+            else if (widget.users.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 24),
                 child: Center(child: Text('Chưa có tài khoản để hiển thị.')),
               )
+            else if (visibleUsers.isEmpty)
+              Padding(
+                key: const Key('user-filter-empty'),
+                padding: const EdgeInsets.symmetric(vertical: 28),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.person_search_outlined,
+                      size: 36,
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Không tìm thấy tài khoản phù hợp.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              )
             else
-              ...users.map((user) => _UserRow(user: user)),
+              ...visibleUsers.map((user) => _UserRow(user: user)),
           ],
         ),
       ),
     );
   }
+}
+
+class _UserFilterChip extends StatelessWidget {
+  const _UserFilterChip({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      showCheckmark: false,
+      onSelected: (_) => onSelected(),
+    );
+  }
+}
+
+String _normalizeSearchText(String value) {
+  var normalized = value.toLowerCase().trim();
+  const replacements = <String, String>{
+    'àáạảãâầấậẩẫăằắặẳẵ': 'a',
+    'èéẹẻẽêềếệểễ': 'e',
+    'ìíịỉĩ': 'i',
+    'òóọỏõôồốộổỗơờớợởỡ': 'o',
+    'ùúụủũưừứựửữ': 'u',
+    'ỳýỵỷỹ': 'y',
+    'đ': 'd',
+  };
+  for (final entry in replacements.entries) {
+    for (final character in entry.key.characters) {
+      normalized = normalized.replaceAll(character, entry.value);
+    }
+  }
+  return normalized;
 }
 
 class _UserRow extends StatelessWidget {
@@ -128,7 +289,7 @@ class _UserRow extends StatelessWidget {
             children: [
               Text('@${user.username}'),
               _StatusLabel(
-                text: user.isAdmin ? 'Quản trị viên' : 'Người dùng',
+                text: user.isAdmin ? 'Quản trị viên' : 'Thành viên',
                 color: colors.primary,
               ),
               _StatusLabel(
@@ -142,7 +303,7 @@ class _UserRow extends StatelessWidget {
             tooltip: 'Thao tác tài khoản',
             onSelected: (action) {
               if (action == 'edit') {
-                _showUserDialog(context, user: user);
+                showUserEditorDialog(context, user: user);
               } else if (action == 'password') {
                 _showResetPasswordDialog(context, user);
               }
@@ -200,9 +361,10 @@ class _StatusLabel extends StatelessWidget {
 }
 
 class _UserEditorDialog extends StatefulWidget {
-  const _UserEditorDialog({this.user});
+  const _UserEditorDialog({this.user, this.profileOnly = false});
 
   final UserModel? user;
+  final bool profileOnly;
 
   @override
   State<_UserEditorDialog> createState() => _UserEditorDialogState();
@@ -253,12 +415,15 @@ class _UserEditorDialogState extends State<_UserEditorDialog> {
     final data = <String, dynamic>{
       'full_name': _fullNameController.text.trim(),
       'email': email.isEmpty ? null : email,
-      'role': _role,
-      'is_active': _isActive,
+      if (!widget.profileOnly) ...{'role': _role, 'is_active': _isActive},
     };
     final cubit = context.read<SettingsCubit>();
     final error = _isEditing
-        ? await cubit.updateUser(widget.user!.id, data)
+        ? await cubit.updateUser(
+            widget.user!.id,
+            data,
+            refreshUsers: !widget.profileOnly,
+          )
         : await cubit.createUser({
             ...data,
             'username': _usernameController.text.trim(),
@@ -266,7 +431,7 @@ class _UserEditorDialogState extends State<_UserEditorDialog> {
           });
     if (!mounted) return;
     if (error == null) {
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(true);
       return;
     }
     setState(() {
@@ -278,7 +443,13 @@ class _UserEditorDialogState extends State<_UserEditorDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(_isEditing ? 'Sửa tài khoản' : 'Thêm tài khoản'),
+      title: Text(
+        widget.profileOnly
+            ? 'Sửa thông tin tài khoản'
+            : _isEditing
+            ? 'Sửa tài khoản'
+            : 'Thêm tài khoản',
+      ),
       content: SizedBox(
         width: 480,
         child: SingleChildScrollView(
@@ -331,30 +502,35 @@ class _UserEditorDialogState extends State<_UserEditorDialog> {
                         : null,
                   ),
                 ],
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  key: const Key('user-role-field'),
-                  initialValue: _role,
-                  decoration: const InputDecoration(labelText: 'Vai trò'),
-                  items: const [
-                    DropdownMenuItem(value: 'USER', child: Text('Người dùng')),
-                    DropdownMenuItem(
-                      value: 'ADMIN',
-                      child: Text('Quản trị viên'),
-                    ),
-                  ],
-                  onChanged: _submitting
-                      ? null
-                      : (value) => setState(() => _role = value ?? 'USER'),
-                ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Cho phép đăng nhập'),
-                  value: _isActive,
-                  onChanged: _submitting
-                      ? null
-                      : (value) => setState(() => _isActive = value),
-                ),
+                if (!widget.profileOnly) ...[
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    key: const Key('user-role-field'),
+                    initialValue: _role,
+                    decoration: const InputDecoration(labelText: 'Vai trò'),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'USER',
+                        child: Text('Thành viên'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'ADMIN',
+                        child: Text('Quản trị viên'),
+                      ),
+                    ],
+                    onChanged: _submitting
+                        ? null
+                        : (value) => setState(() => _role = value ?? 'USER'),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Cho phép đăng nhập'),
+                    value: _isActive,
+                    onChanged: _submitting
+                        ? null
+                        : (value) => setState(() => _isActive = value),
+                  ),
+                ],
                 if (_error != null)
                   Align(
                     alignment: Alignment.centerLeft,
@@ -514,13 +690,17 @@ class _ResetPasswordDialogState extends State<_ResetPasswordDialog> {
   }
 }
 
-Future<void> _showUserDialog(BuildContext context, {UserModel? user}) {
-  return showDialog<void>(
+Future<bool?> showUserEditorDialog(
+  BuildContext context, {
+  UserModel? user,
+  bool profileOnly = false,
+}) {
+  return showDialog<bool>(
     context: context,
     barrierDismissible: false,
     builder: (_) => BlocProvider.value(
       value: context.read<SettingsCubit>(),
-      child: _UserEditorDialog(user: user),
+      child: _UserEditorDialog(user: user, profileOnly: profileOnly),
     ),
   );
 }

@@ -159,8 +159,15 @@ class SettingsCubit extends Cubit<SettingsState> {
     return _runUserOperation(() => _repository.createUser(data));
   }
 
-  Future<String?> updateUser(String userId, Map<String, dynamic> data) async {
-    return _runUserOperation(() => _repository.updateUser(userId, data));
+  Future<String?> updateUser(
+    String userId,
+    Map<String, dynamic> data, {
+    bool refreshUsers = true,
+  }) async {
+    return _runUserOperation(
+      () => _repository.updateUser(userId, data),
+      refreshUsers: refreshUsers,
+    );
   }
 
   Future<String?> resetUserPassword(String userId, String newPassword) async {
@@ -170,15 +177,18 @@ class SettingsCubit extends Cubit<SettingsState> {
   }
 
   Future<String?> _runUserOperation(
-    Future<dynamic> Function() operation,
-  ) async {
+    Future<dynamic> Function() operation, {
+    bool refreshUsers = true,
+  }) async {
     if (state.userOperationInProgress) {
       return 'Một thao tác tài khoản khác đang được thực hiện.';
     }
     emit(state.copyWith(userOperationInProgress: true, clearMessage: true));
     try {
       await operation();
-      final users = await _repository.loadUsers();
+      // Trang hồ sơ chỉ sửa tài khoản hiện tại nên không tải cả danh sách
+      // người dùng. Trang quản trị vẫn làm mới danh sách như trước.
+      final users = refreshUsers ? await _repository.loadUsers() : state.users;
       emit(
         state.copyWith(
           users: users,

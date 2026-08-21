@@ -195,7 +195,11 @@ class _SettingsSectionView extends StatelessWidget {
 
   Widget _sectionContent() => switch (section) {
     SettingsSection.personal => _PersonalSettingsCard(state: state),
-    SettingsSection.account => _AccountSettingsCard(user: user),
+    SettingsSection.account => _AccountSettingsCard(
+      user: user,
+      hasAdminAccess: hasAdminAccess,
+      operationInProgress: state.userOperationInProgress,
+    ),
     SettingsSection.about => const _SoftwareInformationCard(),
     SettingsSection.tracking => TrackingSettingsCard(
       settings: state.systemSettings,
@@ -737,15 +741,53 @@ class _SoftwareInfoRow extends StatelessWidget {
 }
 
 class _AccountSettingsCard extends StatelessWidget {
-  const _AccountSettingsCard({required this.user});
+  const _AccountSettingsCard({
+    required this.user,
+    required this.hasAdminAccess,
+    required this.operationInProgress,
+  });
 
   final UserModel? user;
+  final bool hasAdminAccess;
+  final bool operationInProgress;
+
+  Future<void> _editCurrentAccount(BuildContext context) async {
+    final currentUser = user;
+    if (!hasAdminAccess || currentUser == null) return;
+    final saved = await showUserEditorDialog(
+      context,
+      user: currentUser,
+      profileOnly: true,
+    );
+    if (saved != true || !context.mounted) return;
+
+    // Đọc lại `/auth/me` để tên và email mới đồng bộ ở thẻ tài khoản, menu
+    // người dùng và mọi màn hình khác đang theo dõi AuthState.
+    final error = await context.read<AuthCubit>().refreshCurrentUser();
+    if (error != null && context.mounted) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return _SettingsCard(
       title: 'Tài khoản',
       icon: Icons.manage_accounts_outlined,
+      // Nút không được tạo cho tài khoản thành viên; backend vẫn kiểm tra
+      // require_admin khi API cập nhật được gọi.
+      trailing: hasAdminAccess && user != null
+          ? TextButton.icon(
+              key: const Key('edit-current-account'),
+              onPressed: operationInProgress
+                  ? null
+                  : () => _editCurrentAccount(context),
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              label: const Text('Sửa'),
+            )
+          : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -816,11 +858,13 @@ class _SettingsCard extends StatelessWidget {
     required this.title,
     required this.icon,
     required this.child,
+    this.trailing,
   });
 
   final String title;
   final IconData icon;
   final Widget child;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -834,12 +878,15 @@ class _SettingsCard extends StatelessWidget {
               children: [
                 Icon(icon, color: Theme.of(context).colorScheme.primary),
                 const SizedBox(width: 10),
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+                Expanded(
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
+                if (trailing != null) ...[const SizedBox(width: 8), trailing!],
               ],
             ),
             const SizedBox(height: 18),

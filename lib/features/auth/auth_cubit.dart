@@ -123,6 +123,32 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
+  /// Tải lại tài khoản từ backend sau khi thông tin hồ sơ được cập nhật.
+  /// Việc đọc lại `/auth/me` bảo đảm tên, email và quyền hiển thị luôn lấy từ
+  /// nguồn đã xác thực thay vì tự sửa dữ liệu người dùng ở phía giao diện.
+  Future<String?> refreshCurrentUser() async {
+    if (!state.isAuthenticated) {
+      return 'Tài khoản hiện tại chưa được xác thực.';
+    }
+    try {
+      final response = await _apiClient.get('/auth/me');
+      final user = UserModel.fromJson(
+        Map<String, dynamic>.from(response.data as Map),
+      );
+      emit(AuthState(status: AuthStatus.authenticated, user: user));
+      return null;
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 401) {
+        await _clearCredential(
+          message: 'Thông tin đăng nhập đã bị thu hồi. Vui lòng đăng nhập lại.',
+        );
+      }
+      return _responseMessage(error, 'Không thể tải lại thông tin tài khoản.');
+    } catch (_) {
+      return 'Dữ liệu tài khoản từ máy chủ không hợp lệ.';
+    }
+  }
+
   Future<String?> changePassword({
     required String currentPassword,
     required String newPassword,

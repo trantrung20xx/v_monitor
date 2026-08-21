@@ -188,6 +188,62 @@ void main() {
     },
   );
 
+  testWidgets('member cannot render the current-account edit action', (
+    tester,
+  ) async {
+    await _pumpSettings(
+      tester,
+      role: 'USER',
+      size: const Size(390, 844),
+      section: SettingsSection.account,
+    );
+
+    expect(find.byKey(const Key('edit-current-account')), findsNothing);
+    expect(find.byKey(const Key('open-change-password')), findsOneWidget);
+    expect(find.byKey(const Key('logout-from-settings')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('admin edits own profile without role or status controls', (
+    tester,
+  ) async {
+    final harness = await _pumpSettings(
+      tester,
+      role: 'ADMIN',
+      size: const Size(390, 844),
+      section: SettingsSection.account,
+    );
+
+    final editButton = find.byKey(const Key('edit-current-account'));
+    expect(editButton, findsOneWidget);
+    await tester.tap(editButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sửa thông tin tài khoản'), findsOneWidget);
+    expect(find.byKey(const Key('user-role-field')), findsNothing);
+    expect(find.byType(Switch), findsNothing);
+    await tester.enterText(
+      find.byKey(const Key('user-full-name-field')),
+      'Quản trị hệ thống',
+    );
+    await tester.enterText(
+      find.byKey(const Key('user-email-field')),
+      'admin.moi@example.test',
+    );
+    await tester.tap(find.byKey(const Key('save-user-button')));
+    await tester.pumpAndSettle();
+
+    expect(harness.repository.lastUpdatedUserId, 'user-1');
+    expect(harness.repository.lastUserUpdate, {
+      'full_name': 'Quản trị hệ thống',
+      'email': 'admin.moi@example.test',
+    });
+    expect(harness.repository.loadUsersCount, 0);
+    expect(harness.authCubit.refreshCurrentUserCount, 1);
+    expect(find.byKey(const Key('open-change-password')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'tracking validates, prevents duplicate save, and reports API error',
     (tester) async {
@@ -259,7 +315,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Sửa tài khoản'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Người dùng').last);
+    await tester.tap(find.text('Thành viên').last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Quản trị viên').last);
     await tester.pumpAndSettle();
@@ -294,6 +350,55 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('user management searches without accents and filters roles', (
+    tester,
+  ) async {
+    await _pumpSettings(
+      tester,
+      role: 'ADMIN',
+      size: const Size(390, 844),
+      section: SettingsSection.users,
+    );
+
+    final member = find.byKey(const Key('managed-user-user-2'));
+    final admin = find.byKey(const Key('managed-user-user-3'));
+    expect(member, findsOneWidget);
+    expect(admin, findsOneWidget);
+    expect(find.text('Tất cả (2)'), findsOneWidget);
+    expect(find.text('Thành viên (1)'), findsOneWidget);
+    expect(find.text('Quản trị viên (1)'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('user-search-field')),
+      'nhan vien',
+    );
+    await tester.pump();
+    expect(member, findsOneWidget);
+    expect(admin, findsNothing);
+
+    await tester.tap(find.byKey(const Key('clear-user-search')));
+    await tester.pump();
+    await tester.ensureVisible(find.byKey(const Key('user-filter-admin')));
+    await tester.tap(find.byKey(const Key('user-filter-admin')));
+    await tester.pump();
+    expect(member, findsNothing);
+    expect(admin, findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const Key('user-filter-member')));
+    await tester.tap(find.byKey(const Key('user-filter-member')));
+    await tester.pump();
+    expect(member, findsOneWidget);
+    expect(admin, findsNothing);
+
+    await tester.enterText(
+      find.byKey(const Key('user-search-field')),
+      'không tồn tại',
+    );
+    await tester.pump();
+    expect(find.byKey(const Key('user-filter-empty')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('settings layout has no overflow on mobile and desktop', (
     tester,
   ) async {
@@ -322,9 +427,10 @@ String _expectedTitle(SettingsSection section) => switch (section) {
 };
 
 class _SettingsHarness {
-  const _SettingsHarness({required this.repository});
+  const _SettingsHarness({required this.repository, required this.authCubit});
 
   final _FakeSettingsRepository repository;
+  final _StaticAuthCubit authCubit;
 }
 
 Future<_SettingsHarness> _pumpSettings(
@@ -377,13 +483,21 @@ Future<_SettingsHarness> _pumpSettings(
     ),
   );
   await tester.pumpAndSettle();
-  return _SettingsHarness(repository: repository);
+  return _SettingsHarness(repository: repository, authCubit: authCubit);
 }
 
 class _StaticAuthCubit extends AuthCubit {
   _StaticAuthCubit(UserModel user)
     : super(ApiClient(), WebsocketClient(), _EmptyTokenStore()) {
     emit(AuthState(status: AuthStatus.authenticated, user: user));
+  }
+
+  int refreshCurrentUserCount = 0;
+
+  @override
+  Future<String?> refreshCurrentUser() async {
+    refreshCurrentUserCount++;
+    return null;
   }
 
   @override
@@ -423,6 +537,14 @@ class _FakeSettingsRepository extends SettingsRepository {
       fullName: 'Nhân viên vận hành',
       email: 'operator@example.test',
       role: 'USER',
+      isActive: true,
+    ),
+    const UserModel(
+      id: 'user-3',
+      username: 'security-admin',
+      fullName: 'Quản trị bảo mật',
+      email: 'security@example.test',
+      role: 'ADMIN',
       isActive: true,
     ),
   ];
@@ -523,7 +645,16 @@ class _FakeSettingsRepository extends SettingsRepository {
     lastUpdatedUserId = userId;
     lastUserUpdate = data;
     final index = _users.indexWhere((user) => user.id == userId);
-    final old = _users[index];
+    final old = index >= 0
+        ? _users[index]
+        : UserModel(
+            id: userId,
+            username: 'admin',
+            fullName: 'Quản trị viên',
+            email: 'admin@example.test',
+            role: 'ADMIN',
+            isActive: true,
+          );
     final updated = UserModel(
       id: old.id,
       username: old.username,
@@ -532,7 +663,7 @@ class _FakeSettingsRepository extends SettingsRepository {
       role: data['role']?.toString() ?? old.role,
       isActive: data['is_active'] as bool? ?? old.isActive,
     );
-    _users[index] = updated;
+    if (index >= 0) _users[index] = updated;
     return updated;
   }
 

@@ -57,6 +57,32 @@ void main() {
     expect(websocketClient.connectCount, 1);
   });
 
+  test('refresh current user replaces profile with backend data', () async {
+    final apiClient = _FakeApiClient();
+    final cubit = AuthCubit(
+      apiClient,
+      _FakeWebsocketClient(),
+      _MemoryTokenStore('saved-credential'),
+    );
+    addTearDown(cubit.close);
+    await cubit.initialize();
+
+    apiClient.meUser = const {
+      'id': 'user-1',
+      'username': 'viewer',
+      'full_name': 'Tên vừa cập nhật',
+      'email': 'new-email@example.test',
+      'role': 'USER',
+      'is_active': true,
+    };
+    final error = await cubit.refreshCurrentUser();
+
+    expect(error, isNull);
+    expect(cubit.state.user?.fullName, 'Tên vừa cập nhật');
+    expect(cubit.state.user?.email, 'new-email@example.test');
+    expect(apiClient.meCount, 2);
+  });
+
   test(
     'initialize keeps the credential when the server is unavailable',
     () async {
@@ -189,6 +215,7 @@ class _FakeApiClient extends ApiClient {
   DioException? getError;
   int loginCount = 0;
   int meCount = 0;
+  Map<String, dynamic> meUser = Map<String, dynamic>.from(_user);
 
   static const _user = {
     'id': 'user-1',
@@ -220,7 +247,7 @@ class _FakeApiClient extends ApiClient {
     return Response(
       requestOptions: RequestOptions(path: path),
       statusCode: 200,
-      data: _user,
+      data: meUser,
     );
   }
 
