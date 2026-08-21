@@ -350,6 +350,41 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('compact user actions keep create and reload behavior', (
+    tester,
+  ) async {
+    final harness = await _pumpSettings(
+      tester,
+      role: 'ADMIN',
+      size: const Size(390, 844),
+      section: SettingsSection.users,
+    );
+
+    expect(
+      find.text(
+        'Tài khoản do quản trị viên tạo; người dùng không thể tự đăng ký.',
+      ),
+      findsNothing,
+    );
+    expect(find.byKey(const Key('reload-users-button')), findsOneWidget);
+    expect(find.byKey(const Key('create-user-button')), findsOneWidget);
+    expect(find.text('Thêm tài khoản'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('create-user-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Thêm tài khoản'), findsOneWidget);
+    expect(find.byKey(const Key('user-full-name-field')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Hủy'));
+    await tester.pumpAndSettle();
+
+    expect(harness.repository.loadUsersCount, 1);
+    await tester.tap(find.byKey(const Key('reload-users-button')));
+    await tester.pumpAndSettle();
+    expect(harness.repository.loadUsersCount, 2);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('user management searches without accents and filters roles', (
     tester,
   ) async {
@@ -397,6 +432,34 @@ void main() {
     await tester.pump();
     expect(find.byKey(const Key('user-filter-empty')), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('subpages do not render redundant introduction blocks', (
+    tester,
+  ) async {
+    const cases = <SettingsSection, String>{
+      SettingsSection.personal:
+          'Tùy chỉnh cách ứng dụng hiển thị trên tài khoản này.',
+      SettingsSection.account:
+          'Xem thông tin và quản lý an toàn cho tài khoản đang đăng nhập.',
+      SettingsSection.about:
+          'Xem thông tin nhận diện và phiên bản phần mềm đang sử dụng.',
+      SettingsSection.tracking:
+          'Thiết lập các ngưỡng dùng chung cho hoạt động giám sát thiết bị.',
+      SettingsSection.users:
+          'Quản lý tài khoản nội bộ và phạm vi quyền truy cập.',
+    };
+
+    for (final entry in cases.entries) {
+      await _pumpSettings(
+        tester,
+        role: 'ADMIN',
+        size: const Size(390, 844),
+        section: entry.key,
+      );
+      expect(find.text(entry.value), findsNothing);
+      expect(tester.takeException(), isNull);
+    }
   });
 
   testWidgets('settings layout has no overflow on mobile and desktop', (

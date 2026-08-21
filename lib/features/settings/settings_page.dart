@@ -177,11 +177,8 @@ class _SettingsSectionView extends StatelessWidget {
                       ],
                       if (section == SettingsSection.overview)
                         _SettingsOverview(hasAdminAccess: hasAdminAccess)
-                      else ...[
-                        _SectionIntroduction(section: section),
-                        const SizedBox(height: 20),
+                      else
                         _sectionContent(),
-                      ],
                     ],
                   ),
                 ),
@@ -402,77 +399,6 @@ class _SettingsGroupTitle extends StatelessWidget {
       style: Theme.of(
         context,
       ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-    );
-  }
-}
-
-class _SectionIntroduction extends StatelessWidget {
-  const _SectionIntroduction({required this.section});
-
-  final SettingsSection section;
-
-  @override
-  Widget build(BuildContext context) {
-    final (icon, description) = switch (section) {
-      SettingsSection.personal => (
-        Icons.palette_outlined,
-        'Tùy chỉnh cách ứng dụng hiển thị trên tài khoản này.',
-      ),
-      SettingsSection.account => (
-        Icons.shield_outlined,
-        'Xem thông tin và quản lý an toàn cho tài khoản đang đăng nhập.',
-      ),
-      SettingsSection.about => (
-        Icons.info_outline_rounded,
-        'Xem thông tin nhận diện và phiên bản phần mềm đang sử dụng.',
-      ),
-      SettingsSection.tracking => (
-        Icons.sensors_rounded,
-        'Thiết lập các ngưỡng dùng chung cho hoạt động giám sát thiết bị.',
-      ),
-      SettingsSection.users => (
-        Icons.admin_panel_settings_outlined,
-        'Quản lý tài khoản nội bộ và phạm vi quyền truy cập.',
-      ),
-      SettingsSection.overview => (Icons.settings_outlined, ''),
-    };
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 46,
-          height: 46,
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(
-            icon,
-            color: Theme.of(context).colorScheme.onPrimaryContainer,
-          ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _sectionTitle(section),
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                description,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

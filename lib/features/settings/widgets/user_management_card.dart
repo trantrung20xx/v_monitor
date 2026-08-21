@@ -75,58 +75,39 @@ class _UserManagementCardState extends State<UserManagementCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final title = Row(
-                  children: [
-                    Icon(
-                      Icons.group_outlined,
-                      color: Theme.of(context).colorScheme.primary,
+            Row(
+              children: [
+                Icon(
+                  Icons.group_outlined,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Quản lý người dùng',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Quản lý người dùng',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Tải lại danh sách',
-                      onPressed: widget.loading
-                          ? null
-                          : () => context.read<SettingsCubit>().loadUsers(),
-                      icon: const Icon(Icons.refresh_rounded),
-                    ),
-                  ],
-                );
-                final createButton = FilledButton.icon(
+                  ),
+                ),
+                IconButton(
+                  key: const Key('reload-users-button'),
+                  tooltip: 'Tải lại danh sách',
+                  onPressed: widget.loading
+                      ? null
+                      : () => context.read<SettingsCubit>().loadUsers(),
+                  icon: const Icon(Icons.refresh_rounded),
+                ),
+                const SizedBox(width: 2),
+                IconButton.filledTonal(
                   key: const Key('create-user-button'),
+                  tooltip: 'Thêm tài khoản',
                   onPressed: widget.operationInProgress
                       ? null
                       : () => showUserEditorDialog(context),
                   icon: const Icon(Icons.person_add_alt_1_rounded),
-                  label: const Text('Thêm tài khoản'),
-                );
-                if (constraints.maxWidth < 560) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [title, const SizedBox(height: 10), createButton],
-                  );
-                }
-                return Row(
-                  children: [
-                    Expanded(child: title),
-                    const SizedBox(width: 10),
-                    createButton,
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Tài khoản do quản trị viên tạo; người dùng không thể tự đăng ký.',
-              style: TextStyle(color: Theme.of(context).colorScheme.outline),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             TextField(
@@ -506,6 +487,7 @@ class _UserEditorDialogState extends State<_UserEditorDialog> {
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     key: const Key('user-role-field'),
+                    isExpanded: true,
                     initialValue: _role,
                     decoration: const InputDecoration(labelText: 'Vai trò'),
                     items: const [
