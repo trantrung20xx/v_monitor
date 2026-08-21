@@ -6,7 +6,6 @@ import '../features/dashboard/dashboard_page.dart';
 import '../features/device_detail/device_detail_page.dart';
 import '../features/map/map_view_page.dart';
 import '../features/auth/auth_cubit.dart';
-import '../features/auth/change_password_dialog.dart';
 import '../features/settings/settings_page.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(
@@ -71,17 +70,27 @@ class _AppShell extends StatefulWidget {
 
 class _AppShellState extends State<_AppShell> {
   int _selectedIndex = 0;
+  bool _isMobileAccountMenuOpen = false;
 
-  void _onDestinationSelected(int index) {
+  void _onPrimaryDestinationSelected(int index) {
     setState(() => _selectedIndex = index);
     switch (index) {
       case 0:
         context.goNamed('dashboard');
       case 1:
         context.goNamed('map');
-      case 2:
-        context.goNamed('settings');
     }
+  }
+
+  Future<void> _onMobileDestinationSelected(int index) async {
+    if (index == 2) {
+      if (_isMobileAccountMenuOpen) return;
+      setState(() => _isMobileAccountMenuOpen = true);
+      await _showMobileAccountMenu(context);
+      if (mounted) setState(() => _isMobileAccountMenuOpen = false);
+      return;
+    }
+    _onPrimaryDestinationSelected(index);
   }
 
   @override
@@ -105,7 +114,7 @@ class _AppShellState extends State<_AppShell> {
           children: [
             _DesktopNavRail(
               selectedIndex: _selectedIndex,
-              onDestinationSelected: _onDestinationSelected,
+              onDestinationSelected: _onPrimaryDestinationSelected,
             ),
             Expanded(child: widget.child),
           ],
@@ -118,8 +127,8 @@ class _AppShellState extends State<_AppShell> {
     return Scaffold(
       body: widget.child,
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: _onDestinationSelected,
+        selectedIndex: _isMobileAccountMenuOpen ? 2 : _selectedIndex,
+        onDestinationSelected: _onMobileDestinationSelected,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),
@@ -132,14 +141,98 @@ class _AppShellState extends State<_AppShell> {
             label: 'Bản đồ',
           ),
           NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings_rounded),
-            label: 'Cài đặt',
+            key: Key('mobile-account-destination'),
+            icon: Icon(Icons.person_outline_rounded),
+            selectedIcon: Icon(Icons.manage_accounts_rounded),
+            label: 'Tài khoản',
           ),
         ],
       ),
     );
   }
+}
+
+Future<void> _showMobileAccountMenu(BuildContext context) {
+  final authCubit = context.read<AuthCubit>();
+  final user = authCubit.state.user;
+  final displayName = user?.fullName.trim().isNotEmpty == true
+      ? user!.fullName.trim()
+      : user?.username ?? 'Tài khoản';
+
+  return showModalBottomSheet<void>(
+    context: context,
+    useSafeArea: true,
+    showDragHandle: true,
+    builder: (sheetContext) => Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.12),
+                child: Icon(
+                  Icons.person_outline_rounded,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      user?.isAdmin == true ? 'Quản trị viên' : 'Người xem',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Divider(height: 1),
+          const SizedBox(height: 8),
+          ListTile(
+            key: const Key('mobile-account-settings'),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+            leading: const Icon(Icons.settings_rounded),
+            title: const Text('Cài đặt'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              context.goNamed('settings');
+            },
+          ),
+          ListTile(
+            key: const Key('mobile-account-logout'),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+            leading: const Icon(Icons.logout_rounded),
+            title: const Text('Đăng xuất'),
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              authCubit.logout();
+            },
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _DesktopNavRail extends StatelessWidget {
@@ -215,14 +308,6 @@ class _DesktopNavRail extends StatelessWidget {
               label: 'Bản đồ',
               onTap: () => onDestinationSelected(1),
             ),
-            const SizedBox(height: 6),
-            _NavItem(
-              index: 2,
-              isSelected: selectedIndex == 2,
-              icon: Icons.settings_rounded,
-              label: 'Cài đặt',
-              onTap: () => onDestinationSelected(2),
-            ),
             const Spacer(),
             const _DesktopAccountMenu(),
             const SizedBox(height: 12),
@@ -247,8 +332,8 @@ class _DesktopAccountMenu extends StatelessWidget {
     return PopupMenuButton<String>(
       tooltip: displayName,
       onSelected: (value) {
-        if (value == 'change-password') {
-          _showChangePasswordDialog(context);
+        if (value == 'settings') {
+          context.goNamed('settings');
         } else if (value == 'logout') {
           context.read<AuthCubit>().logout();
         }
@@ -279,11 +364,12 @@ class _DesktopAccountMenu extends StatelessWidget {
         ),
         const PopupMenuDivider(),
         const PopupMenuItem<String>(
-          value: 'change-password',
+          key: Key('account-menu-settings'),
+          value: 'settings',
           child: ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.password_rounded),
-            title: Text('Đổi mật khẩu'),
+            leading: Icon(Icons.settings_rounded),
+            title: Text('Cài đặt'),
           ),
         ),
         const PopupMenuItem<String>(
@@ -322,17 +408,6 @@ class _DesktopAccountMenu extends StatelessWidget {
       ),
     );
   }
-}
-
-Future<void> _showChangePasswordDialog(BuildContext context) {
-  return showDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) => BlocProvider.value(
-      value: context.read<AuthCubit>(),
-      child: const ChangePasswordDialog(),
-    ),
-  );
 }
 
 class _NavItem extends StatelessWidget {
