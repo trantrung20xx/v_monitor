@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/config/map_tile_providers.dart';
+import '../../core/widgets/app_menu.dart';
 import '../../data/models/user_model.dart';
 import '../../data/models/user_settings_model.dart';
 import '../auth/auth_cubit.dart';
@@ -411,80 +412,253 @@ class _PersonalSettingsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cubit = context.read<SettingsCubit>();
+    const themeOptions = <_PersonalSettingOption<String>>[
+      _PersonalSettingOption(
+        value: 'system',
+        label: 'Theo hệ thống',
+        description: 'Tự động theo thiết bị',
+        icon: Icons.brightness_auto_rounded,
+      ),
+      _PersonalSettingOption(
+        value: 'light',
+        label: 'Sáng',
+        description: 'Nền sáng, độ tương phản cao',
+        icon: Icons.light_mode_rounded,
+      ),
+      _PersonalSettingOption(
+        value: 'dark',
+        label: 'Tối',
+        description: 'Dịu mắt trong môi trường tối',
+        icon: Icons.dark_mode_rounded,
+      ),
+    ];
+    const mapOptions = <_PersonalSettingOption<AppMapType>>[
+      _PersonalSettingOption(
+        value: AppMapType.standard,
+        label: 'Đường phố',
+        description: 'Rõ đường và địa danh',
+        icon: Icons.map_outlined,
+      ),
+      _PersonalSettingOption(
+        value: AppMapType.satellite,
+        label: 'Vệ tinh',
+        description: 'Ảnh thực địa kèm nhãn',
+        icon: Icons.satellite_alt_rounded,
+      ),
+    ];
+    const speedOptions = <_PersonalSettingOption<SpeedUnit>>[
+      _PersonalSettingOption(
+        value: SpeedUnit.kmh,
+        label: 'km/h',
+        description: 'Kilômét mỗi giờ',
+        icon: Icons.speed_rounded,
+      ),
+      _PersonalSettingOption(
+        value: SpeedUnit.mps,
+        label: 'm/s',
+        description: 'Mét mỗi giây',
+        icon: Icons.straighten_rounded,
+      ),
+    ];
+    final colors = Theme.of(context).colorScheme;
+
     return _SettingsCard(
       title: 'Cá nhân',
       icon: Icons.tune_rounded,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          DropdownButtonFormField<String>(
-            key: const Key('theme-setting'),
-            isExpanded: true,
-            initialValue: state.userSettings.theme,
-            decoration: const InputDecoration(
-              labelText: 'Giao diện',
-              prefixIcon: Icon(Icons.palette_outlined),
+          Material(
+            color: colors.surfaceContainerLow,
+            shape: RoundedRectangleBorder(
+              borderRadius: const BorderRadius.all(Radius.circular(12)),
+              side: BorderSide(color: colors.outlineVariant),
             ),
-            items: const [
-              DropdownMenuItem(value: 'system', child: Text('Theo hệ thống')),
-              DropdownMenuItem(value: 'light', child: Text('Sáng')),
-              DropdownMenuItem(value: 'dark', child: Text('Tối')),
-            ],
-            onChanged: state.personalSaving
-                ? null
-                : (value) {
-                    if (value != null) cubit.updateTheme(value);
-                  },
-          ),
-          const SizedBox(height: 14),
-          DropdownButtonFormField<AppMapType>(
-            key: const Key('map-type-setting'),
-            isExpanded: true,
-            initialValue: state.userSettings.mapType,
-            decoration: const InputDecoration(
-              labelText: 'Loại bản đồ',
-              prefixIcon: Icon(Icons.map_outlined),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                _PersonalSettingSelector<String>(
+                  key: const Key('theme-setting'),
+                  title: 'Giao diện',
+                  icon: Icons.palette_outlined,
+                  value: state.userSettings.theme,
+                  options: themeOptions,
+                  enabled: !state.personalSaving,
+                  onSelected: cubit.updateTheme,
+                ),
+                const _PersonalSettingDivider(),
+                _PersonalSettingSelector<AppMapType>(
+                  key: const Key('map-type-setting'),
+                  title: 'Loại bản đồ',
+                  icon: Icons.map_outlined,
+                  value: state.userSettings.mapType,
+                  options: mapOptions,
+                  enabled: !state.personalSaving,
+                  onSelected: cubit.updateMapType,
+                ),
+                const _PersonalSettingDivider(),
+                _PersonalSettingSelector<SpeedUnit>(
+                  key: const Key('speed-unit-setting'),
+                  title: 'Đơn vị tốc độ',
+                  icon: Icons.speed_rounded,
+                  value: state.userSettings.speedUnit,
+                  options: speedOptions,
+                  enabled: !state.personalSaving,
+                  onSelected: cubit.updateSpeedUnit,
+                ),
+              ],
             ),
-            items: const [
-              DropdownMenuItem(
-                value: AppMapType.standard,
-                child: Text('Đường phố'),
-              ),
-              DropdownMenuItem(
-                value: AppMapType.satellite,
-                child: Text('Vệ tinh'),
-              ),
-            ],
-            onChanged: state.personalSaving
-                ? null
-                : (value) {
-                    if (value != null) cubit.updateMapType(value);
-                  },
-          ),
-          const SizedBox(height: 14),
-          DropdownButtonFormField<SpeedUnit>(
-            key: const Key('speed-unit-setting'),
-            isExpanded: true,
-            initialValue: state.userSettings.speedUnit,
-            decoration: const InputDecoration(
-              labelText: 'Đơn vị tốc độ',
-              prefixIcon: Icon(Icons.speed_rounded),
-            ),
-            items: const [
-              DropdownMenuItem(value: SpeedUnit.kmh, child: Text('km/h')),
-              DropdownMenuItem(value: SpeedUnit.mps, child: Text('m/s')),
-            ],
-            onChanged: state.personalSaving
-                ? null
-                : (value) {
-                    if (value != null) cubit.updateSpeedUnit(value);
-                  },
           ),
           if (state.personalSaving) ...[
-            const SizedBox(height: 14),
-            const LinearProgressIndicator(minHeight: 2),
+            const SizedBox(height: 12),
+            const LinearProgressIndicator(
+              minHeight: 2,
+              borderRadius: BorderRadius.all(Radius.circular(999)),
+            ),
           ],
         ],
       ),
+    );
+  }
+}
+
+class _PersonalSettingOption<T> {
+  const _PersonalSettingOption({
+    required this.value,
+    required this.label,
+    required this.description,
+    required this.icon,
+  });
+
+  final T value;
+  final String label;
+  final String description;
+  final IconData icon;
+}
+
+/// Dòng lựa chọn giữ bố cục gọn như danh sách cài đặt, đồng thời dùng popup
+/// Material để bảo toàn điều hướng bàn phím, focus và semantics.
+class _PersonalSettingSelector<T> extends StatelessWidget {
+  const _PersonalSettingSelector({
+    super.key,
+    required this.title,
+    required this.icon,
+    required this.value,
+    required this.options,
+    required this.enabled,
+    required this.onSelected,
+  });
+
+  final String title;
+  final IconData icon;
+  final T value;
+  final List<_PersonalSettingOption<T>> options;
+  final bool enabled;
+  final ValueChanged<T> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final selected = options.firstWhere((option) => option.value == value);
+
+    return PopupMenuButton<T>(
+      enabled: enabled,
+      tooltip: 'Chọn $title',
+      constraints: const BoxConstraints(minWidth: 250, maxWidth: 340),
+      onSelected: onSelected,
+      itemBuilder: (context) => options
+          .map((option) {
+            final isSelected = option.value == value;
+            return PopupMenuItem<T>(
+              value: option.value,
+              height: 48,
+              padding: EdgeInsets.zero,
+              child: AppMenuItem(
+                icon: option.icon,
+                label: option.label,
+                selected: isSelected,
+                touchTarget: true,
+                trailing: isSelected
+                    ? const Icon(Icons.check_rounded)
+                    : const SizedBox(width: 18),
+              ),
+            );
+          })
+          .toList(growable: false),
+      child: Opacity(
+        opacity: enabled ? 1 : 0.55,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: colors.primaryContainer.withValues(alpha: 0.72),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 20, color: colors.onPrimaryContainer),
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colors.onSurface,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${selected.label} · ${selected.description}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: colors.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: 20,
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PersonalSettingDivider extends StatelessWidget {
+  const _PersonalSettingDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Divider(
+      height: 1,
+      indent: 67,
+      color: Theme.of(context).colorScheme.outlineVariant,
     );
   }
 }

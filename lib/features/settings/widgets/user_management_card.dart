@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/widgets/app_menu.dart';
 import '../../../data/models/user_model.dart';
 import '../settings_cubit.dart';
 
@@ -282,6 +283,7 @@ class _UserRow extends StatelessWidget {
           trailing: PopupMenuButton<String>(
             key: Key('user-actions-${user.id}'),
             tooltip: 'Thao tác tài khoản',
+            constraints: const BoxConstraints(minWidth: 220, maxWidth: 260),
             onSelected: (action) {
               if (action == 'edit') {
                 showUserEditorDialog(context, user: user);
@@ -292,18 +294,20 @@ class _UserRow extends StatelessWidget {
             itemBuilder: (_) => const [
               PopupMenuItem(
                 value: 'edit',
-                child: ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.edit_outlined),
-                  title: Text('Sửa tài khoản'),
+                height: 42,
+                padding: EdgeInsets.zero,
+                child: AppMenuItem(
+                  icon: Icons.edit_outlined,
+                  label: 'Sửa tài khoản',
                 ),
               ),
               PopupMenuItem(
                 value: 'password',
-                child: ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.password_rounded),
-                  title: Text('Đặt lại mật khẩu'),
+                height: 42,
+                padding: EdgeInsets.zero,
+                child: AppMenuItem(
+                  icon: Icons.password_rounded,
+                  label: 'Đặt lại mật khẩu',
                 ),
               ),
             ],
@@ -485,24 +489,11 @@ class _UserEditorDialogState extends State<_UserEditorDialog> {
                 ],
                 if (!widget.profileOnly) ...[
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
+                  _UserRoleSelector(
                     key: const Key('user-role-field'),
-                    isExpanded: true,
-                    initialValue: _role,
-                    decoration: const InputDecoration(labelText: 'Vai trò'),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'USER',
-                        child: Text('Thành viên'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'ADMIN',
-                        child: Text('Quản trị viên'),
-                      ),
-                    ],
-                    onChanged: _submitting
-                        ? null
-                        : (value) => setState(() => _role = value ?? 'USER'),
+                    value: _role,
+                    enabled: !_submitting,
+                    onSelected: (value) => setState(() => _role = value),
                   ),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
@@ -548,6 +539,122 @@ class _UserEditorDialogState extends State<_UserEditorDialog> {
               : const Text('Lưu'),
         ),
       ],
+    );
+  }
+}
+
+/// Bộ chọn vai trò dùng cùng popup item với các danh sách lựa chọn của ứng dụng.
+/// Giá trị nghiệp vụ vẫn giữ nguyên `USER` và `ADMIN` khi gửi lên backend.
+class _UserRoleSelector extends StatelessWidget {
+  const _UserRoleSelector({
+    super.key,
+    required this.value,
+    required this.enabled,
+    required this.onSelected,
+  });
+
+  final String value;
+  final bool enabled;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isAdmin = value == 'ADMIN';
+    final selectedLabel = isAdmin ? 'Quản trị viên' : 'Thành viên';
+    final selectedIcon = isAdmin
+        ? Icons.admin_panel_settings_outlined
+        : Icons.person_outline_rounded;
+
+    return PopupMenuButton<String>(
+      enabled: enabled,
+      tooltip: 'Chọn vai trò',
+      constraints: const BoxConstraints(minWidth: 240, maxWidth: 300),
+      onSelected: onSelected,
+      itemBuilder: (context) => [
+        _roleMenuItem(
+          value: 'USER',
+          label: 'Thành viên',
+          icon: Icons.person_outline_rounded,
+          selected: !isAdmin,
+        ),
+        _roleMenuItem(
+          value: 'ADMIN',
+          label: 'Quản trị viên',
+          icon: Icons.admin_panel_settings_outlined,
+          selected: isAdmin,
+        ),
+      ],
+      child: Opacity(
+        opacity: enabled ? 1 : 0.55,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 56),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          decoration: BoxDecoration(
+            color: theme.inputDecorationTheme.fillColor,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(selectedIcon, size: 21, color: colors.onSurfaceVariant),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Vai trò',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      selectedLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colors.onSurface,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 20,
+                color: colors.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  PopupMenuItem<String> _roleMenuItem({
+    required String value,
+    required String label,
+    required IconData icon,
+    required bool selected,
+  }) {
+    return PopupMenuItem<String>(
+      value: value,
+      height: 48,
+      padding: EdgeInsets.zero,
+      child: AppMenuItem(
+        icon: icon,
+        label: label,
+        selected: selected,
+        touchTarget: true,
+        trailing: selected
+            ? const Icon(Icons.check_rounded)
+            : const SizedBox(width: 18),
+      ),
     );
   }
 }

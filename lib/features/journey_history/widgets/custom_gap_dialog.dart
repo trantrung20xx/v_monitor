@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/widgets/app_menu.dart';
+
 /// Định dạng thời lượng ngắt quãng thân thiện với người dùng (tiếng Việt).
 String formatGapDuration(Duration duration) {
   final totalMinutes = duration.inMinutes;
@@ -269,6 +271,11 @@ class _CustomGapThresholdDialogState extends State<CustomGapThresholdDialog> {
                         child: DropdownButton<String>(
                           value: _unit,
                           isExpanded: true,
+                          borderRadius: AppMenuStyle.borderRadius,
+                          dropdownColor: AppMenuStyle.surfaceColor(context),
+                          menuMaxHeight: AppMenuStyle.dropdownMaxHeight(
+                            context,
+                          ),
                           style: const TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,

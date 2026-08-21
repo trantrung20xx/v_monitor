@@ -7,6 +7,7 @@ import '../features/device_detail/device_detail_page.dart';
 import '../features/map/map_view_page.dart';
 import '../features/auth/auth_cubit.dart';
 import '../features/settings/settings_page.dart';
+import '../core/widgets/app_menu.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(
   debugLabel: 'root',
@@ -206,61 +207,43 @@ Future<void> _showMobileAccountMenu(BuildContext context) {
     context: context,
     useSafeArea: true,
     showDragHandle: true,
+    backgroundColor: AppMenuStyle.surfaceColor(context),
     builder: (sheetContext) => Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ListTile(
+          AppMenuHeader(
             key: const Key('mobile-account-profile'),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-            leading: CircleAvatar(
-              radius: 24,
-              backgroundColor: Theme.of(
-                context,
-              ).colorScheme.primary.withValues(alpha: 0.12),
-              child: Icon(
-                Icons.person_outline_rounded,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-            title: Text(
-              displayName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            subtitle: Text(
-              user?.isAdmin == true ? 'Quản trị viên' : 'Người xem',
-            ),
-            trailing: const Icon(Icons.chevron_right_rounded),
+            displayName: displayName,
+            roleLabel: user?.isAdmin == true ? 'Quản trị viên' : 'Người xem',
+            touchTarget: true,
             onTap: () {
               Navigator.of(sheetContext).pop();
               context.goNamed('settings-account');
             },
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           const Divider(height: 1),
-          const SizedBox(height: 8),
-          ListTile(
+          const SizedBox(height: 6),
+          AppMenuItem(
             key: const Key('mobile-account-settings'),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-            leading: const Icon(Icons.settings_rounded),
-            title: const Text('Cài đặt'),
+            icon: Icons.settings_rounded,
+            label: 'Cài đặt',
             trailing: const Icon(Icons.chevron_right_rounded),
+            touchTarget: true,
             onTap: () {
               Navigator.of(sheetContext).pop();
               context.goNamed('settings');
             },
           ),
-          ListTile(
+          AppMenuItem(
             key: const Key('mobile-account-logout'),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-            leading: const Icon(Icons.logout_rounded),
-            title: const Text('Đăng xuất'),
+            icon: Icons.logout_rounded,
+            label: 'Đăng xuất',
+            isDestructive: true,
+            touchTarget: true,
             onTap: () {
               Navigator.of(sheetContext).pop();
               authCubit.logout();
@@ -368,6 +351,7 @@ class _DesktopAccountMenu extends StatelessWidget {
 
     return PopupMenuButton<String>(
       tooltip: displayName,
+      constraints: const BoxConstraints(minWidth: 276, maxWidth: 304),
       onSelected: (value) {
         if (value == 'account') {
           context.goNamed('settings-account');
@@ -381,51 +365,30 @@ class _DesktopAccountMenu extends StatelessWidget {
         PopupMenuItem<String>(
           key: const Key('account-menu-profile'),
           value: 'account',
-          child: SizedBox(
-            width: 220,
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        displayName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      Text(
-                        user?.isAdmin == true ? 'Quản trị viên' : 'Người xem',
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Icon(Icons.chevron_right_rounded),
-              ],
-            ),
+          height: 68,
+          padding: EdgeInsets.zero,
+          child: AppMenuHeader(
+            displayName: displayName,
+            roleLabel: user?.isAdmin == true ? 'Quản trị viên' : 'Người xem',
           ),
         ),
-        const PopupMenuDivider(),
+        const PopupMenuDivider(height: 9),
         const PopupMenuItem<String>(
           key: Key('account-menu-settings'),
           value: 'settings',
-          child: ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.settings_rounded),
-            title: Text('Cài đặt'),
-          ),
+          height: 42,
+          padding: EdgeInsets.zero,
+          child: AppMenuItem(icon: Icons.settings_rounded, label: 'Cài đặt'),
         ),
         const PopupMenuItem<String>(
+          key: Key('account-menu-logout'),
           value: 'logout',
-          child: ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.logout_rounded),
-            title: Text('Đăng xuất'),
+          height: 42,
+          padding: EdgeInsets.zero,
+          child: AppMenuItem(
+            icon: Icons.logout_rounded,
+            label: 'Đăng xuất',
+            isDestructive: true,
           ),
         ),
       ],

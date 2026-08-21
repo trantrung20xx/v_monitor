@@ -132,6 +132,33 @@ void main() {
     },
   );
 
+  testWidgets('desktop account menu keeps the existing logout flow', (
+    tester,
+  ) async {
+    AppRouter.router.go('/');
+    final websocketClient = _FakeWebsocketClient();
+    final tokenStore = _MemoryTokenStore('saved-credential');
+    await tester.pumpWidget(
+      VMonitorApp(
+        apiClient: _FakeApiClient(),
+        websocketClient: websocketClient,
+        authTokenStore: tokenStore,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Tài khoản'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('account-menu-logout')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('login-username')), findsOneWidget);
+    expect(tokenStore.token, isNull);
+    expect(tester.takeException(), isNull);
+
+    websocketClient.dispose();
+  });
+
   testWidgets('mobile admin profile opens account security with admin edit', (
     tester,
   ) async {

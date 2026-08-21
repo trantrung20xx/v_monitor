@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/utils/device_formatters.dart';
+import '../../../core/widgets/app_menu.dart';
 import '../journey_history_state.dart';
 
 class PlaybackControls extends StatelessWidget {
@@ -121,6 +122,9 @@ class PlaybackControls extends StatelessWidget {
         // Tốc độ phát
         DropdownButton<double>(
           value: state.playbackSpeed,
+          borderRadius: AppMenuStyle.borderRadius,
+          dropdownColor: AppMenuStyle.surfaceColor(context),
+          menuMaxHeight: AppMenuStyle.dropdownMaxHeight(context),
           underline: const SizedBox.shrink(),
           isDense: true,
           style: theme.textTheme.labelMedium?.copyWith(

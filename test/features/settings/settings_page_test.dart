@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:v_monitor/app/app_theme.dart';
 import 'package:v_monitor/core/auth/auth_token_store.dart';
+import 'package:v_monitor/core/config/map_tile_providers.dart';
 import 'package:v_monitor/core/network/api_client.dart';
 import 'package:v_monitor/core/network/websocket_client.dart';
 import 'package:v_monitor/data/models/system_settings_model.dart';
@@ -188,6 +189,46 @@ void main() {
     },
   );
 
+  testWidgets(
+    'personal setting list updates map and speed with a responsive menu',
+    (tester) async {
+      final harness = await _pumpSettings(
+        tester,
+        role: 'USER',
+        size: const Size(390, 844),
+        section: SettingsSection.personal,
+      );
+
+      expect(find.byTooltip('Chọn Giao diện'), findsOneWidget);
+      expect(find.byTooltip('Chọn Loại bản đồ'), findsOneWidget);
+      expect(find.byTooltip('Chọn Đơn vị tốc độ'), findsOneWidget);
+      expect(
+        find.text('Theo hệ thống · Tự động theo thiết bị'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const Key('map-type-setting')));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+      await tester.tap(find.text('Vệ tinh').last);
+      await tester.pumpAndSettle();
+
+      expect(harness.repository.userSettings.mapType, AppMapType.satellite);
+      expect(find.text('Vệ tinh · Ảnh thực địa kèm nhãn'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('speed-unit-setting')));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+      await tester.tap(find.text('m/s').last);
+      await tester.pumpAndSettle();
+
+      expect(harness.repository.userSettings.speedUnit, SpeedUnit.mps);
+      expect(find.text('m/s · Mét mỗi giây'), findsOneWidget);
+      expect(harness.repository.userUpdateCount, 2);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('member cannot render the current-account edit action', (
     tester,
   ) async {
@@ -315,10 +356,19 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Sửa tài khoản'));
     await tester.pumpAndSettle();
+    expect(find.byTooltip('Chọn vai trò'), findsOneWidget);
     await tester.tap(find.text('Thành viên').last);
     await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.check_rounded), findsOneWidget);
     await tester.tap(find.text('Quản trị viên').last);
     await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('user-role-field')),
+        matching: find.text('Quản trị viên'),
+      ),
+      findsOneWidget,
+    );
     await tester.tap(find.byType(Switch).last);
     await tester.pump();
     await tester.tap(find.byKey(const Key('save-user-button')));
@@ -374,6 +424,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Thêm tài khoản'), findsOneWidget);
     expect(find.byKey(const Key('user-full-name-field')), findsOneWidget);
+    expect(find.byKey(const Key('user-role-field')), findsOneWidget);
+    expect(find.byTooltip('Chọn vai trò'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.tap(find.text('Hủy'));
     await tester.pumpAndSettle();

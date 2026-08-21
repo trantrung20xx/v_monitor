@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../core/widgets/app_menu.dart';
+
 /// Giao diện Material 3 dùng màu xanh thống nhất với màn hình chi tiết thiết bị.
 class AppTheme {
   static const _seed = Color(0xFF1677FF);
@@ -70,6 +72,37 @@ class AppTheme {
             : colorScheme.outlineVariant.withValues(alpha: 0.4),
         thickness: 1,
         space: 1,
+      ),
+      // Popup dùng chung bề mặt, viền và độ nổi với hệ thống card hiện tại.
+      // PopupMenuButton vẫn tự xử lý focus, bàn phím và vị trí trong viewport.
+      popupMenuTheme: PopupMenuThemeData(
+        color: colorScheme.surfaceContainerLow,
+        surfaceTintColor: Colors.transparent,
+        elevation: 4,
+        shadowColor: Colors.black.withValues(
+          alpha: brightness == Brightness.light ? 0.12 : 0.28,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: AppMenuStyle.borderRadius,
+          side: BorderSide(
+            color: brightness == Brightness.light
+                ? const Color(0xFFE2E8F0)
+                : colorScheme.outlineVariant.withValues(alpha: 0.55),
+          ),
+        ),
+        menuPadding: AppMenuStyle.popupPadding,
+        position: PopupMenuPosition.under,
+        iconColor: colorScheme.onSurfaceVariant,
+        iconSize: 20,
+        textStyle: textTheme.bodyMedium?.copyWith(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w600,
+        ),
+        mouseCursor: WidgetStateProperty.resolveWith((states) {
+          return states.contains(WidgetState.disabled)
+              ? SystemMouseCursors.basic
+              : SystemMouseCursors.click;
+        }),
       ),
       listTileTheme: ListTileThemeData(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),

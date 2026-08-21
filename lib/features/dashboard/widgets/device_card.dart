@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/utils/device_formatters.dart';
+import '../../../core/widgets/app_menu.dart';
 import '../../../core/widgets/device_icon.dart';
 import '../../../data/models/device_model.dart';
 import '../../../domain/entities/device_status_resolver.dart';
@@ -205,6 +206,7 @@ class DeviceCard extends StatelessWidget {
                       width: 24,
                       height: 24,
                       child: PopupMenuButton<String>(
+                        tooltip: 'Thao tác thiết bị',
                         icon: const Icon(
                           Icons.more_vert_rounded,
                           size: 16,
@@ -212,22 +214,18 @@ class DeviceCard extends StatelessWidget {
                         ),
                         padding: EdgeInsets.zero,
                         splashRadius: 14,
+                        constraints: const BoxConstraints(
+                          minWidth: 188,
+                          maxWidth: 224,
+                        ),
                         itemBuilder: (context) => [
                           const PopupMenuItem(
                             value: 'detail',
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.info_outline_rounded,
-                                  size: 16,
-                                  color: Color(0xFF66727D),
-                                ),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Chi tiết thiết bị',
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                              ],
+                            height: 42,
+                            padding: EdgeInsets.zero,
+                            child: AppMenuItem(
+                              icon: Icons.info_outline_rounded,
+                              label: 'Chi tiết thiết bị',
                             ),
                           ),
                         ],

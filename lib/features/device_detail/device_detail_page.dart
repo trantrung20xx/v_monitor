@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/config/map_tile_providers.dart';
+import '../../core/widgets/app_menu.dart';
 import '../../core/widgets/device_icon.dart';
 import '../../core/utils/map_launcher_service.dart';
 import '../../core/utils/device_formatters.dart';
@@ -3573,6 +3574,9 @@ class _JourneyFilterPanel extends StatelessWidget {
       child: DropdownButton<int>(
         value: currentMinutes,
         isDense: true,
+        borderRadius: AppMenuStyle.borderRadius,
+        dropdownColor: AppMenuStyle.surfaceColor(context),
+        menuMaxHeight: AppMenuStyle.dropdownMaxHeight(context),
         underline: const SizedBox.shrink(),
         icon: const Icon(
           Icons.arrow_drop_down_rounded,
@@ -4084,6 +4088,9 @@ class _JourneyPlaybackCard extends StatelessWidget {
                       ),
                       child: DropdownButton<double>(
                         value: state.playbackSpeed,
+                        borderRadius: AppMenuStyle.borderRadius,
+                        dropdownColor: AppMenuStyle.surfaceColor(context),
+                        menuMaxHeight: AppMenuStyle.dropdownMaxHeight(context),
                         underline: const SizedBox.shrink(),
                         isDense: true,
                         style: const TextStyle(
@@ -4218,6 +4225,9 @@ class _JourneyPlaybackCard extends StatelessWidget {
                       ),
                       child: DropdownButton<double>(
                         value: state.playbackSpeed,
+                        borderRadius: AppMenuStyle.borderRadius,
+                        dropdownColor: AppMenuStyle.surfaceColor(context),
+                        menuMaxHeight: AppMenuStyle.dropdownMaxHeight(context),
                         underline: const SizedBox.shrink(),
                         isDense: true,
                         style: const TextStyle(
@@ -6085,6 +6095,7 @@ class _ShareLocationInlineButton extends StatelessWidget {
     return PopupMenuButton<String>(
       tooltip: 'Chia sẻ vị trí',
       position: PopupMenuPosition.under,
+      constraints: const BoxConstraints(minWidth: 210, maxWidth: 260),
       onSelected: (value) =>
           _handleShareLocationSelection(context, device, value),
       itemBuilder: (context) => _shareLocationMenuItems(context, device),
@@ -6137,6 +6148,8 @@ List<PopupMenuEntry<String>> _shareLocationMenuItems(
     if (isStale) ...[
       PopupMenuItem<String>(
         enabled: false,
+        height: 38,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Text(
           'Vị trí cũ (${DeviceFormatters.dateTime(gpsTime)})',
           style: TextStyle(
@@ -6149,32 +6162,23 @@ List<PopupMenuEntry<String>> _shareLocationMenuItems(
     ],
     const PopupMenuItem<String>(
       value: 'google',
-      child: Row(
-        children: [
-          Icon(Icons.map_rounded, size: 20),
-          SizedBox(width: 12),
-          Text('Google Maps'),
-        ],
-      ),
+      height: 42,
+      padding: EdgeInsets.zero,
+      child: AppMenuItem(icon: Icons.map_rounded, label: 'Google Maps'),
     ),
     const PopupMenuItem<String>(
       value: 'apple',
-      child: Row(
-        children: [
-          Icon(Icons.apple, size: 20),
-          SizedBox(width: 12),
-          Text('Apple Maps'),
-        ],
-      ),
+      height: 42,
+      padding: EdgeInsets.zero,
+      child: AppMenuItem(icon: Icons.apple, label: 'Apple Maps'),
     ),
     const PopupMenuItem<String>(
       value: 'copy',
-      child: Row(
-        children: [
-          Icon(Icons.content_copy_rounded, size: 20),
-          SizedBox(width: 12),
-          Text('Copy Location'),
-        ],
+      height: 42,
+      padding: EdgeInsets.zero,
+      child: AppMenuItem(
+        icon: Icons.content_copy_rounded,
+        label: 'Copy Location',
       ),
     ),
   ];

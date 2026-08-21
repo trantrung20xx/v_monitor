@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/utils/device_formatters.dart';
+import '../../../core/widgets/app_menu.dart';
 import '../../../data/models/device_model.dart';
 import 'custom_gap_dialog.dart';
 
@@ -178,6 +179,9 @@ class HistoryTimeSelector extends StatelessWidget {
           value: selectedDevice,
           isDense: true,
           isExpanded: true,
+          borderRadius: AppMenuStyle.borderRadius,
+          dropdownColor: AppMenuStyle.surfaceColor(context),
+          menuMaxHeight: AppMenuStyle.dropdownMaxHeight(context),
           hint: const Text('Chọn thiết bị', style: TextStyle(fontSize: 13)),
           items: devices.map((d) {
             return DropdownMenuItem<DeviceModel>(
@@ -365,6 +369,9 @@ class HistoryTimeSelector extends StatelessWidget {
                 return DropdownButton<int>(
                   value: currentMinutes,
                   isDense: true,
+                  borderRadius: AppMenuStyle.borderRadius,
+                  dropdownColor: AppMenuStyle.surfaceColor(context),
+                  menuMaxHeight: AppMenuStyle.dropdownMaxHeight(context),
                   underline: const SizedBox.shrink(),
                   style: theme.textTheme.labelSmall?.copyWith(
                     fontWeight: FontWeight.bold,

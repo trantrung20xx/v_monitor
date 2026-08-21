@@ -109,6 +109,38 @@ void main() {
     expect(find.text('Tây Nam · 245°'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('DeviceCard action menu keeps the detail callback', (
+    tester,
+  ) async {
+    final device = DeviceModel(
+      id: 'device-menu',
+      deviceCode: 'VM-MENU-01',
+      name: 'Thiết bị menu',
+      type: 'VEHICLE',
+      status: 'ACTIVE',
+      isOnline: true,
+      latitude: 21.028511,
+      longitude: 105.804817,
+      lastSeenAt: DateTime.now(),
+    );
+    var detailTapCount = 0;
+
+    await _pumpAtSize(
+      tester,
+      const Size(390, 640),
+      DeviceCard(device: device, onTap: () => detailTapCount++),
+    );
+    await tester.tap(find.byTooltip('Thao tác thiết bị'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Chi tiết thiết bị'), findsOneWidget);
+    await tester.tap(find.text('Chi tiết thiết bị'));
+    await tester.pumpAndSettle();
+
+    expect(detailTapCount, 1);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Future<void> _pumpAtSize(WidgetTester tester, Size size, Widget child) async {
