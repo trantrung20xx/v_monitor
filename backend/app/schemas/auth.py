@@ -42,7 +42,7 @@ class TokenResponse(BaseSchema):
 
 class UserCreate(BaseSchema):
     username: str = Field(min_length=3, max_length=50)
-    password: str = Field(min_length=12, max_length=128)
+    password: str = Field(min_length=8, max_length=128)
     full_name: str = Field(min_length=1, max_length=255)
     email: Optional[str] = Field(default=None, max_length=320)
     role: UserRole = UserRole.USER
@@ -109,11 +109,11 @@ class UserUpdate(BaseSchema):
 
 class ChangePasswordRequest(BaseSchema):
     current_password: str = Field(min_length=1, max_length=128)
-    new_password: str = Field(min_length=12, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
 
 
 class ResetPasswordRequest(BaseSchema):
-    new_password: str = Field(min_length=12, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
 
 
 class UserSettingsResponse(BaseSchema):

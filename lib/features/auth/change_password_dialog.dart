@@ -77,8 +77,8 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                 obscureText: true,
                 enabled: !_submitting,
                 decoration: const InputDecoration(labelText: 'Mật khẩu mới'),
-                validator: (value) => (value ?? '').length < 12
-                    ? 'Mật khẩu mới phải có ít nhất 12 ký tự.'
+                validator: (value) => (value ?? '').length < 8
+                    ? 'Mật khẩu mới phải có ít nhất 8 ký tự.'
                     : null,
               ),
               const SizedBox(height: 12),
