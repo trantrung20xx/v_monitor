@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:v_monitor/app/app_theme.dart';
 import 'package:v_monitor/core/auth/auth_token_store.dart';
 import 'package:v_monitor/core/network/api_client.dart';
@@ -19,7 +20,17 @@ import 'package:v_monitor/features/settings/settings_page.dart';
 import 'package:v_monitor/features/settings/settings_state.dart';
 
 void main() {
-  testWidgets('USER sees personal and account sections but not admin', (
+  setUpAll(() {
+    PackageInfo.setMockInitialValues(
+      appName: 'V Monitor',
+      packageName: 'com.example.v_monitor',
+      version: '1.0.0',
+      buildNumber: '1',
+      buildSignature: '',
+    );
+  });
+
+  testWidgets('USER overview shows personal destinations but not admin', (
     tester,
   ) async {
     final harness = await _pumpSettings(
@@ -28,16 +39,22 @@ void main() {
       size: const Size(390, 844),
     );
 
-    expect(find.text('Cá nhân'), findsOneWidget);
-    expect(find.text('Tài khoản'), findsOneWidget);
+    expect(find.text('Tùy chỉnh V Monitor'), findsNothing);
+    expect(
+      find.text('Các chức năng được chia theo từng nhóm để dễ tìm và quản lý.'),
+      findsNothing,
+    );
+    expect(find.byKey(const Key('settings-section-personal')), findsOneWidget);
+    expect(find.byKey(const Key('settings-section-account')), findsOneWidget);
+    expect(find.byKey(const Key('settings-section-about')), findsOneWidget);
     expect(find.text('Quản trị'), findsNothing);
-    expect(find.text('Theo dõi thiết bị'), findsNothing);
-    expect(find.text('Quản lý người dùng'), findsNothing);
+    expect(find.byKey(const Key('settings-section-tracking')), findsNothing);
+    expect(find.byKey(const Key('settings-section-users')), findsNothing);
     expect(harness.repository.loadUsersCount, 0);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('ADMIN sees tracking settings and user management', (
+  testWidgets('ADMIN overview shows all destinations without loading users', (
     tester,
   ) async {
     final harness = await _pumpSettings(
@@ -46,13 +63,83 @@ void main() {
       size: const Size(1280, 900),
     );
 
-    expect(find.text('Cá nhân'), findsOneWidget);
-    expect(find.text('Tài khoản'), findsOneWidget);
+    expect(find.byKey(const Key('settings-section-personal')), findsOneWidget);
+    expect(find.byKey(const Key('settings-section-account')), findsOneWidget);
+    expect(find.byKey(const Key('settings-section-about')), findsOneWidget);
     expect(find.text('Quản trị'), findsOneWidget);
-    expect(find.text('Theo dõi thiết bị'), findsOneWidget);
-    expect(find.text('Quản lý người dùng'), findsOneWidget);
-    expect(find.byKey(const Key('managed-user-user-2')), findsOneWidget);
-    expect(harness.repository.loadUsersCount, 1);
+    expect(find.byKey(const Key('settings-section-tracking')), findsOneWidget);
+    expect(find.byKey(const Key('settings-section-users')), findsOneWidget);
+    expect(find.byKey(const Key('managed-user-user-2')), findsNothing);
+    expect(
+      tester.getTopLeft(find.byKey(const Key('settings-section-personal'))).dy,
+      lessThan(
+        tester
+            .getTopLeft(find.byKey(const Key('settings-section-tracking')))
+            .dy,
+      ),
+    );
+    expect(
+      tester.getTopLeft(find.byKey(const Key('settings-section-tracking'))).dy,
+      lessThan(
+        tester.getTopLeft(find.byKey(const Key('settings-section-about'))).dy,
+      ),
+    );
+    expect(harness.repository.loadUsersCount, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('USER fallback never renders an admin settings section', (
+    tester,
+  ) async {
+    final harness = await _pumpSettings(
+      tester,
+      role: 'USER',
+      size: const Size(390, 844),
+      section: SettingsSection.users,
+    );
+
+    expect(find.byKey(const Key('settings-section-account')), findsOneWidget);
+    expect(find.byKey(const Key('managed-user-user-2')), findsNothing);
+    expect(harness.repository.loadUsersCount, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('missing section falls back to overview without runtime error', (
+    tester,
+  ) async {
+    await _pumpSettings(
+      tester,
+      role: 'USER',
+      size: const Size(390, 844),
+      section: null,
+    );
+
+    expect(find.text('Tùy chỉnh V Monitor'), findsNothing);
+    expect(find.byKey(const Key('settings-section-personal')), findsOneWidget);
+    expect(find.byKey(const Key('settings-section-about')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('software information shows branding and package metadata', (
+    tester,
+  ) async {
+    await _pumpSettings(
+      tester,
+      role: 'USER',
+      size: const Size(390, 844),
+      section: SettingsSection.about,
+    );
+
+    expect(find.byKey(const Key('software-app-icon')), findsOneWidget);
+    expect(
+      find.image(const AssetImage('assets/branding/v_monitor_logo.png')),
+      findsOneWidget,
+    );
+    expect(find.text('V Monitor'), findsWidgets);
+    expect(find.text('Phần mềm giám sát thiết bị nội bộ'), findsOneWidget);
+    expect(find.text('1.0.0'), findsOneWidget);
+    expect(find.text('1'), findsOneWidget);
+    expect(find.text('com.example.v_monitor'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -63,6 +150,7 @@ void main() {
         tester,
         role: 'USER',
         size: const Size(900, 800),
+        section: SettingsSection.personal,
       );
 
       expect(
@@ -107,6 +195,7 @@ void main() {
         tester,
         role: 'ADMIN',
         size: const Size(1280, 900),
+        section: SettingsSection.tracking,
       );
       final saveButton = find.byKey(const Key('save-system-settings'));
 
@@ -160,6 +249,7 @@ void main() {
       tester,
       role: 'ADMIN',
       size: const Size(1280, 900),
+      section: SettingsSection.users,
     );
     final actions = find.byKey(const Key('user-actions-user-2'));
 
@@ -208,12 +298,28 @@ void main() {
     tester,
   ) async {
     for (final size in const [Size(360, 740), Size(1440, 900)]) {
-      await _pumpSettings(tester, role: 'ADMIN', size: size);
-      expect(find.text('Cài đặt'), findsOneWidget);
-      expect(tester.takeException(), isNull);
+      for (final section in SettingsSection.values) {
+        await _pumpSettings(
+          tester,
+          role: 'ADMIN',
+          size: size,
+          section: section,
+        );
+        expect(find.text(_expectedTitle(section)), findsWidgets);
+        expect(tester.takeException(), isNull);
+      }
     }
   });
 }
+
+String _expectedTitle(SettingsSection section) => switch (section) {
+  SettingsSection.overview => 'Cài đặt',
+  SettingsSection.personal => 'Giao diện & hiển thị',
+  SettingsSection.account => 'Tài khoản & bảo mật',
+  SettingsSection.about => 'Thông tin phần mềm',
+  SettingsSection.tracking => 'Theo dõi thiết bị',
+  SettingsSection.users => 'Quản lý người dùng',
+};
 
 class _SettingsHarness {
   const _SettingsHarness({required this.repository});
@@ -225,6 +331,7 @@ Future<_SettingsHarness> _pumpSettings(
   WidgetTester tester, {
   required String role,
   required Size size,
+  SettingsSection? section = SettingsSection.overview,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -263,7 +370,7 @@ Future<_SettingsHarness> _pumpSettings(
             theme: AppTheme.light,
             darkTheme: AppTheme.dark,
             themeMode: state.userSettings.themeMode,
-            home: const SettingsPage(),
+            home: SettingsPage(section: section),
           ),
         ),
       ),

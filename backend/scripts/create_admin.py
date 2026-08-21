@@ -107,7 +107,7 @@ def _read_password(provided_password: str | None) -> str | None:
 
 def _print_validation_errors(exc: ValidationError) -> None:
     # Dữ liệu dòng lệnh phải được báo ngắn gọn thay vì in traceback nội bộ của
-    # Pydantic. Giá trị mật khẩu tuyệt đối không được đưa vào nội dung lỗi.
+    # Pydantic. Giá trị mật khẩu không đưa vào nội dung lỗi.
     field_names = {
         "username": "Tên đăng nhập",
         "password": "Mật khẩu",

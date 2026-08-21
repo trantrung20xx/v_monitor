@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:v_monitor/app/app.dart';
 import 'package:v_monitor/app/app_router.dart';
 import 'package:v_monitor/core/auth/auth_token_store.dart';
@@ -8,6 +9,16 @@ import 'package:v_monitor/core/network/api_client.dart';
 import 'package:v_monitor/core/network/websocket_client.dart';
 
 void main() {
+  setUpAll(() {
+    PackageInfo.setMockInitialValues(
+      appName: 'V Monitor',
+      packageName: 'com.example.v_monitor',
+      version: '1.0.0',
+      buildNumber: '1',
+      buildSignature: '',
+    );
+  });
+
   testWidgets('app launches successfully', (tester) async {
     final apiClient = _FakeApiClient();
     final websocketClient = _FakeWebsocketClient();
@@ -60,7 +71,28 @@ void main() {
 
     expect(find.byType(Scaffold), findsWidgets);
     expect(find.text('Cài đặt'), findsOneWidget);
+    expect(find.byKey(const Key('settings-section-account')), findsOneWidget);
+    expect(find.byKey(const Key('settings-section-about')), findsOneWidget);
+    expect(find.byKey(const Key('open-change-password')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('settings-section-account')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tài khoản & bảo mật'), findsWidgets);
     expect(find.byKey(const Key('open-change-password')), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Quay lại Cài đặt'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('settings-section-account')), findsOneWidget);
+    expect(find.byKey(const Key('open-change-password')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('settings-section-about')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('software-app-icon')), findsOneWidget);
+    expect(find.text('1.0.0'), findsOneWidget);
+    expect(find.text('com.example.v_monitor'), findsOneWidget);
 
     websocketClient.dispose();
   });
@@ -102,6 +134,10 @@ void main() {
     await tester.tap(find.byKey(const Key('mobile-account-settings')));
     await tester.pumpAndSettle();
 
+    expect(find.byKey(const Key('settings-section-account')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('settings-section-account')));
+    await tester.pumpAndSettle();
+
     expect(find.byKey(const Key('open-change-password')), findsOneWidget);
     expect(
       tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
@@ -116,6 +152,63 @@ void main() {
 
     expect(find.byKey(const Key('login-username')), findsOneWidget);
     expect(tokenStore.token, isNull);
+    expect(tester.takeException(), isNull);
+
+    websocketClient.dispose();
+  });
+
+  testWidgets('USER admin settings URL redirects before page construction', (
+    tester,
+  ) async {
+    AppRouter.router.go('/');
+    final apiClient = _FakeApiClient();
+    final websocketClient = _FakeWebsocketClient();
+    await tester.pumpWidget(
+      VMonitorApp(
+        apiClient: apiClient,
+        websocketClient: websocketClient,
+        authTokenStore: _MemoryTokenStore('saved-credential'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    AppRouter.router.go('/settings/users');
+    await tester.pumpAndSettle();
+
+    expect(
+      AppRouter.router.routeInformationProvider.value.uri.path,
+      '/settings',
+    );
+    expect(find.byKey(const Key('settings-section-account')), findsOneWidget);
+    expect(find.byKey(const Key('create-user-button')), findsNothing);
+    expect(apiClient.authMeCount, 1);
+    expect(tester.takeException(), isNull);
+
+    websocketClient.dispose();
+  });
+
+  testWidgets('ADMIN can open the protected user settings URL', (tester) async {
+    AppRouter.router.go('/');
+    final apiClient = _FakeApiClient(role: 'ADMIN');
+    final websocketClient = _FakeWebsocketClient();
+    await tester.pumpWidget(
+      VMonitorApp(
+        apiClient: apiClient,
+        websocketClient: websocketClient,
+        authTokenStore: _MemoryTokenStore('saved-credential'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    AppRouter.router.go('/settings/users');
+    await tester.pumpAndSettle();
+
+    expect(
+      AppRouter.router.routeInformationProvider.value.uri.path,
+      '/settings/users',
+    );
+    expect(find.byKey(const Key('create-user-button')), findsOneWidget);
+    expect(apiClient.authMeCount, 1);
     expect(tester.takeException(), isNull);
 
     websocketClient.dispose();
@@ -143,17 +236,23 @@ void main() {
 }
 
 class _FakeApiClient extends ApiClient {
+  _FakeApiClient({this.role = 'USER'});
+
+  final String role;
+  int authMeCount = 0;
+
   @override
   Future<Response> get(
     String path, {
     Map<String, dynamic>? queryParameters,
   }) async {
+    if (path == '/auth/me') authMeCount++;
     final data = switch (path) {
-      '/auth/me' => const {
+      '/auth/me' => {
         'id': 'user-1',
-        'username': 'viewer',
-        'full_name': 'Người xem nội bộ',
-        'role': 'USER',
+        'username': role == 'ADMIN' ? 'admin' : 'viewer',
+        'full_name': role == 'ADMIN' ? 'Quản trị viên' : 'Người xem nội bộ',
+        'role': role,
         'is_active': true,
       },
       '/auth/settings' => const {

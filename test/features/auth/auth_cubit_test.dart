@@ -3,10 +3,44 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:v_monitor/core/auth/auth_token_store.dart';
 import 'package:v_monitor/core/network/api_client.dart';
 import 'package:v_monitor/core/network/websocket_client.dart';
+import 'package:v_monitor/data/models/user_model.dart';
 import 'package:v_monitor/features/auth/auth_cubit.dart';
 import 'package:v_monitor/features/auth/auth_state.dart';
 
 void main() {
+  test('admin access requires completed authentication and ADMIN role', () {
+    const admin = UserModel(
+      id: 'admin-1',
+      username: 'admin',
+      fullName: 'Quản trị viên',
+      role: 'ADMIN',
+      isActive: true,
+    );
+    const viewer = UserModel(
+      id: 'user-1',
+      username: 'viewer',
+      fullName: 'Người xem nội bộ',
+      role: 'USER',
+      isActive: true,
+    );
+
+    expect(const AuthState(user: admin).hasAdminAccess, isFalse);
+    expect(
+      const AuthState(
+        status: AuthStatus.authenticated,
+        user: viewer,
+      ).hasAdminAccess,
+      isFalse,
+    );
+    expect(
+      const AuthState(
+        status: AuthStatus.authenticated,
+        user: admin,
+      ).hasAdminAccess,
+      isTrue,
+    );
+  });
+
   test('initialize opens the app with a valid stored credential', () async {
     final apiClient = _FakeApiClient();
     final websocketClient = _FakeWebsocketClient();

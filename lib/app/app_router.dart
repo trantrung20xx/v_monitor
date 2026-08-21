@@ -44,6 +44,43 @@ class AppRouter {
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: SettingsPage()),
           ),
+          GoRoute(
+            path: '/settings/personal',
+            name: 'settings-personal',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SettingsPage(section: SettingsSection.personal),
+            ),
+          ),
+          GoRoute(
+            path: '/settings/account',
+            name: 'settings-account',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SettingsPage(section: SettingsSection.account),
+            ),
+          ),
+          GoRoute(
+            path: '/settings/about',
+            name: 'settings-about',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SettingsPage(section: SettingsSection.about),
+            ),
+          ),
+          GoRoute(
+            path: '/settings/tracking',
+            name: 'settings-tracking',
+            redirect: _redirectNonAdminSettings,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SettingsPage(section: SettingsSection.tracking),
+            ),
+          ),
+          GoRoute(
+            path: '/settings/users',
+            name: 'settings-users',
+            redirect: _redirectNonAdminSettings,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SettingsPage(section: SettingsSection.users),
+            ),
+          ),
         ],
       ),
       GoRoute(
@@ -57,6 +94,12 @@ class AppRouter {
       ),
     ],
   );
+}
+
+String? _redirectNonAdminSettings(BuildContext context, GoRouterState state) {
+  // Không dựng trang quản trị nếu trạng thái xác thực hiện tại chưa cấp quyền
+  // ADMIN. Các API bên trong vẫn được backend bảo vệ.
+  return context.read<AuthCubit>().state.hasAdminAccess ? null : '/settings';
 }
 
 /// Khung điều hướng dùng thanh bên trên desktop và thanh đáy trên màn hình nhỏ.
