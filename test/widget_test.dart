@@ -97,6 +97,83 @@ void main() {
     websocketClient.dispose();
   });
 
+  testWidgets(
+    'desktop member profile opens account security without admin edit',
+    (tester) async {
+      AppRouter.router.go('/');
+      final websocketClient = _FakeWebsocketClient();
+      await tester.pumpWidget(
+        VMonitorApp(
+          apiClient: _FakeApiClient(),
+          websocketClient: websocketClient,
+          authTokenStore: _MemoryTokenStore('saved-credential'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Tài khoản'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('account-menu-profile')), findsOneWidget);
+      expect(find.text('Người xem nội bộ'), findsOneWidget);
+      expect(find.text('Người xem'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('account-menu-profile')));
+      await tester.pumpAndSettle();
+
+      expect(
+        AppRouter.router.routeInformationProvider.value.uri.path,
+        '/settings/account',
+      );
+      expect(find.byKey(const Key('open-change-password')), findsOneWidget);
+      expect(find.byKey(const Key('edit-current-account')), findsNothing);
+      expect(tester.takeException(), isNull);
+
+      websocketClient.dispose();
+    },
+  );
+
+  testWidgets('mobile admin profile opens account security with admin edit', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    AppRouter.router.go('/');
+
+    final websocketClient = _FakeWebsocketClient();
+    await tester.pumpWidget(
+      VMonitorApp(
+        apiClient: _FakeApiClient(role: 'ADMIN'),
+        websocketClient: websocketClient,
+        authTokenStore: _MemoryTokenStore('saved-credential'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('mobile-account-destination')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('mobile-account-profile')), findsOneWidget);
+    expect(find.text('Quản trị viên'), findsWidgets);
+
+    await tester.tap(find.byKey(const Key('mobile-account-profile')));
+    await tester.pumpAndSettle();
+
+    expect(
+      AppRouter.router.routeInformationProvider.value.uri.path,
+      '/settings/account',
+    );
+    expect(find.byKey(const Key('open-change-password')), findsOneWidget);
+    expect(find.byKey(const Key('edit-current-account')), findsOneWidget);
+    expect(
+      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      2,
+    );
+    expect(tester.takeException(), isNull);
+
+    websocketClient.dispose();
+  });
+
   testWidgets('mobile account sheet opens settings and supports logout', (
     tester,
   ) async {

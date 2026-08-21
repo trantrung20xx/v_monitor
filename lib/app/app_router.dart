@@ -212,41 +212,35 @@ Future<void> _showMobileAccountMenu(BuildContext context) {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: Theme.of(
-                  context,
-                ).colorScheme.primary.withValues(alpha: 0.12),
-                child: Icon(
-                  Icons.person_outline_rounded,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+          ListTile(
+            key: const Key('mobile-account-profile'),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+            leading: CircleAvatar(
+              radius: 24,
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.12),
+              child: Icon(
+                Icons.person_outline_rounded,
+                color: Theme.of(context).colorScheme.primary,
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      displayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    Text(
-                      user?.isAdmin == true ? 'Quản trị viên' : 'Người xem',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
+            title: Text(
+              displayName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            subtitle: Text(
+              user?.isAdmin == true ? 'Quản trị viên' : 'Người xem',
+            ),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              context.goNamed('settings-account');
+            },
           ),
           const SizedBox(height: 14),
           const Divider(height: 1),
@@ -375,7 +369,9 @@ class _DesktopAccountMenu extends StatelessWidget {
     return PopupMenuButton<String>(
       tooltip: displayName,
       onSelected: (value) {
-        if (value == 'settings') {
+        if (value == 'account') {
+          context.goNamed('settings-account');
+        } else if (value == 'settings') {
           context.goNamed('settings');
         } else if (value == 'logout') {
           context.read<AuthCubit>().logout();
@@ -383,24 +379,33 @@ class _DesktopAccountMenu extends StatelessWidget {
       },
       itemBuilder: (context) => [
         PopupMenuItem<String>(
-          enabled: false,
+          key: const Key('account-menu-profile'),
+          value: 'account',
           child: SizedBox(
             width: 220,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Text(
-                  displayName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-                Text(
-                  user?.isAdmin == true ? 'Quản trị viên' : 'Người xem',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      Text(
+                        user?.isAdmin == true ? 'Quản trị viên' : 'Người xem',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+                const SizedBox(width: 8),
+                const Icon(Icons.chevron_right_rounded),
               ],
             ),
           ),
