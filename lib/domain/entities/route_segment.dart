@@ -5,27 +5,27 @@ import 'gps_validator.dart';
 /// Đại diện cho một phân đoạn hành trình GPS liên tục (không bị đứt quãng thời gian lớn).
 class RouteSegment {
   final List<LocationModel> samples;
+  final List<LatLng> polylinePoints;
   final double distanceM;
   final int movingDurationS;
   final int stoppedDurationS;
   final double? maxSpeedMps;
   final double? avgSpeedMps;
 
-  const RouteSegment({
+  RouteSegment({
     required this.samples,
+    List<LatLng>? polylinePoints,
     required this.distanceM,
     required this.movingDurationS,
     required this.stoppedDurationS,
     this.maxSpeedMps,
     this.avgSpeedMps,
-  });
+  }) : polylinePoints = polylinePoints ??
+            samples.map((s) => LatLng(s.latitude, s.longitude)).toList(growable: false);
 
   DateTime get startedAt => samples.first.measuredAt;
   DateTime get endedAt => samples.last.measuredAt;
   int get sampleCount => samples.length;
-
-  List<LatLng> get polylinePoints =>
-      samples.map((s) => LatLng(s.latitude, s.longitude)).toList();
 
   /// Tách danh sách mẫu GPS thành các phân đoạn hành trình dựa trên ngưỡng gián đoạn thời gian (gap threshold).
   static List<RouteSegment> splitIntoSegments(
@@ -35,8 +35,11 @@ class RouteSegment {
   }) {
     if (samples.isEmpty) return const [];
 
-    final sorted = List<LocationModel>.from(samples)
-      ..sort((a, b) => a.measuredAt.compareTo(b.measuredAt));
+    final isSorted = _isChronologicallySorted(samples);
+    final sorted = isSorted
+        ? samples
+        : (List<LocationModel>.from(samples)
+          ..sort((a, b) => a.measuredAt.compareTo(b.measuredAt)));
 
     final segments = <RouteSegment>[];
     var currentGroup = <LocationModel>[sorted.first];
@@ -115,13 +118,27 @@ class RouteSegment {
       }
     }
 
+    final points = items
+        .map((s) => LatLng(s.latitude, s.longitude))
+        .toList(growable: false);
+
     return RouteSegment(
       samples: items,
+      polylinePoints: points,
       distanceM: totalDistance,
       movingDurationS: movingSeconds,
       stoppedDurationS: stoppedSeconds,
       maxSpeedMps: speedCount > 0 ? maxSpeed : null,
       avgSpeedMps: speedCount > 0 ? (speedSum / speedCount) : null,
     );
+  }
+
+  static bool _isChronologicallySorted(List<LocationModel> list) {
+    for (var i = 1; i < list.length; i++) {
+      if (list[i].measuredAt.isBefore(list[i - 1].measuredAt)) {
+        return false;
+      }
+    }
+    return true;
   }
 }

@@ -282,8 +282,11 @@ class HistoryMapLayers {
   ) {
     if (samples.isEmpty) return const [];
 
-    final ordered = List<LocationModel>.from(samples)
-      ..sort((a, b) => a.measuredAt.compareTo(b.measuredAt));
+    final isSorted = _isChronologicallySorted(samples);
+    final ordered = isSorted
+        ? samples
+        : (List<LocationModel>.from(samples)
+          ..sort((a, b) => a.measuredAt.compareTo(b.measuredAt)));
     final stops = <JourneyStopPoint>[];
     int? clusterStartIndex;
     DateTime? clusterStartTime;
@@ -362,8 +365,11 @@ class HistoryMapLayers {
   static List<JourneyRouteNode> extractRouteNodes(List<LocationModel> samples) {
     if (samples.isEmpty) return const [];
 
-    final ordered = List<LocationModel>.from(samples)
-      ..sort((a, b) => a.measuredAt.compareTo(b.measuredAt));
+    final isSorted = _isChronologicallySorted(samples);
+    final ordered = isSorted
+        ? samples
+        : (List<LocationModel>.from(samples)
+          ..sort((a, b) => a.measuredAt.compareTo(b.measuredAt)));
     final first = ordered.first;
     if (ordered.length == 1) {
       return [
@@ -388,6 +394,7 @@ class HistoryMapLayers {
     final placeSamples = <LocationModel>[];
     var distanceSinceNodeM = 0.0;
     var lastNodeTime = first.measuredAt;
+    var parkScanIndex = 0;
 
     for (var i = 1; i < ordered.length - 1; i++) {
       final previous = ordered[i - 1];
@@ -403,14 +410,28 @@ class HistoryMapLayers {
       }
 
       final elapsed = current.measuredAt.difference(lastNodeTime);
-      final nearPark = parks.any(
-        (park) =>
-            current.measuredAt
-                .difference(park.sample.measuredAt)
-                .inMinutes
-                .abs() <
-            5,
-      );
+      while (parkScanIndex < parks.length &&
+          parks[parkScanIndex].sample.measuredAt.isBefore(
+            current.measuredAt.subtract(const Duration(minutes: 5)),
+          )) {
+        parkScanIndex++;
+      }
+      var nearPark = false;
+      for (var p = parkScanIndex; p < parks.length; p++) {
+        final diffMin = current.measuredAt
+            .difference(parks[p].sample.measuredAt)
+            .inMinutes
+            .abs();
+        if (diffMin < 5) {
+          nearPark = true;
+          break;
+        }
+        if (parks[p].sample.measuredAt.isAfter(
+          current.measuredAt.add(const Duration(minutes: 5)),
+        )) {
+          break;
+        }
+      }
       final shouldCreateNode =
           startsAfterGap ||
           distanceSinceNodeM >= targetDistanceM ||
@@ -971,6 +992,15 @@ class HistoryMapLayers {
         ],
       ),
     );
+  }
+
+  static bool _isChronologicallySorted(List<LocationModel> list) {
+    for (var i = 1; i < list.length; i++) {
+      if (list[i].measuredAt.isBefore(list[i - 1].measuredAt)) {
+        return false;
+      }
+    }
+    return true;
   }
 }
 

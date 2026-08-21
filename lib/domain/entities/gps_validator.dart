@@ -33,9 +33,12 @@ class GpsValidator {
   }) {
     if (rawSamples.isEmpty) return const [];
 
-    // 1. Sắp xếp tăng dần theo measuredAt và lọc toạ độ cơ bản
-    final sorted = List<LocationModel>.from(rawSamples)
-      ..sort((a, b) => a.measuredAt.compareTo(b.measuredAt));
+    // 1. Sắp xếp tăng dần theo measuredAt (nếu chưa sort) và lọc toạ độ cơ bản
+    final isSorted = _isChronologicallySorted(rawSamples);
+    final sorted = isSorted
+        ? rawSamples
+        : (List<LocationModel>.from(rawSamples)
+          ..sort((a, b) => a.measuredAt.compareTo(b.measuredAt)));
 
     final validCoords = sorted.where(isValidSample).toList();
     if (validCoords.length <= 2) return validCoords;
@@ -123,4 +126,13 @@ class GpsValidator {
 
   static double _degToRad(double deg) => deg * (math.pi / 180.0);
   static double _radToDeg(double rad) => rad * (180.0 / math.pi);
+
+  static bool _isChronologicallySorted(List<LocationModel> list) {
+    for (var i = 1; i < list.length; i++) {
+      if (list[i].measuredAt.isBefore(list[i - 1].measuredAt)) {
+        return false;
+      }
+    }
+    return true;
+  }
 }

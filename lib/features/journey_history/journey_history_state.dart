@@ -26,6 +26,7 @@ class JourneyHistoryState extends Equatable {
   final List<LocationModel> rawSamples;
   final List<LocationModel> validSamples;
   final List<RouteSegment> segments;
+  final List<double> cumulativeDistancesM;
   final int totalCount;
   final bool truncated;
 
@@ -58,6 +59,7 @@ class JourneyHistoryState extends Equatable {
     this.rawSamples = const [],
     this.validSamples = const [],
     this.segments = const [],
+    this.cumulativeDistancesM = const [],
     this.totalCount = 0,
     this.truncated = false,
     this.totalDistanceM = 0.0,
@@ -98,6 +100,12 @@ class JourneyHistoryState extends Equatable {
 
   /// Quãng đường đã đi tính đến thời điểm phát lại / điểm đang chọn hiện tại (m)
   double get currentDistanceM {
+    if (cumulativeDistancesM.isNotEmpty) {
+      if (currentSampleIndex <= 0) return 0.0;
+      final targetIndex = currentSampleIndex.clamp(0, cumulativeDistancesM.length - 1);
+      return cumulativeDistancesM[targetIndex];
+    }
+
     if (validSamples.length < 2 || currentSampleIndex <= 0) return 0.0;
 
     var distance = 0.0;
@@ -126,6 +134,7 @@ class JourneyHistoryState extends Equatable {
     List<LocationModel>? rawSamples,
     List<LocationModel>? validSamples,
     List<RouteSegment>? segments,
+    List<double>? cumulativeDistancesM,
     int? totalCount,
     bool? truncated,
     double? totalDistanceM,
@@ -153,6 +162,7 @@ class JourneyHistoryState extends Equatable {
       rawSamples: rawSamples ?? this.rawSamples,
       validSamples: validSamples ?? this.validSamples,
       segments: segments ?? this.segments,
+      cumulativeDistancesM: cumulativeDistancesM ?? this.cumulativeDistancesM,
       totalCount: totalCount ?? this.totalCount,
       truncated: truncated ?? this.truncated,
       totalDistanceM: totalDistanceM ?? this.totalDistanceM,
@@ -182,6 +192,7 @@ class JourneyHistoryState extends Equatable {
         rawSamples,
         validSamples,
         segments,
+        cumulativeDistancesM,
         totalCount,
         truncated,
         totalDistanceM,

@@ -114,6 +114,7 @@ class JourneyHistoryCubit extends Cubit<JourneyHistoryState> {
       final initialTime = validSamples.isNotEmpty ? validSamples.first.measuredAt : null;
       final initialHeading = validSamples.isNotEmpty ? validSamples.first.headingDeg : null;
       final initialSpeed = validSamples.isNotEmpty ? validSamples.first.speedMps : null;
+      final cumulativeDistances = _computeCumulativeDistances(validSamples, gap);
 
       emit(state.copyWith(
         status: JourneyHistoryStatus.ready,
@@ -121,6 +122,7 @@ class JourneyHistoryCubit extends Cubit<JourneyHistoryState> {
         rawSamples: rawSamples,
         validSamples: validSamples,
         segments: segments,
+        cumulativeDistancesM: cumulativeDistances,
         totalCount: response.totalCount,
         truncated: response.truncated,
         totalDistanceM: totalDistance,
@@ -264,10 +266,15 @@ class JourneyHistoryCubit extends Cubit<JourneyHistoryState> {
       state.validSamples,
       gapThreshold: duration,
     );
+    final cumulativeDistances = _computeCumulativeDistances(
+      state.validSamples,
+      duration,
+    );
 
     emit(state.copyWith(
       gapThreshold: duration,
       segments: segments,
+      cumulativeDistancesM: cumulativeDistances,
     ));
   }
 
@@ -343,10 +350,19 @@ class JourneyHistoryCubit extends Cubit<JourneyHistoryState> {
       return;
     }
 
-    // Tìm vị trí của targetTime trong danh sách samples đã sort
+    // Tìm vị trí của targetTime trong danh sách samples đã sort bằng tìm kiếm nhị phân (O(log n))
+    int low = 0;
+    int high = samples.length - 1;
     int index = 0;
-    while (index < samples.length - 1 && samples[index + 1].measuredAt.isBefore(targetTime)) {
-      index++;
+
+    while (low <= high) {
+      final mid = low + ((high - low) >> 1);
+      if (samples[mid].measuredAt.isBefore(targetTime)) {
+        index = mid;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
     }
 
     final p1 = samples[index];
@@ -407,6 +423,27 @@ class JourneyHistoryCubit extends Cubit<JourneyHistoryState> {
     _replayTimer?.cancel();
     _replayTimer = null;
     _lastTickRealtime = null;
+  }
+
+  static List<double> _computeCumulativeDistances(
+    List<LocationModel> samples,
+    Duration gapThreshold,
+  ) {
+    if (samples.isEmpty) return const [];
+    final distances = List<double>.filled(samples.length, 0.0);
+    var running = 0.0;
+    for (var i = 1; i < samples.length; i++) {
+      final prev = samples[i - 1];
+      final curr = samples[i];
+      if (curr.measuredAt.difference(prev.measuredAt) <= gapThreshold) {
+        running += GpsValidator.calculateDistanceM(
+          LatLng(prev.latitude, prev.longitude),
+          LatLng(curr.latitude, curr.longitude),
+        );
+      }
+      distances[i] = running;
+    }
+    return distances;
   }
 
   @override
