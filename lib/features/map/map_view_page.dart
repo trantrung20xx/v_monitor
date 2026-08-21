@@ -11,9 +11,11 @@ import '../../core/widgets/device_icon.dart';
 import '../../data/models/device_model.dart';
 import '../../data/repositories/device_repository.dart';
 import '../../data/repositories/geocoding_repository.dart';
+import '../../data/repositories/settings_repository.dart';
 import '../../domain/entities/device_status_resolver.dart';
 import '../dashboard/dashboard_cubit.dart';
 import '../dashboard/dashboard_state.dart';
+import '../settings/settings_cubit.dart';
 import 'widgets/device_list_overlay.dart';
 
 /// Trang Bản đồ toàn màn hình hiển thị toàn bộ thiết bị.
@@ -33,6 +35,7 @@ class _MapViewPageState extends State<MapViewPage> {
     _cubit = DashboardCubit(
       deviceRepo: context.read<DeviceRepository>(),
       geocodingRepo: context.read<GeocodingRepository>(),
+      settingsRepo: context.read<SettingsRepository>(),
     );
     _cubit.loadDashboard();
   }
@@ -72,7 +75,6 @@ class _MapViewBodyState extends State<_MapViewBody> {
   bool _showDesktopList = false;
   bool _mapReady = false;
   double _currentZoom = _initialZoom;
-  bool _isSatellite = false;
 
   void _onDeviceSelected(BuildContext context, DeviceModel device) {
     if (device.latitude != null && device.longitude != null) {
@@ -130,6 +132,8 @@ class _MapViewBodyState extends State<_MapViewBody> {
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width > 800;
+    final mapType = context.watch<SettingsCubit>().state.userSettings.mapType;
+    final isSatellite = mapType == AppMapType.satellite;
 
     return BlocBuilder<DashboardCubit, DashboardState>(
       builder: (context, state) {
@@ -180,7 +184,10 @@ class _MapViewBodyState extends State<_MapViewBody> {
                 if (isDesktop) ...[
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(10),
@@ -202,14 +209,18 @@ class _MapViewBodyState extends State<_MapViewBody> {
               if (!state.isLoading && state.devices.isNotEmpty) ...[
                 if (isDesktop)
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 10,
+                      horizontal: 4,
+                    ),
                     child: FilledButton.tonalIcon(
                       style: FilledButton.styleFrom(
                         backgroundColor: _showDesktopList
                             ? _primaryBlue.withValues(alpha: 0.15)
                             : const Color(0xFFF8FAFC),
-                        foregroundColor:
-                            _showDesktopList ? _primaryBlue : _textMain,
+                        foregroundColor: _showDesktopList
+                            ? _primaryBlue
+                            : _textMain,
                         side: BorderSide(
                           color: _showDesktopList ? _primaryBlue : _borderColor,
                         ),
@@ -247,7 +258,10 @@ class _MapViewBodyState extends State<_MapViewBody> {
                       ),
                       backgroundColor: _primaryBlue,
                       textColor: Colors.white,
-                      child: const Icon(Icons.list_alt_rounded, color: _textMain),
+                      child: const Icon(
+                        Icons.list_alt_rounded,
+                        color: _textMain,
+                      ),
                     ),
                     tooltip: 'Danh sách thiết bị',
                     onPressed: () => _openMobileList(
@@ -312,7 +326,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
                       children: [
                         TileLayer(
                           urlTemplate: MapTileProviders.getUrl(
-                            _isSatellite
+                            isSatellite
                                 ? AppMapType.satellite
                                 : AppMapType.standard,
                           ),
@@ -320,7 +334,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
                           minZoom: _minZoom,
                           maxZoom: _maxZoom,
                           maxNativeZoom: MapTileProviders.getMaxZoom(
-                            _isSatellite
+                            isSatellite
                                 ? AppMapType.satellite
                                 : AppMapType.standard,
                           ),
@@ -350,8 +364,12 @@ class _MapViewBodyState extends State<_MapViewBody> {
                       onZoomOut: () => _zoomBy(-_zoomStep),
                       onCenter: () => _centerOn(center),
                       onToggleMapType: () =>
-                          setState(() => _isSatellite = !_isSatellite),
-                      isSatellite: _isSatellite,
+                          context.read<SettingsCubit>().updateMapType(
+                            isSatellite
+                                ? AppMapType.standard
+                                : AppMapType.satellite,
+                          ),
+                      isSatellite: isSatellite,
                     ),
                   ),
                 ),
@@ -668,11 +686,7 @@ class _MapControls extends StatelessWidget {
       borderRadius: BorderRadius.circular(8),
       border: Border.all(color: const Color(0xFFE2E8F0)),
       boxShadow: const [
-        BoxShadow(
-          color: Colors.black12,
-          blurRadius: 12,
-          offset: Offset(0, 4),
-        ),
+        BoxShadow(color: Colors.black12, blurRadius: 12, offset: Offset(0, 4)),
       ],
     );
   }

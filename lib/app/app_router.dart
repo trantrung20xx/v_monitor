@@ -7,6 +7,7 @@ import '../features/device_detail/device_detail_page.dart';
 import '../features/map/map_view_page.dart';
 import '../features/auth/auth_cubit.dart';
 import '../features/auth/change_password_dialog.dart';
+import '../features/settings/settings_page.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(
   debugLabel: 'root',
@@ -38,6 +39,12 @@ class AppRouter {
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: MapViewPage()),
           ),
+          GoRoute(
+            path: '/settings',
+            name: 'settings',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: SettingsPage()),
+          ),
         ],
       ),
       GoRoute(
@@ -66,69 +73,26 @@ class _AppShellState extends State<_AppShell> {
   int _selectedIndex = 0;
 
   void _onDestinationSelected(int index) {
-    if (index == 2) {
-      _showMobileAccountActions();
-      return;
-    }
     setState(() => _selectedIndex = index);
     switch (index) {
       case 0:
         context.goNamed('dashboard');
       case 1:
         context.goNamed('map');
+      case 2:
+        context.goNamed('settings');
     }
-  }
-
-  Future<void> _showMobileAccountActions() async {
-    final authCubit = context.read<AuthCubit>();
-    final user = authCubit.state.user;
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const CircleAvatar(
-                  child: Icon(Icons.person_outline_rounded),
-                ),
-                title: Text(user?.fullName ?? user?.username ?? 'Tài khoản'),
-                subtitle: Text(
-                  user?.isAdmin == true ? 'Quản trị viên' : 'Người xem',
-                ),
-              ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.password_rounded),
-                title: const Text('Đổi mật khẩu'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _showChangePasswordDialog(context);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.logout_rounded),
-                title: const Text('Đăng xuất'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  authCubit.logout();
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     // Xác định mục điều hướng hiện tại từ đường dẫn.
     final location = GoRouterState.of(context).uri.toString();
-    final currentIndex = location.startsWith('/map') ? 1 : 0;
+    final currentIndex = location.startsWith('/settings')
+        ? 2
+        : location.startsWith('/map')
+        ? 1
+        : 0;
     if (currentIndex != _selectedIndex) {
       _selectedIndex = currentIndex;
     }
@@ -168,9 +132,9 @@ class _AppShellState extends State<_AppShell> {
             label: 'Bản đồ',
           ),
           NavigationDestination(
-            icon: Icon(Icons.account_circle_outlined),
-            selectedIcon: Icon(Icons.account_circle_rounded),
-            label: 'Tài khoản',
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings_rounded),
+            label: 'Cài đặt',
           ),
         ],
       ),
@@ -191,9 +155,14 @@ class _DesktopNavRail extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 88,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(right: BorderSide(color: Color(0xFFE4E9ED), width: 1)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          right: BorderSide(
+            color: Theme.of(context).colorScheme.outlineVariant,
+            width: 1,
+          ),
+        ),
       ),
       child: SafeArea(
         child: Column(
@@ -246,6 +215,14 @@ class _DesktopNavRail extends StatelessWidget {
               label: 'Bản đồ',
               onTap: () => onDestinationSelected(1),
             ),
+            const SizedBox(height: 6),
+            _NavItem(
+              index: 2,
+              isSelected: selectedIndex == 2,
+              icon: Icons.settings_rounded,
+              label: 'Cài đặt',
+              onTap: () => onDestinationSelected(2),
+            ),
             const Spacer(),
             const _DesktopAccountMenu(),
             const SizedBox(height: 12),
@@ -292,7 +269,9 @@ class _DesktopAccountMenu extends StatelessWidget {
                 ),
                 Text(
                   user?.isAdmin == true ? 'Quản trị viên' : 'Người xem',
-                  style: const TextStyle(color: Color(0xFF66727D)),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
@@ -331,9 +310,12 @@ class _DesktopAccountMenu extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               'Tài khoản',
-              style: TextStyle(fontSize: 10.5, color: Color(0xFF66727D)),
+              style: TextStyle(
+                fontSize: 10.5,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
@@ -370,8 +352,9 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const activeColor = Color(0xFF1677FF);
-    const inactiveColor = Color(0xFF66727D);
+    final colors = Theme.of(context).colorScheme;
+    final activeColor = colors.primary;
+    final inactiveColor = colors.onSurfaceVariant;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),

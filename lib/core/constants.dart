@@ -9,5 +9,4 @@ class ApiConstants {
 
 class AppConstants {
   static const String appName = 'v_monitor';
-  static const double movingThresholdMps = 0.5;
 }

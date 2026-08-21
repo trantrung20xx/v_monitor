@@ -39,6 +39,7 @@ class JourneyHistoryState extends Equatable {
 
   // Cấu hình
   final Duration gapThreshold;
+  final double movementThresholdMps;
 
   // Trạng thái phát lại (Replay Engine)
   final DateTime? currentReplayTime;
@@ -68,6 +69,7 @@ class JourneyHistoryState extends Equatable {
     this.maxSpeedMps,
     this.avgSpeedMps,
     this.gapThreshold = const Duration(minutes: 5),
+    this.movementThresholdMps = 0.5,
     this.currentReplayTime,
     this.currentPosition,
     this.currentSpeedMps,
@@ -84,17 +86,25 @@ class JourneyHistoryState extends Equatable {
   bool get isCompleted => status == JourneyHistoryStatus.completed;
   bool get hasRoute => validSamples.length >= 2;
   bool get hasSinglePoint => validSamples.length == 1;
-  bool get isEmpty => status == JourneyHistoryStatus.ready && validSamples.isEmpty;
+  bool get isEmpty =>
+      status == JourneyHistoryStatus.ready && validSamples.isEmpty;
 
   /// Tiến độ phát lại từ 0.0 đến 1.0
   double get playbackProgress {
-    if (validSamples.length < 2 || fromTime == null || toTime == null || currentReplayTime == null) {
+    if (validSamples.length < 2 ||
+        fromTime == null ||
+        toTime == null ||
+        currentReplayTime == null) {
       return 0.0;
     }
-    final totalDuration = validSamples.last.measuredAt.difference(validSamples.first.measuredAt).inMilliseconds;
+    final totalDuration = validSamples.last.measuredAt
+        .difference(validSamples.first.measuredAt)
+        .inMilliseconds;
     if (totalDuration <= 0) return 0.0;
 
-    final currentOffset = currentReplayTime!.difference(validSamples.first.measuredAt).inMilliseconds;
+    final currentOffset = currentReplayTime!
+        .difference(validSamples.first.measuredAt)
+        .inMilliseconds;
     return (currentOffset / totalDuration).clamp(0.0, 1.0);
   }
 
@@ -102,7 +112,10 @@ class JourneyHistoryState extends Equatable {
   double get currentDistanceM {
     if (cumulativeDistancesM.isNotEmpty) {
       if (currentSampleIndex <= 0) return 0.0;
-      final targetIndex = currentSampleIndex.clamp(0, cumulativeDistancesM.length - 1);
+      final targetIndex = currentSampleIndex.clamp(
+        0,
+        cumulativeDistancesM.length - 1,
+      );
       return cumulativeDistancesM[targetIndex];
     }
 
@@ -143,6 +156,7 @@ class JourneyHistoryState extends Equatable {
     double? maxSpeedMps,
     double? avgSpeedMps,
     Duration? gapThreshold,
+    double? movementThresholdMps,
     DateTime? currentReplayTime,
     LatLng? currentPosition,
     double? currentSpeedMps,
@@ -171,6 +185,7 @@ class JourneyHistoryState extends Equatable {
       maxSpeedMps: maxSpeedMps ?? this.maxSpeedMps,
       avgSpeedMps: avgSpeedMps ?? this.avgSpeedMps,
       gapThreshold: gapThreshold ?? this.gapThreshold,
+      movementThresholdMps: movementThresholdMps ?? this.movementThresholdMps,
       currentReplayTime: currentReplayTime ?? this.currentReplayTime,
       currentPosition: currentPosition ?? this.currentPosition,
       currentSpeedMps: currentSpeedMps ?? this.currentSpeedMps,
@@ -178,36 +193,39 @@ class JourneyHistoryState extends Equatable {
       currentSampleIndex: currentSampleIndex ?? this.currentSampleIndex,
       playbackSpeed: playbackSpeed ?? this.playbackSpeed,
       followCamera: followCamera ?? this.followCamera,
-      selectedPoint: clearSelectedPoint ? null : (selectedPoint ?? this.selectedPoint),
+      selectedPoint: clearSelectedPoint
+          ? null
+          : (selectedPoint ?? this.selectedPoint),
     );
   }
 
   @override
   List<Object?> get props => [
-        status,
-        errorMessage,
-        selectedDevice,
-        fromTime,
-        toTime,
-        rawSamples,
-        validSamples,
-        segments,
-        cumulativeDistancesM,
-        totalCount,
-        truncated,
-        totalDistanceM,
-        movingDurationS,
-        stoppedDurationS,
-        maxSpeedMps,
-        avgSpeedMps,
-        gapThreshold,
-        currentReplayTime,
-        currentPosition,
-        currentSpeedMps,
-        currentHeadingDeg,
-        currentSampleIndex,
-        playbackSpeed,
-        followCamera,
-        selectedPoint,
-      ];
+    status,
+    errorMessage,
+    selectedDevice,
+    fromTime,
+    toTime,
+    rawSamples,
+    validSamples,
+    segments,
+    cumulativeDistancesM,
+    totalCount,
+    truncated,
+    totalDistanceM,
+    movingDurationS,
+    stoppedDurationS,
+    maxSpeedMps,
+    avgSpeedMps,
+    gapThreshold,
+    movementThresholdMps,
+    currentReplayTime,
+    currentPosition,
+    currentSpeedMps,
+    currentHeadingDeg,
+    currentSampleIndex,
+    playbackSpeed,
+    followCamera,
+    selectedPoint,
+  ];
 }

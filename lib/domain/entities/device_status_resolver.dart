@@ -39,11 +39,29 @@ class DeviceStateThresholds {
 }
 
 class DeviceStatusResolver {
-  static const DeviceStateThresholds defaultThresholds =
+  static const DeviceStateThresholds _fallbackThresholds =
       DeviceStateThresholds();
+  static DeviceStateThresholds _runtimeThresholds = _fallbackThresholds;
+
+  static DeviceStateThresholds get defaultThresholds => _runtimeThresholds;
 
   static double get movingThresholdMps =>
       defaultThresholds.movementSpeedThresholdMps;
+
+  static void configureRuntime({
+    required Duration onlineTimeout,
+    required double movementSpeedThresholdMps,
+  }) {
+    _runtimeThresholds = DeviceStateThresholds(
+      onlineTimeout: onlineTimeout,
+      gpsStaleTimeout: _runtimeThresholds.gpsStaleTimeout,
+      movementSpeedThresholdMps: movementSpeedThresholdMps,
+    );
+  }
+
+  static void resetRuntime() {
+    _runtimeThresholds = _fallbackThresholds;
+  }
 
   static ResolvedDeviceStatus resolve({
     required bool isOnline,

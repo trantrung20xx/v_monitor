@@ -4,8 +4,10 @@ import 'package:latlong2/latlong.dart';
 
 import '../../data/models/device_model.dart';
 import '../../data/models/location_model.dart';
+import '../../data/models/system_settings_model.dart';
 import '../../data/repositories/device_repository.dart';
 import '../../data/repositories/tracking_repository.dart';
+import '../../data/repositories/settings_repository.dart';
 import '../../domain/entities/gps_validator.dart';
 import '../../domain/entities/route_segment.dart';
 import 'journey_history_state.dart';
@@ -13,15 +15,32 @@ import 'journey_history_state.dart';
 class JourneyHistoryCubit extends Cubit<JourneyHistoryState> {
   final TrackingRepository trackingRepo;
   final DeviceRepository deviceRepo;
+  final SettingsRepository? settingsRepo;
 
   Timer? _replayTimer;
   DateTime? _lastTickRealtime;
   int _queryVersion = 0;
+  bool _hasCustomGapThreshold = false;
+  StreamSubscription<SystemSettingsModel>? _settingsSubscription;
 
   JourneyHistoryCubit({
     required this.trackingRepo,
     required this.deviceRepo,
-  }) : super(const JourneyHistoryState());
+    this.settingsRepo,
+  }) : super(
+         JourneyHistoryState(
+           gapThreshold: Duration(
+             seconds:
+                 settingsRepo?.systemSettings.defaultGapThresholdSeconds ?? 300,
+           ),
+           movementThresholdMps:
+               settingsRepo?.systemSettings.movementThresholdMps ?? 0.5,
+         ),
+       ) {
+    _settingsSubscription = settingsRepo?.systemSettingsChanges.listen(
+      _onSystemSettingsChanged,
+    );
+  }
 
   /// Tải danh sách lịch sử vị trí của thiết bị trong khoảng [from, to].
   Future<void> loadHistory({
@@ -33,13 +52,15 @@ class JourneyHistoryCubit extends Cubit<JourneyHistoryState> {
     _stopPlayback();
     final currentVersion = ++_queryVersion;
 
-    emit(state.copyWith(
-      status: JourneyHistoryStatus.loading,
-      fromTime: from,
-      toTime: to,
-      clearError: true,
-      clearSelectedPoint: true,
-    ));
+    emit(
+      state.copyWith(
+        status: JourneyHistoryStatus.loading,
+        fromTime: from,
+        toTime: to,
+        clearError: true,
+        clearSelectedPoint: true,
+      ),
+    );
 
     try {
       // 1. Lấy thông tin thiết bị song song nếu chưa có
@@ -59,17 +80,19 @@ class JourneyHistoryCubit extends Cubit<JourneyHistoryState> {
       if (currentVersion != _queryVersion || isClosed) return;
 
       if (response == null) {
-        emit(state.copyWith(
-          status: JourneyHistoryStatus.ready,
-          selectedDevice: device,
-          rawSamples: const [],
-          validSamples: const [],
-          segments: const [],
-          totalCount: 0,
-          totalDistanceM: 0.0,
-          movingDurationS: 0,
-          stoppedDurationS: 0,
-        ));
+        emit(
+          state.copyWith(
+            status: JourneyHistoryStatus.ready,
+            selectedDevice: device,
+            rawSamples: const [],
+            validSamples: const [],
+            segments: const [],
+            totalCount: 0,
+            totalDistanceM: 0.0,
+            movingDurationS: 0,
+            stoppedDurationS: 0,
+          ),
+        );
         return;
       }
 
@@ -80,69 +103,60 @@ class JourneyHistoryCubit extends Cubit<JourneyHistoryState> {
 
       // 4. Chia nhỏ thành các Route Segments theo gap threshold
       final gap = customGapThreshold ?? state.gapThreshold;
-      final segments = RouteSegment.splitIntoSegments(
+      final summary = _buildSummary(
         validSamples,
         gapThreshold: gap,
+        movementThresholdMps: state.movementThresholdMps,
       );
-
-      // 5. Tính toán tổng hợp chỉ số
-      var totalDistance = 0.0;
-      var totalMoving = 0;
-      var totalStopped = 0;
-      double? maxSpeed;
-      var speedSum = 0.0;
-      var speedCount = 0;
-
-      for (final segment in segments) {
-        totalDistance += segment.distanceM;
-        totalMoving += segment.movingDurationS;
-        totalStopped += segment.stoppedDurationS;
-        if (segment.maxSpeedMps != null) {
-          if (maxSpeed == null || segment.maxSpeedMps! > maxSpeed) {
-            maxSpeed = segment.maxSpeedMps;
-          }
-        }
-        if (segment.avgSpeedMps != null) {
-          speedSum += segment.avgSpeedMps! * segment.samples.length;
-          speedCount += segment.samples.length;
-        }
-      }
 
       final initialPos = validSamples.isNotEmpty
           ? LatLng(validSamples.first.latitude, validSamples.first.longitude)
           : null;
-      final initialTime = validSamples.isNotEmpty ? validSamples.first.measuredAt : null;
-      final initialHeading = validSamples.isNotEmpty ? validSamples.first.headingDeg : null;
-      final initialSpeed = validSamples.isNotEmpty ? validSamples.first.speedMps : null;
-      final cumulativeDistances = _computeCumulativeDistances(validSamples, gap);
+      final initialTime = validSamples.isNotEmpty
+          ? validSamples.first.measuredAt
+          : null;
+      final initialHeading = validSamples.isNotEmpty
+          ? validSamples.first.headingDeg
+          : null;
+      final initialSpeed = validSamples.isNotEmpty
+          ? validSamples.first.speedMps
+          : null;
+      final cumulativeDistances = _computeCumulativeDistances(
+        validSamples,
+        gap,
+      );
 
-      emit(state.copyWith(
-        status: JourneyHistoryStatus.ready,
-        selectedDevice: device,
-        rawSamples: rawSamples,
-        validSamples: validSamples,
-        segments: segments,
-        cumulativeDistancesM: cumulativeDistances,
-        totalCount: response.totalCount,
-        truncated: response.truncated,
-        totalDistanceM: totalDistance,
-        movingDurationS: totalMoving,
-        stoppedDurationS: totalStopped,
-        maxSpeedMps: maxSpeed,
-        avgSpeedMps: speedCount > 0 ? (speedSum / speedCount) : null,
-        gapThreshold: gap,
-        currentPosition: initialPos,
-        currentReplayTime: initialTime,
-        currentHeadingDeg: initialHeading,
-        currentSpeedMps: initialSpeed,
-        currentSampleIndex: 0,
-      ));
+      emit(
+        state.copyWith(
+          status: JourneyHistoryStatus.ready,
+          selectedDevice: device,
+          rawSamples: rawSamples,
+          validSamples: validSamples,
+          segments: summary.segments,
+          cumulativeDistancesM: cumulativeDistances,
+          totalCount: response.totalCount,
+          truncated: response.truncated,
+          totalDistanceM: summary.totalDistanceM,
+          movingDurationS: summary.movingDurationS,
+          stoppedDurationS: summary.stoppedDurationS,
+          maxSpeedMps: summary.maxSpeedMps,
+          avgSpeedMps: summary.avgSpeedMps,
+          gapThreshold: gap,
+          currentPosition: initialPos,
+          currentReplayTime: initialTime,
+          currentHeadingDeg: initialHeading,
+          currentSpeedMps: initialSpeed,
+          currentSampleIndex: 0,
+        ),
+      );
     } catch (e) {
       if (currentVersion != _queryVersion || isClosed) return;
-      emit(state.copyWith(
-        status: JourneyHistoryStatus.error,
-        errorMessage: 'Lỗi tải lịch sử hành trình: $e',
-      ));
+      emit(
+        state.copyWith(
+          status: JourneyHistoryStatus.error,
+          errorMessage: 'Lỗi tải lịch sử hành trình: $e',
+        ),
+      );
     }
   }
 
@@ -151,7 +165,8 @@ class JourneyHistoryCubit extends Cubit<JourneyHistoryState> {
     if (state.validSamples.length < 2) return;
 
     // Nếu đã tới điểm kết thúc thì reset về đầu trước khi play lại
-    if (state.status == JourneyHistoryStatus.completed || state.currentReplayTime == null) {
+    if (state.status == JourneyHistoryStatus.completed ||
+        state.currentReplayTime == null) {
       reset();
     }
 
@@ -179,14 +194,16 @@ class JourneyHistoryCubit extends Cubit<JourneyHistoryState> {
     if (state.validSamples.isEmpty) return;
 
     final first = state.validSamples.first;
-    emit(state.copyWith(
-      status: JourneyHistoryStatus.ready,
-      currentPosition: LatLng(first.latitude, first.longitude),
-      currentReplayTime: first.measuredAt,
-      currentHeadingDeg: first.headingDeg,
-      currentSpeedMps: first.speedMps,
-      currentSampleIndex: 0,
-    ));
+    emit(
+      state.copyWith(
+        status: JourneyHistoryStatus.ready,
+        currentPosition: LatLng(first.latitude, first.longitude),
+        currentReplayTime: first.measuredAt,
+        currentHeadingDeg: first.headingDeg,
+        currentSpeedMps: first.speedMps,
+        currentSampleIndex: 0,
+      ),
+    );
   }
 
   /// Nhảy tới mốc thời gian cụ thể (Seek random time)
@@ -257,47 +274,63 @@ class JourneyHistoryCubit extends Cubit<JourneyHistoryState> {
 
   /// Cấu hình lại ngưỡng ngắt quãng thời gian (gap threshold)
   void setGapThreshold(Duration duration) {
+    _hasCustomGapThreshold = true;
     if (state.validSamples.isEmpty) {
       emit(state.copyWith(gapThreshold: duration));
       return;
     }
 
-    final segments = RouteSegment.splitIntoSegments(
+    final summary = _buildSummary(
       state.validSamples,
       gapThreshold: duration,
+      movementThresholdMps: state.movementThresholdMps,
     );
     final cumulativeDistances = _computeCumulativeDistances(
       state.validSamples,
       duration,
     );
 
-    emit(state.copyWith(
-      gapThreshold: duration,
-      segments: segments,
-      cumulativeDistancesM: cumulativeDistances,
-    ));
+    emit(
+      state.copyWith(
+        gapThreshold: duration,
+        segments: summary.segments,
+        cumulativeDistancesM: cumulativeDistances,
+        totalDistanceM: summary.totalDistanceM,
+        movingDurationS: summary.movingDurationS,
+        stoppedDurationS: summary.stoppedDurationS,
+        maxSpeedMps: summary.maxSpeedMps,
+        avgSpeedMps: summary.avgSpeedMps,
+      ),
+    );
   }
 
   /// Đổi thiết bị đang xem
   void selectDevice(DeviceModel device) {
     if (state.selectedDevice?.id == device.id) return;
     _stopPlayback();
-    emit(JourneyHistoryState(
-      selectedDevice: device,
-      gapThreshold: state.gapThreshold,
-      playbackSpeed: state.playbackSpeed,
-      followCamera: state.followCamera,
-    ));
+    emit(
+      JourneyHistoryState(
+        selectedDevice: device,
+        gapThreshold: state.gapThreshold,
+        movementThresholdMps: state.movementThresholdMps,
+        playbackSpeed: state.playbackSpeed,
+        followCamera: state.followCamera,
+      ),
+    );
   }
 
   void _startTimer() {
     _replayTimer?.cancel();
     // 33ms ~ 30 frames per second để đảm bảo mượt mà mà không tốn CPU (Section 55 & 56)
-    _replayTimer = Timer.periodic(const Duration(milliseconds: 33), _onReplayTick);
+    _replayTimer = Timer.periodic(
+      const Duration(milliseconds: 33),
+      _onReplayTick,
+    );
   }
 
   void _onReplayTick(Timer timer) {
-    if (state.status != JourneyHistoryStatus.playing || state.validSamples.length < 2) {
+    if (state.status != JourneyHistoryStatus.playing ||
+        state.validSamples.length < 2) {
       _stopPlayback();
       return;
     }
@@ -307,26 +340,32 @@ class JourneyHistoryCubit extends Cubit<JourneyHistoryState> {
     _lastTickRealtime = now;
 
     // Tính bước nhảy thời gian mô phỏng dựa theo tốc độ phát (playbackSpeed)
-    final dtSimulatedMs = (dtRealtime.inMilliseconds * state.playbackSpeed).round();
+    final dtSimulatedMs = (dtRealtime.inMilliseconds * state.playbackSpeed)
+        .round();
     if (dtSimulatedMs <= 0) return;
 
-    final nextTime = (state.currentReplayTime ?? state.validSamples.first.measuredAt)
-        .add(Duration(milliseconds: dtSimulatedMs));
+    final nextTime =
+        (state.currentReplayTime ?? state.validSamples.first.measuredAt).add(
+          Duration(milliseconds: dtSimulatedMs),
+        );
 
     final lastSampleTime = state.validSamples.last.measuredAt;
 
-    if (nextTime.isAfter(lastSampleTime) || nextTime.isAtSameMomentAs(lastSampleTime)) {
+    if (nextTime.isAfter(lastSampleTime) ||
+        nextTime.isAtSameMomentAs(lastSampleTime)) {
       // Đã chạy tới đích cuối cùng
       _stopPlayback();
       final last = state.validSamples.last;
-      emit(state.copyWith(
-        status: JourneyHistoryStatus.completed,
-        currentReplayTime: last.measuredAt,
-        currentPosition: LatLng(last.latitude, last.longitude),
-        currentHeadingDeg: last.headingDeg,
-        currentSpeedMps: last.speedMps,
-        currentSampleIndex: state.validSamples.length - 1,
-      ));
+      emit(
+        state.copyWith(
+          status: JourneyHistoryStatus.completed,
+          currentReplayTime: last.measuredAt,
+          currentPosition: LatLng(last.latitude, last.longitude),
+          currentHeadingDeg: last.headingDeg,
+          currentSpeedMps: last.speedMps,
+          currentSampleIndex: state.validSamples.length - 1,
+        ),
+      );
       return;
     }
 
@@ -340,13 +379,15 @@ class JourneyHistoryCubit extends Cubit<JourneyHistoryState> {
 
     if (samples.length == 1) {
       final s = samples.first;
-      emit(state.copyWith(
-        currentReplayTime: s.measuredAt,
-        currentPosition: LatLng(s.latitude, s.longitude),
-        currentHeadingDeg: s.headingDeg,
-        currentSpeedMps: s.speedMps,
-        currentSampleIndex: 0,
-      ));
+      emit(
+        state.copyWith(
+          currentReplayTime: s.measuredAt,
+          currentPosition: LatLng(s.latitude, s.longitude),
+          currentHeadingDeg: s.headingDeg,
+          currentSpeedMps: s.speedMps,
+          currentSampleIndex: 0,
+        ),
+      );
       return;
     }
 
@@ -376,19 +417,24 @@ class JourneyHistoryCubit extends Cubit<JourneyHistoryState> {
     // Khoảng cách thời gian vượt ngưỡng nghĩa là GPS mất tín hiệu hoặc thiết bị tắt lâu.
     // -> Tự động nhảy thẳng tới p2 (Section 31)
     if (segmentGap > state.gapThreshold) {
-      emit(state.copyWith(
-        currentReplayTime: p2.measuredAt,
-        currentPosition: LatLng(p2.latitude, p2.longitude),
-        currentHeadingDeg: p2.headingDeg,
-        currentSpeedMps: p2.speedMps,
-        currentSampleIndex: index + 1,
-      ));
+      emit(
+        state.copyWith(
+          currentReplayTime: p2.measuredAt,
+          currentPosition: LatLng(p2.latitude, p2.longitude),
+          currentHeadingDeg: p2.headingDeg,
+          currentSpeedMps: p2.speedMps,
+          currentSampleIndex: index + 1,
+        ),
+      );
       return;
     }
 
     final totalMs = p2Time.difference(p1Time).inMilliseconds;
     final progress = totalMs > 0
-        ? (targetTime.difference(p1Time).inMilliseconds / totalMs).clamp(0.0, 1.0)
+        ? (targetTime.difference(p1Time).inMilliseconds / totalMs).clamp(
+            0.0,
+            1.0,
+          )
         : 0.0;
 
     // Nội suy vị trí hiển thị giữa p1 và p2
@@ -410,13 +456,15 @@ class JourneyHistoryCubit extends Cubit<JourneyHistoryState> {
         ? p1.speedMps! + (p2.speedMps! - p1.speedMps!) * progress
         : (p1.speedMps ?? p2.speedMps);
 
-    emit(state.copyWith(
-      currentReplayTime: targetTime,
-      currentPosition: interpolatedPos,
-      currentHeadingDeg: heading,
-      currentSpeedMps: speed,
-      currentSampleIndex: index,
-    ));
+    emit(
+      state.copyWith(
+        currentReplayTime: targetTime,
+        currentPosition: interpolatedPos,
+        currentHeadingDeg: heading,
+        currentSpeedMps: speed,
+        currentSampleIndex: index,
+      ),
+    );
   }
 
   void _stopPlayback() {
@@ -446,9 +494,105 @@ class JourneyHistoryCubit extends Cubit<JourneyHistoryState> {
     return distances;
   }
 
-  @override
-  Future<void> close() {
-    _stopPlayback();
-    return super.close();
+  void _onSystemSettingsChanged(SystemSettingsModel value) {
+    final nextGap = _hasCustomGapThreshold
+        ? state.gapThreshold
+        : Duration(seconds: value.defaultGapThresholdSeconds);
+    final nextMovement = value.movementThresholdMps;
+    if (state.validSamples.isEmpty) {
+      emit(
+        state.copyWith(
+          gapThreshold: nextGap,
+          movementThresholdMps: nextMovement,
+        ),
+      );
+      return;
+    }
+
+    final summary = _buildSummary(
+      state.validSamples,
+      gapThreshold: nextGap,
+      movementThresholdMps: nextMovement,
+    );
+    emit(
+      state.copyWith(
+        gapThreshold: nextGap,
+        movementThresholdMps: nextMovement,
+        segments: summary.segments,
+        totalDistanceM: summary.totalDistanceM,
+        movingDurationS: summary.movingDurationS,
+        stoppedDurationS: summary.stoppedDurationS,
+        maxSpeedMps: summary.maxSpeedMps,
+        avgSpeedMps: summary.avgSpeedMps,
+        cumulativeDistancesM: _computeCumulativeDistances(
+          state.validSamples,
+          nextGap,
+        ),
+      ),
+    );
   }
+
+  static _JourneySummary _buildSummary(
+    List<LocationModel> samples, {
+    required Duration gapThreshold,
+    required double movementThresholdMps,
+  }) {
+    final segments = RouteSegment.splitIntoSegments(
+      samples,
+      gapThreshold: gapThreshold,
+      movingThresholdMps: movementThresholdMps,
+    );
+    var totalDistance = 0.0;
+    var totalMoving = 0;
+    var totalStopped = 0;
+    double? maxSpeed;
+    var speedSum = 0.0;
+    var speedCount = 0;
+    for (final segment in segments) {
+      totalDistance += segment.distanceM;
+      totalMoving += segment.movingDurationS;
+      totalStopped += segment.stoppedDurationS;
+      if (segment.maxSpeedMps != null &&
+          (maxSpeed == null || segment.maxSpeedMps! > maxSpeed)) {
+        maxSpeed = segment.maxSpeedMps;
+      }
+      if (segment.avgSpeedMps != null) {
+        speedSum += segment.avgSpeedMps! * segment.samples.length;
+        speedCount += segment.samples.length;
+      }
+    }
+    return _JourneySummary(
+      segments: segments,
+      totalDistanceM: totalDistance,
+      movingDurationS: totalMoving,
+      stoppedDurationS: totalStopped,
+      maxSpeedMps: maxSpeed,
+      avgSpeedMps: speedCount > 0 ? speedSum / speedCount : null,
+    );
+  }
+
+  @override
+  Future<void> close() async {
+    _stopPlayback();
+    await _settingsSubscription?.cancel();
+    await super.close();
+  }
+}
+
+class _JourneySummary {
+  const _JourneySummary({
+    required this.segments,
+    required this.totalDistanceM,
+    required this.movingDurationS,
+    required this.stoppedDurationS,
+    required this.maxSpeedMps,
+    required this.avgSpeedMps,
+  });
+
+  final List<RouteSegment> segments;
+  final double totalDistanceM;
+  final int movingDurationS;
+  final int stoppedDurationS;
+  final double? maxSpeedMps;
+  final double? avgSpeedMps;
 }

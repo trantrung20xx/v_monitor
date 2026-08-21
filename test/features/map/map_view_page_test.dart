@@ -5,12 +5,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v_monitor/app/app_theme.dart';
+import 'package:v_monitor/core/config/map_tile_providers.dart';
 import 'package:v_monitor/core/network/api_client.dart';
 import 'package:v_monitor/core/network/websocket_client.dart';
 import 'package:v_monitor/data/models/device_model.dart';
 import 'package:v_monitor/data/repositories/device_repository.dart';
 import 'package:v_monitor/data/repositories/geocoding_repository.dart';
 import 'package:v_monitor/features/map/map_view_page.dart';
+
+import '../../support/settings_test_scope.dart';
 
 void main() {
   testWidgets('MapViewPage renders map controls and handles taps safely', (
@@ -35,12 +38,14 @@ void main() {
     });
 
     await tester.pumpWidget(
-      MultiRepositoryProvider(
-        providers: [
-          RepositoryProvider<DeviceRepository>.value(value: deviceRepo),
-          RepositoryProvider<GeocodingRepository>.value(value: geocodingRepo),
-        ],
-        child: MaterialApp(theme: AppTheme.light, home: const MapViewPage()),
+      SettingsTestScope(
+        child: MultiRepositoryProvider(
+          providers: [
+            RepositoryProvider<DeviceRepository>.value(value: deviceRepo),
+            RepositoryProvider<GeocodingRepository>.value(value: geocodingRepo),
+          ],
+          child: MaterialApp(theme: AppTheme.light, home: const MapViewPage()),
+        ),
       ),
     );
     await tester.pump();
@@ -51,10 +56,18 @@ void main() {
     expect(find.byIcon(Icons.remove_rounded), findsOneWidget);
     expect(find.byIcon(Icons.my_location_rounded), findsOneWidget);
     expect(find.byIcon(Icons.satellite_alt_rounded), findsOneWidget);
+    expect(
+      tester.widget<TileLayer>(find.byType(TileLayer)).urlTemplate,
+      MapTileProviders.streetUrl,
+    );
 
     await tester.tap(find.byIcon(Icons.satellite_alt_rounded));
     await tester.pump();
     expect(find.byIcon(Icons.map_rounded), findsOneWidget);
+    expect(
+      tester.widget<TileLayer>(find.byType(TileLayer)).urlTemplate,
+      MapTileProviders.satelliteUrl,
+    );
 
     await tester.tap(find.byIcon(Icons.map_rounded));
     await tester.pump();

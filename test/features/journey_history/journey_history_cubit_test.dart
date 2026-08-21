@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v_monitor/data/models/device_model.dart';
 import 'package:v_monitor/data/models/location_history_response.dart';
 import 'package:v_monitor/data/models/location_model.dart';
+import 'package:v_monitor/data/models/system_settings_model.dart';
 import 'package:v_monitor/data/repositories/device_repository.dart';
+import 'package:v_monitor/data/repositories/settings_repository.dart';
 import 'package:v_monitor/data/repositories/tracking_repository.dart';
 import 'package:v_monitor/features/journey_history/journey_history_cubit.dart';
 import 'package:v_monitor/features/journey_history/journey_history_state.dart';
@@ -38,9 +42,33 @@ class _FakeDeviceRepo implements DeviceRepository {
   Future<List<DeviceModel>> getDevices() async => devices;
 }
 
+class _FakeSettingsRepo implements SettingsRepository {
+  _FakeSettingsRepo(this._settings);
+
+  final _controller = StreamController<SystemSettingsModel>.broadcast();
+  SystemSettingsModel _settings;
+
+  @override
+  SystemSettingsModel get systemSettings => _settings;
+
+  @override
+  Stream<SystemSettingsModel> get systemSettingsChanges => _controller.stream;
+
+  void emitSystemSettings(SystemSettingsModel value) {
+    _settings = value;
+    _controller.add(value);
+  }
+
+  Future<void> close() => _controller.close();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
   late _FakeTrackingRepo fakeTracking;
   late _FakeDeviceRepo fakeDevice;
+  late _FakeSettingsRepo fakeSettings;
   late JourneyHistoryCubit cubit;
 
   final sampleDevice = DeviceModel(
@@ -54,14 +82,22 @@ void main() {
   setUp(() {
     fakeTracking = _FakeTrackingRepo();
     fakeDevice = _FakeDeviceRepo()..singleDevice = sampleDevice;
+    fakeSettings = _FakeSettingsRepo(
+      const SystemSettingsModel(
+        movementThresholdMps: 1,
+        defaultGapThresholdSeconds: 420,
+      ),
+    );
     cubit = JourneyHistoryCubit(
       trackingRepo: fakeTracking,
       deviceRepo: fakeDevice,
+      settingsRepo: fakeSettings,
     );
   });
 
-  tearDown(() {
-    cubit.close();
+  tearDown(() async {
+    await cubit.close();
+    await fakeSettings.close();
   });
 
   group('JourneyHistoryCubit Tests (Section 54, 68, 71)', () {
@@ -70,7 +106,35 @@ void main() {
       expect(cubit.state.validSamples, isEmpty);
       expect(cubit.state.playbackSpeed, equals(1.0));
       expect(cubit.state.followCamera, isTrue);
+      expect(cubit.state.gapThreshold, const Duration(seconds: 420));
+      expect(cubit.state.movementThresholdMps, 1);
     });
+
+    test(
+      'runtime settings update defaults but preserve a custom journey gap',
+      () async {
+        fakeSettings.emitSystemSettings(
+          const SystemSettingsModel(
+            movementThresholdMps: 2,
+            defaultGapThresholdSeconds: 600,
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+        expect(cubit.state.gapThreshold, const Duration(seconds: 600));
+        expect(cubit.state.movementThresholdMps, 2);
+
+        cubit.setGapThreshold(const Duration(seconds: 900));
+        fakeSettings.emitSystemSettings(
+          const SystemSettingsModel(
+            movementThresholdMps: 3,
+            defaultGapThresholdSeconds: 300,
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+        expect(cubit.state.gapThreshold, const Duration(seconds: 900));
+        expect(cubit.state.movementThresholdMps, 3);
+      },
+    );
 
     test(
       'Loads history and sorts samples chronologically ascending (Section 68)',

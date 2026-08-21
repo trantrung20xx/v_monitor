@@ -9,6 +9,7 @@ from app.core.database import AsyncSessionLocal
 from app.models.device_event import DeviceEvent
 from app.models.device_latest_state import DeviceLatestState
 from app.services.realtime_service import realtime_service
+from app.services.system_settings_service import system_settings_service
 
 
 logger = logging.getLogger(__name__)
@@ -19,9 +20,16 @@ class PresenceService:
         self._stop_event = asyncio.Event()
         self._task: asyncio.Task | None = None
 
-    async def mark_stale_devices_offline(self) -> int:
-        now = datetime.now(timezone.utc)
-        cutoff = now - timedelta(seconds=settings.device_offline_timeout_seconds)
+    async def mark_stale_devices_offline(
+        self,
+        *,
+        now: datetime | None = None,
+    ) -> int:
+        current_time = now or datetime.now(timezone.utc)
+        runtime_settings = await system_settings_service.get_runtime_settings()
+        cutoff = current_time - timedelta(
+            seconds=runtime_settings.offline_timeout_seconds
+        )
         async with AsyncSessionLocal() as db:
             result = await db.execute(
                 select(DeviceLatestState)
@@ -38,7 +46,7 @@ class PresenceService:
             events: list[DeviceEvent] = []
             for state in states:
                 state.is_online = False
-                state.updated_at = now
+                state.updated_at = current_time
                 point = None
                 if state.current_latitude is not None and state.current_longitude is not None:
                     point = (
@@ -48,7 +56,7 @@ class PresenceService:
                 event = DeviceEvent(
                     device_id=state.device_id,
                     event_type="OFFLINE",
-                    occurred_at=now,
+                    occurred_at=current_time,
                     location=point,
                     source="system",
                     description="Thiết bị mất kết nối",

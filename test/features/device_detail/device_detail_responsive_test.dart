@@ -15,6 +15,8 @@ import 'package:v_monitor/data/repositories/geocoding_repository.dart';
 import 'package:v_monitor/data/repositories/tracking_repository.dart';
 import 'package:v_monitor/features/device_detail/device_detail_page.dart';
 
+import '../../support/settings_test_scope.dart';
+
 void main() {
   testWidgets('DeviceDetailPage avoids card overflow across viewport sizes', (
     tester,
@@ -154,15 +156,17 @@ Future<void> _pumpDetailAtSize(
   });
 
   await tester.pumpWidget(
-    MultiRepositoryProvider(
-      providers: [
-        RepositoryProvider<DeviceRepository>.value(value: deviceRepo),
-        RepositoryProvider<TrackingRepository>.value(value: trackingRepo),
-        RepositoryProvider<GeocodingRepository>.value(value: geocodingRepo),
-      ],
-      child: MaterialApp(
-        theme: AppTheme.light,
-        home: const DeviceDetailPage(deviceId: 'device-100'),
+    SettingsTestScope(
+      child: MultiRepositoryProvider(
+        providers: [
+          RepositoryProvider<DeviceRepository>.value(value: deviceRepo),
+          RepositoryProvider<TrackingRepository>.value(value: trackingRepo),
+          RepositoryProvider<GeocodingRepository>.value(value: geocodingRepo),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: const DeviceDetailPage(deviceId: 'device-100'),
+        ),
       ),
     ),
   );

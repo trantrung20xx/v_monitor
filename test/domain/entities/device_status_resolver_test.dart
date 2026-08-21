@@ -4,6 +4,9 @@ import 'package:v_monitor/domain/entities/device_status_resolver.dart';
 
 void main() {
   group('DeviceStatusResolver', () {
+    setUp(DeviceStatusResolver.resetRuntime);
+    tearDown(DeviceStatusResolver.resetRuntime);
+
     test('resolve() online and moving', () {
       final now = DateTime.now();
       final status = DeviceStatusResolver.resolve(
@@ -126,5 +129,30 @@ void main() {
       expect(status.label, equals('Không hoạt động'));
       expect(status.color, equals(Colors.grey.shade600));
     });
+
+    test(
+      'runtime thresholds use stopped at equality and update immediately',
+      () {
+        final now = DateTime.now();
+        DeviceStatusResolver.configureRuntime(
+          onlineTimeout: const Duration(seconds: 600),
+          movementSpeedThresholdMps: 1,
+        );
+
+        ResolvedDeviceStatus resolve(double speed) =>
+            DeviceStatusResolver.resolve(
+              isOnline: true,
+              lastSeenAt: now.subtract(const Duration(seconds: 500)),
+              latestMeasuredAt: now,
+              currentSpeedMps: speed,
+              baseStatus: 'ACTIVE',
+            );
+
+        expect(resolve(0.8).movement, MovementStatus.stopped);
+        expect(resolve(1).movement, MovementStatus.stopped);
+        expect(resolve(1.1).movement, MovementStatus.moving);
+        expect(resolve(1.1).connectivity, ConnectivityStatus.online);
+      },
+    );
   });
 }

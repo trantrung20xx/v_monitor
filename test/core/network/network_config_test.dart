@@ -100,43 +100,48 @@ void main() {
     channel.closeFromServer();
   });
 
-  test('WebsocketClient sends credential and stops after revocation', () async {
-    late _FakeWebSocketChannel channel;
-    late Uri openedUri;
-    var attempts = 0;
-    var unauthorizedCount = 0;
-    final client = WebsocketClient(
-      connectionUri: Uri.parse('ws://example.test/ws'),
-      reconnectDelay: const Duration(milliseconds: 10),
-      heartbeatInterval: Duration.zero,
-      channelFactory: (uri) {
-        attempts++;
-        openedUri = uri;
-        channel = _FakeWebSocketChannel();
-        return channel;
+  for (final closeCode in [4401, 4403]) {
+    test(
+      'WebsocketClient sends credential and stops after close $closeCode',
+      () async {
+        late _FakeWebSocketChannel channel;
+        late Uri openedUri;
+        var attempts = 0;
+        var unauthorizedCount = 0;
+        final client = WebsocketClient(
+          connectionUri: Uri.parse('ws://example.test/ws'),
+          reconnectDelay: const Duration(milliseconds: 10),
+          heartbeatInterval: Duration.zero,
+          channelFactory: (uri) {
+            attempts++;
+            openedUri = uri;
+            channel = _FakeWebSocketChannel();
+            return channel;
+          },
+        );
+        client
+          ..setAccessToken('persistent-credential')
+          ..setUnauthorizedHandler(() async => unauthorizedCount++)
+          ..connect();
+
+        expect(openedUri.queryParameters['access_token'], isNull);
+        expect(
+          channel.sentMessages.any(
+            (message) =>
+                message.contains('"type":"AUTH"') &&
+                message.contains('persistent-credential'),
+          ),
+          isTrue,
+        );
+        channel.closeFromServer(closeCode);
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+
+        expect(unauthorizedCount, 1);
+        expect(attempts, 1);
+        client.dispose();
       },
     );
-    client
-      ..setAccessToken('persistent-credential')
-      ..setUnauthorizedHandler(() async => unauthorizedCount++)
-      ..connect();
-
-    expect(openedUri.queryParameters['access_token'], isNull);
-    expect(
-      channel.sentMessages.any(
-        (message) =>
-            message.contains('"type":"AUTH"') &&
-            message.contains('persistent-credential'),
-      ),
-      isTrue,
-    );
-    channel.closeFromServer(4401);
-    await Future<void>.delayed(const Duration(milliseconds: 30));
-
-    expect(unauthorizedCount, 1);
-    expect(attempts, 1);
-    client.dispose();
-  });
+  }
 }
 
 class _RecordingHttpClientAdapter implements HttpClientAdapter {

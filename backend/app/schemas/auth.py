@@ -133,6 +133,22 @@ class UserSettingsUpdate(BaseSchema):
     notifications_enabled: Optional[bool] = None
     preferences: Optional[dict[str, Any]] = None
 
+    @field_validator("preferences")
+    @classmethod
+    def _validate_preferences(
+        cls,
+        value: Optional[dict[str, Any]],
+    ) -> dict[str, Any]:
+        if value is None:
+            raise ValueError("preferences không được để null")
+        map_type = value.get("map_type")
+        if map_type is not None and map_type not in {"street", "satellite"}:
+            raise ValueError("map_type phải là street hoặc satellite")
+        speed_unit = value.get("speed_unit")
+        if speed_unit is not None and speed_unit not in {"kmh", "mps"}:
+            raise ValueError("speed_unit phải là kmh hoặc mps")
+        return value
+
     @field_validator("language")
     @classmethod
     def _normalize_language(cls, value: Optional[str]) -> Optional[str]:

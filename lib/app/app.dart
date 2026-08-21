@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:device_preview/device_preview.dart';
@@ -8,10 +10,13 @@ import '../core/network/api_client.dart';
 import '../core/network/websocket_client.dart';
 import '../data/repositories/device_repository.dart';
 import '../data/repositories/geocoding_repository.dart';
+import '../data/repositories/settings_repository.dart';
 import '../data/repositories/tracking_repository.dart';
 import '../features/auth/auth_cubit.dart';
 import '../features/auth/auth_state.dart';
 import '../features/auth/login_page.dart';
+import '../features/settings/settings_cubit.dart';
+import '../features/settings/settings_state.dart';
 
 class VMonitorApp extends StatelessWidget {
   final ApiClient apiClient;
@@ -38,14 +43,26 @@ class VMonitorApp extends StatelessWidget {
         RepositoryProvider<GeocodingRepository>(
           create: (_) => GeocodingRepository(apiClient),
         ),
+        RepositoryProvider<SettingsRepository>(
+          create: (_) => SettingsRepository(apiClient, websocketClient),
+          dispose: (repository) => unawaited(repository.dispose()),
+        ),
         RepositoryProvider<WebsocketClient>.value(value: websocketClient),
       ],
-      child: BlocProvider(
-        create: (_) => AuthCubit(
-          apiClient,
-          websocketClient,
-          authTokenStore ?? SecureAuthTokenStore(),
-        )..initialize(),
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider(
+            create: (_) => AuthCubit(
+              apiClient,
+              websocketClient,
+              authTokenStore ?? SecureAuthTokenStore(),
+            )..initialize(),
+          ),
+          BlocProvider(
+            create: (context) =>
+                SettingsCubit(context.read<SettingsRepository>()),
+          ),
+        ],
         child: const _AuthenticatedApplication(),
       ),
     );
@@ -57,32 +74,47 @@ class _AuthenticatedApplication extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AuthCubit, AuthState>(
-      builder: (context, state) {
+    return BlocListener<AuthCubit, AuthState>(
+      listenWhen: (previous, current) => previous.status != current.status,
+      listener: (context, state) {
+        final settingsCubit = context.read<SettingsCubit>();
         if (state.isAuthenticated) {
-          return MaterialApp.router(
+          settingsCubit.initialize();
+        } else {
+          settingsCubit.reset();
+        }
+      },
+      child: BlocBuilder<AuthCubit, AuthState>(
+        builder: (context, authState) {
+          if (authState.isAuthenticated) {
+            return BlocBuilder<SettingsCubit, SettingsState>(
+              builder: (context, settingsState) => MaterialApp.router(
+                title: 'v_monitor',
+                theme: AppTheme.light,
+                darkTheme: AppTheme.dark,
+                themeMode: settingsState.userSettings.themeMode,
+                routerConfig: AppRouter.router,
+                debugShowCheckedModeBanner: false,
+                locale: DevicePreview.locale(context),
+                builder: _fixedTextScaleBuilder,
+              ),
+            );
+          }
+
+          return MaterialApp(
             title: 'v_monitor',
             theme: AppTheme.light,
             darkTheme: AppTheme.dark,
-            routerConfig: AppRouter.router,
+            themeMode: ThemeMode.system,
             debugShowCheckedModeBanner: false,
             locale: DevicePreview.locale(context),
             builder: _fixedTextScaleBuilder,
+            home: authState.status == AuthStatus.checking
+                ? const AuthCheckingPage()
+                : const LoginPage(),
           );
-        }
-
-        return MaterialApp(
-          title: 'v_monitor',
-          theme: AppTheme.light,
-          darkTheme: AppTheme.dark,
-          debugShowCheckedModeBanner: false,
-          locale: DevicePreview.locale(context),
-          builder: _fixedTextScaleBuilder,
-          home: state.status == AuthStatus.checking
-              ? const AuthCheckingPage()
-              : const LoginPage(),
-        );
-      },
+        },
+      ),
     );
   }
 }

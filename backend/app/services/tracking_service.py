@@ -11,6 +11,7 @@ from app.models.device_event import DeviceEvent
 from app.models.device_latest_state import DeviceLatestState
 from app.models.location_sample import LocationSample
 from app.schemas.tracking import LocationSampleCreate
+from app.services.system_settings_service import system_settings_service
 
 
 class DeviceNotFoundError(ValueError):
@@ -89,6 +90,8 @@ class TrackingService:
         source_message_id: uuid.UUID | None = None,
     ) -> Tuple[LocationSample, List[DeviceEvent]]:
         """Lưu mẫu, sự kiện và trạng thái mới nhất trong đúng một giao dịch."""
+        runtime_settings = await system_settings_service.get_runtime_settings()
+        movement_threshold = runtime_settings.movement_threshold_mps
         received_at = datetime.now(timezone.utc)
         measured_at = _utc_datetime(location_in.measured_at)
         point = f"SRID=4326;POINT({location_in.longitude} {location_in.latitude})"
@@ -149,7 +152,10 @@ class TrackingService:
             previous_speed = latest.current_speed_mps
             new_speed = location_in.speed_mps
             if new_speed is not None:
-                if (previous_speed is None or previous_speed <= 0.5) and new_speed > 0.5:
+                if (
+                    previous_speed is None
+                    or previous_speed <= movement_threshold
+                ) and new_speed > movement_threshold:
                     speed_kmh = round(new_speed * 3.6, 1)
                     event = DeviceEvent(
                         device_id=location_in.device_id,
@@ -165,7 +171,11 @@ class TrackingService:
                     )
                     db.add(event)
                     generated_events.append(event)
-                elif previous_speed is not None and previous_speed > 0.5 and new_speed <= 0.5:
+                elif (
+                    previous_speed is not None
+                    and previous_speed > movement_threshold
+                    and new_speed <= movement_threshold
+                ):
                     event = DeviceEvent(
                         device_id=location_in.device_id,
                         event_type="MOVEMENT_STOPPED",

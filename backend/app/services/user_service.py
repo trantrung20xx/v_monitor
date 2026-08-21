@@ -325,8 +325,17 @@ class UserService:
         settings_in: UserSettingsUpdate,
     ) -> UserSetting:
         user_settings = await UserService.get_settings(db, user.id)
-        for field_name, value in settings_in.model_dump(exclude_unset=True).items():
+        changes = settings_in.model_dump(exclude_unset=True)
+        preferences_patch = changes.pop("preferences", None)
+        for field_name, value in changes.items():
             setattr(user_settings, field_name, value)
+        if preferences_patch is not None:
+            # preferences là JSONB dùng chung cho nhiều lựa chọn giao diện. Chỉ
+            # merge các khóa được gửi để một PATCH không xóa cấu hình còn lại.
+            user_settings.preferences = {
+                **(user_settings.preferences or {}),
+                **preferences_patch,
+            }
         UserService._add_audit(
             db,
             actor_user_id=user.id,

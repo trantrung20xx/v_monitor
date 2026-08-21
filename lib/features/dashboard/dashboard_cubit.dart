@@ -3,23 +3,33 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../data/models/device_model.dart';
+import '../../data/models/system_settings_model.dart';
 import '../../data/repositories/device_repository.dart';
 import '../../data/repositories/geocoding_repository.dart';
+import '../../data/repositories/settings_repository.dart';
 import '../../domain/entities/device_query_filter.dart';
 import '../../domain/entities/device_status_resolver.dart';
 import 'dashboard_state.dart';
 
 class DashboardCubit extends Cubit<DashboardState> {
-  DashboardCubit({required this.deviceRepo, required this.geocodingRepo})
-    : super(const DashboardState()) {
+  DashboardCubit({
+    required this.deviceRepo,
+    required this.geocodingRepo,
+    required this.settingsRepo,
+  }) : super(const DashboardState()) {
     _deviceUpdatesSub = deviceRepo.deviceUpdates.listen(_onDeviceUpdated);
+    _settingsSub = settingsRepo.systemSettingsChanges.listen((_) {
+      if (state.devices.isNotEmpty) _updateDevices(state.devices);
+    });
   }
 
   final DeviceRepository deviceRepo;
   final GeocodingRepository geocodingRepo;
+  final SettingsRepository settingsRepo;
   final Map<String, String> _addressCache = {};
   final Map<String, String> _deviceAddressKeys = {};
   StreamSubscription<DeviceModel>? _deviceUpdatesSub;
+  StreamSubscription<SystemSettingsModel>? _settingsSub;
 
   Future<void> loadDashboard() async {
     emit(state.copyWith(isLoading: true, error: null));
@@ -154,8 +164,9 @@ class DashboardCubit extends Cubit<DashboardState> {
   }
 
   @override
-  Future<void> close() {
-    _deviceUpdatesSub?.cancel();
-    return super.close();
+  Future<void> close() async {
+    await _deviceUpdatesSub?.cancel();
+    await _settingsSub?.cancel();
+    await super.close();
   }
 }

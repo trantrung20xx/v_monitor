@@ -103,7 +103,9 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
         border: isSheet ? null : Border.all(color: _borderColor),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: isSheet ? 0.08 : 0.12),
+            color: const Color(
+              0xFF0F172A,
+            ).withValues(alpha: isSheet ? 0.08 : 0.12),
             blurRadius: isSheet ? 16 : 20,
             offset: isSheet ? const Offset(0, -3) : const Offset(0, 6),
           ),
@@ -164,7 +166,10 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: _bgSurface,
                     borderRadius: BorderRadius.circular(10),
@@ -318,10 +323,7 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
                           const SizedBox(height: 3),
                           const Text(
                             'Thử đổi từ khóa hoặc bộ lọc',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: _textMuted,
-                            ),
+                            style: TextStyle(fontSize: 11, color: _textMuted),
                             textAlign: TextAlign.center,
                           ),
                         ],
@@ -330,7 +332,10 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
                   )
                 : ListView.builder(
                     controller: widget.scrollController,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 5,
+                    ),
                     itemCount: filteredDevices.length,
                     itemBuilder: (context, index) {
                       final device = filteredDevices[index];
@@ -385,7 +390,10 @@ class _OverlayFilterBar extends StatelessWidget {
               onTap: () => onChanged(option.filter),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 7,
+                  vertical: 3.5,
+                ),
                 decoration: BoxDecoration(
                   color: isSelected
                       ? const Color(0xFF1677FF).withValues(alpha: 0.1)
@@ -405,7 +413,9 @@ class _OverlayFilterBar extends StatelessWidget {
                       option.label,
                       style: TextStyle(
                         fontSize: 10.5,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
                         color: isSelected
                             ? const Color(0xFF1677FF)
                             : const Color(0xFF475569),
@@ -493,7 +503,7 @@ class _DeviceMapCard extends StatelessWidget {
       badgeIcon = Icons.warning_amber_rounded;
     } else if (isMoving) {
       badgeColor = const Color(0xFF1677FF);
-      final speedText = DeviceFormatters.speedKmh(
+      final speedText = DeviceFormatters.speedForStatus(
         device.currentSpeedMps,
         status: status,
       );
@@ -609,11 +619,7 @@ class _DeviceMapCard extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            badgeIcon,
-                            size: 10,
-                            color: badgeColor,
-                          ),
+                          Icon(badgeIcon, size: 10, color: badgeColor),
                           const SizedBox(width: 3),
                           Text(
                             badgeText,
@@ -671,8 +677,12 @@ class _DeviceMapCard extends StatelessWidget {
                           relativeTimeText,
                           style: TextStyle(
                             fontSize: 10,
-                            fontWeight: isStale ? FontWeight.w700 : FontWeight.w500,
-                            color: isStale ? const Color(0xFFDC2626) : _textMuted,
+                            fontWeight: isStale
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: isStale
+                                ? const Color(0xFFDC2626)
+                                : _textMuted,
                           ),
                         ),
                       ],

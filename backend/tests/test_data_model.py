@@ -24,6 +24,7 @@ class DataModelTest(unittest.TestCase):
                 "device_latest_state",
                 "devices",
                 "location_samples",
+                "system_settings",
                 "telemetry_messages",
                 "user_accounts",
                 "user_settings",
@@ -55,6 +56,10 @@ class DataModelTest(unittest.TestCase):
         expected_rules = {
             ("audit_logs", "actor_user_id"): ("user_accounts.id", "SET NULL"),
             ("user_settings", "user_id"): ("user_accounts.id", "CASCADE"),
+            ("system_settings", "updated_by"): (
+                "user_accounts.id",
+                "SET NULL",
+            ),
             ("location_samples", "source_message_id"): (
                 "telemetry_messages.id",
                 "SET NULL",

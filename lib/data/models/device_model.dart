@@ -52,8 +52,6 @@ class DeviceModel {
   @Deprecated(
     'Use DeviceStatusResolver.resolve(...) to account for offline and stale GPS.',
   )
-  bool get isMoving => (currentSpeedMps ?? 0) > 0.5;
-
   String get statusLabel {
     switch (status) {
       case 'ONLINE':

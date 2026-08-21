@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart' hide Path;
 import '../../../core/utils/device_formatters.dart';
 import '../../../core/widgets/device_icon.dart';
 import '../../../data/models/location_model.dart';
+import '../../../domain/entities/device_status_resolver.dart';
 import '../../../domain/entities/gps_validator.dart';
 import '../../../domain/entities/route_segment.dart';
 import '../journey_history_state.dart';
@@ -286,7 +287,7 @@ class HistoryMapLayers {
     final ordered = isSorted
         ? samples
         : (List<LocationModel>.from(samples)
-          ..sort((a, b) => a.measuredAt.compareTo(b.measuredAt)));
+            ..sort((a, b) => a.measuredAt.compareTo(b.measuredAt)));
     final stops = <JourneyStopPoint>[];
     int? clusterStartIndex;
     DateTime? clusterStartTime;
@@ -369,7 +370,7 @@ class HistoryMapLayers {
     final ordered = isSorted
         ? samples
         : (List<LocationModel>.from(samples)
-          ..sort((a, b) => a.measuredAt.compareTo(b.measuredAt)));
+            ..sort((a, b) => a.measuredAt.compareTo(b.measuredAt)));
     final first = ordered.first;
     if (ordered.length == 1) {
       return [
@@ -494,7 +495,8 @@ class HistoryMapLayers {
   /// luận xe đứng yên khi hai mốc gần nhau và cách nhau không quá 2 phút.
   static bool _isStationarySample(List<LocationModel> samples, int index) {
     final sample = samples[index];
-    if (sample.speedMps != null) return sample.speedMps! < 0.5;
+    final threshold = DeviceStatusResolver.movingThresholdMps;
+    if (sample.speedMps != null) return sample.speedMps! <= threshold;
 
     LocationModel? other;
     if (index > 0) {
@@ -514,7 +516,7 @@ class HistoryMapLayers {
       LatLng(sample.latitude, sample.longitude),
       LatLng(other.latitude, other.longitude),
     );
-    return distance / seconds < 0.5;
+    return distance / seconds <= threshold;
   }
 
   /// Xây dựng đầy đủ node hành trình và nhãn của chúng. Các node này không bị

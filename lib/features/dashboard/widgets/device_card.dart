@@ -28,7 +28,7 @@ class DeviceCard extends StatelessWidget {
     );
 
     // Speed format
-    final speedStr = DeviceFormatters.speedKmh(
+    final speedStr = DeviceFormatters.speedForStatus(
       device.currentSpeedMps,
       status: status,
     );

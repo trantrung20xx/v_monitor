@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/utils/device_formatters.dart';
 import '../../../data/models/location_model.dart';
+import '../../../domain/entities/device_status_resolver.dart';
 import 'history_map_layers.dart';
 
 typedef JourneyAddressResolver =
@@ -58,7 +59,9 @@ class _PointInfoPopupState extends State<PointInfoPopup> {
     final point = widget.point;
     final stop = widget.stopPoint;
     final isParked = stop?.isPark ?? false;
-    final isMoving = point.speedMps != null && point.speedMps! >= 0.5;
+    final isMoving =
+        point.speedMps != null &&
+        point.speedMps! > DeviceStatusResolver.movingThresholdMps;
     final isStopped = stop != null || (point.speedMps != null && !isMoving);
     final accentColor = isParked
         ? const Color(0xFFEA580C)

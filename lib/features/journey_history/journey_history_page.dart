@@ -8,6 +8,7 @@ import '../../data/models/device_model.dart';
 import '../../data/models/location_model.dart';
 import '../../data/repositories/device_repository.dart';
 import '../../data/repositories/geocoding_repository.dart';
+import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/tracking_repository.dart';
 import 'journey_history_cubit.dart';
 import 'journey_history_state.dart';
@@ -16,6 +17,7 @@ import 'widgets/history_time_selector.dart';
 import 'widgets/playback_controls.dart';
 import 'widgets/point_info_popup.dart';
 import 'widgets/route_summary_band.dart';
+import '../settings/settings_cubit.dart';
 
 class JourneyHistoryPage extends StatefulWidget {
   final String? initialDeviceId;
@@ -40,6 +42,7 @@ class _JourneyHistoryPageState extends State<JourneyHistoryPage> {
     _cubit = JourneyHistoryCubit(
       trackingRepo: context.read<TrackingRepository>(),
       deviceRepo: context.read<DeviceRepository>(),
+      settingsRepo: context.read<SettingsRepository>(),
     );
 
     // Mặc định khoảng thời gian: Hôm nay từ 00:00 đến thời điểm hiện tại
@@ -262,7 +265,6 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
   bool _didRequestInitialAddresses = false;
   int _addressRequestVersion = 0;
   double _currentZoom = 13.0;
-  bool _isSatellite = false;
   bool _showRouteLabels = true;
   static const LatLng _defaultCenter = LatLng(21.0285, 105.8542);
 
@@ -373,6 +375,8 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final state = widget.state;
+    final mapType = context.watch<SettingsCubit>().state.userSettings.mapType;
+    final isSatellite = mapType == AppMapType.satellite;
 
     final initialCenter = state.validSamples.isNotEmpty
         ? LatLng(
@@ -408,13 +412,13 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
             // Map Tiles
             TileLayer(
               urlTemplate: MapTileProviders.getUrl(
-                _isSatellite ? AppMapType.satellite : AppMapType.standard,
+                isSatellite ? AppMapType.satellite : AppMapType.standard,
               ),
               userAgentPackageName: 'com.vmonitor.app',
               minZoom: 4,
               maxZoom: 19,
               maxNativeZoom: MapTileProviders.getMaxZoom(
-                _isSatellite ? AppMapType.satellite : AppMapType.standard,
+                isSatellite ? AppMapType.satellite : AppMapType.standard,
               ),
               tileProvider: NetworkTileProvider(silenceExceptions: true),
               errorImage: MemoryImage(TileProvider.transparentImage),
@@ -487,8 +491,10 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
                 _fitRouteBounds(state.validSamples);
               }
             },
-            onToggleMapType: () => setState(() => _isSatellite = !_isSatellite),
-            isSatellite: _isSatellite,
+            onToggleMapType: () => context.read<SettingsCubit>().updateMapType(
+              isSatellite ? AppMapType.standard : AppMapType.satellite,
+            ),
+            isSatellite: isSatellite,
             onToggleLabels: () =>
                 setState(() => _showRouteLabels = !_showRouteLabels),
             showLabels: _showRouteLabels,

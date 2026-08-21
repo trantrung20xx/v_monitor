@@ -1,7 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v_monitor/core/utils/device_formatters.dart';
+import 'package:v_monitor/data/models/user_settings_model.dart';
 
 void main() {
+  setUp(DeviceFormatters.resetRuntime);
+  tearDown(DeviceFormatters.resetRuntime);
+
   test('coordinates include precision and hemisphere labels', () {
     expect(
       DeviceFormatters.coordinates(21.147, 105.8048),
@@ -33,6 +37,15 @@ void main() {
     expect(DeviceFormatters.speedMps(null), '--');
     expect(DeviceFormatters.speedMps(0), '0 km/h');
     expect(DeviceFormatters.speedMps(12.5), '45 km/h');
+  });
+
+  test('speed unit changes presentation without changing telemetry value', () {
+    DeviceFormatters.configureSpeedUnit(SpeedUnit.mps);
+    expect(DeviceFormatters.speedMps(10), '10 m/s');
+    expect(DeviceFormatters.speedMps(12.5), '12.5 m/s');
+
+    DeviceFormatters.configureSpeedUnit(SpeedUnit.kmh);
+    expect(DeviceFormatters.speedMps(10), '36 km/h');
   });
 
   test('batteryPct distinguishes missing data from an empty battery', () {

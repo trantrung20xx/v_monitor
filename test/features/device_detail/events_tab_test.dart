@@ -15,6 +15,8 @@ import 'package:v_monitor/data/repositories/geocoding_repository.dart';
 import 'package:v_monitor/data/repositories/tracking_repository.dart';
 import 'package:v_monitor/features/device_detail/device_detail_page.dart';
 
+import '../../support/settings_test_scope.dart';
+
 void main() {
   testWidgets('Events Tab renders filter chips and timeline items correctly', (
     tester,
@@ -25,15 +27,19 @@ void main() {
     addTearDown(deviceRepo.dispose);
 
     await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: MultiRepositoryProvider(
-          providers: [
-            RepositoryProvider<DeviceRepository>.value(value: deviceRepo),
-            RepositoryProvider<TrackingRepository>.value(value: trackingRepo),
-            RepositoryProvider<GeocodingRepository>.value(value: geocodingRepo),
-          ],
-          child: const DeviceDetailPage(deviceId: 'device-100'),
+      SettingsTestScope(
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: MultiRepositoryProvider(
+            providers: [
+              RepositoryProvider<DeviceRepository>.value(value: deviceRepo),
+              RepositoryProvider<TrackingRepository>.value(value: trackingRepo),
+              RepositoryProvider<GeocodingRepository>.value(
+                value: geocodingRepo,
+              ),
+            ],
+            child: const DeviceDetailPage(deviceId: 'device-100'),
+          ),
         ),
       ),
     );

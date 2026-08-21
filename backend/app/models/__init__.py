@@ -6,3 +6,4 @@ from app.models.device_latest_state import DeviceLatestState
 from app.models.telemetry_message import TelemetryMessage
 from app.models.audit_log import AuditLog
 from app.models.user_account import UserAccount, UserSetting
+from app.models.system_setting import SystemSetting

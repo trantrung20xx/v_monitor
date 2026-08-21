@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Application theme — Material 3, enterprise blue accent matching DeviceDetailPage, clean and professional.
+/// Giao diện Material 3 dùng màu xanh thống nhất với màn hình chi tiết thiết bị.
 class AppTheme {
   static const _seed = Color(0xFF1677FF);
 

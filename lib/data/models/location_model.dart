@@ -29,8 +29,6 @@ class LocationModel {
     this.createdAt,
   });
 
-  bool get isMoving => (speedMps ?? 0) > 0.5;
-
   factory LocationModel.fromJson(Map<String, dynamic> json) {
     return LocationModel(
       id: json['id'] ?? '',

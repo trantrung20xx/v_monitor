@@ -21,12 +21,14 @@ import 'device_detail_cubit.dart';
 import '../../data/repositories/device_repository.dart';
 import '../../data/repositories/geocoding_repository.dart';
 import '../../data/repositories/tracking_repository.dart';
+import '../../data/repositories/settings_repository.dart';
 import '../journey_history/journey_history_cubit.dart';
 import '../journey_history/journey_history_state.dart';
 import '../journey_history/widgets/custom_date_time_range_dialog.dart';
 import '../journey_history/widgets/custom_gap_dialog.dart';
 import '../journey_history/widgets/history_map_layers.dart';
 import '../journey_history/widgets/point_info_popup.dart';
+import '../settings/settings_cubit.dart';
 
 /// Màn hình chi tiết phục vụ tổng quan, hành trình và sự kiện của thiết bị.
 class DeviceDetailPage extends StatelessWidget {
@@ -2485,7 +2487,7 @@ class _JourneySnapshot {
   static _JourneySnapshot from(
     List<LocationModel> locations, {
     Duration gapThreshold = const Duration(minutes: 5),
-    double movingThresholdMps = 0.5,
+    double? movingThresholdMps,
   }) {
     if (locations.isEmpty) return const _JourneySnapshot();
 
@@ -2497,7 +2499,8 @@ class _JourneySnapshot {
     final segments = RouteSegment.splitIntoSegments(
       validSamples,
       gapThreshold: gapThreshold,
-      movingThresholdMps: movingThresholdMps,
+      movingThresholdMps:
+          movingThresholdMps ?? DeviceStatusResolver.movingThresholdMps,
     );
 
     var totalDistance = 0.0;
@@ -2559,7 +2562,6 @@ class _MapWidgetState extends State<_MapWidget> {
   late LatLng _targetCenter;
   var _zoom = _initialZoom;
   var _mapReady = false;
-  var _isSatellite = false;
 
   @override
   void initState() {
@@ -2587,6 +2589,8 @@ class _MapWidgetState extends State<_MapWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final mapType = context.watch<SettingsCubit>().state.userSettings.mapType;
+    final isSatellite = mapType == AppMapType.satellite;
     final hasPosition =
         widget.device.latitude != null && widget.device.longitude != null;
     final status = DeviceStatusResolver.resolve(
@@ -2643,13 +2647,13 @@ class _MapWidgetState extends State<_MapWidget> {
               children: [
                 TileLayer(
                   urlTemplate: MapTileProviders.getUrl(
-                    _isSatellite ? AppMapType.satellite : AppMapType.standard,
+                    isSatellite ? AppMapType.satellite : AppMapType.standard,
                   ),
                   userAgentPackageName: 'com.vmonitor.app',
                   minZoom: _minZoom,
                   maxZoom: _maxZoom,
                   maxNativeZoom: MapTileProviders.getMaxZoom(
-                    _isSatellite ? AppMapType.satellite : AppMapType.standard,
+                    isSatellite ? AppMapType.satellite : AppMapType.standard,
                   ),
                   tileProvider: NetworkTileProvider(silenceExceptions: true),
                   errorImage: MemoryImage(TileProvider.transparentImage),
@@ -2683,8 +2687,10 @@ class _MapWidgetState extends State<_MapWidget> {
               onZoomOut: () => _zoomBy(-_zoomStep),
               onCenter: _centerOnTarget,
               onToggleMapType: () =>
-                  setState(() => _isSatellite = !_isSatellite),
-              isSatellite: _isSatellite,
+                  context.read<SettingsCubit>().updateMapType(
+                    isSatellite ? AppMapType.standard : AppMapType.satellite,
+                  ),
+              isSatellite: isSatellite,
             ),
           ),
         ),
@@ -2924,6 +2930,7 @@ class _JourneyTabState extends State<_JourneyTab> {
     _cubit = JourneyHistoryCubit(
       trackingRepo: context.read<TrackingRepository>(),
       deviceRepo: context.read<DeviceRepository>(),
+      settingsRepo: context.read<SettingsRepository>(),
     );
     _cubit.selectDevice(widget.device);
 
@@ -3911,9 +3918,7 @@ class _JourneyPlaybackCard extends StatelessWidget {
         ? shortTimeFormat.format(state.validSamples.last.measuredAt.toLocal())
         : '--/--/---- --:--';
 
-    final speedStr = state.currentSpeedMps != null
-        ? '${(state.currentSpeedMps! * 3.6).toStringAsFixed(1)} km/h'
-        : '0.0 km/h';
+    final speedStr = DeviceFormatters.speedMps(state.currentSpeedMps ?? 0);
 
     final statusLabel = state.isCompleted
         ? 'Kết thúc'
@@ -4460,7 +4465,9 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
     final totalDistStr = DeviceFormatters.distance(state.totalDistanceM);
     final distanceProgressStr = '$currDistStr / $totalDistStr';
     final hasSpeed = state.currentSpeedMps != null;
-    final isMoving = hasSpeed && state.currentSpeedMps! >= 0.5;
+    final isMoving =
+        hasSpeed &&
+        state.currentSpeedMps! > DeviceStatusResolver.movingThresholdMps;
     final movementLabel = !hasSpeed
         ? 'Không rõ'
         : isMoving
@@ -5192,7 +5199,6 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
   bool _didRequestInitialAddresses = false;
   int _addressRequestVersion = 0;
   double _currentZoom = 14.0;
-  bool _isSatellite = false;
   bool _showRouteLabels = true;
   static const LatLng _defaultCenter = LatLng(21.0285, 105.8542);
 
@@ -5302,6 +5308,8 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final state = widget.state;
+    final mapType = context.watch<SettingsCubit>().state.userSettings.mapType;
+    final isSatellite = mapType == AppMapType.satellite;
 
     final initialCenter = state.validSamples.isNotEmpty
         ? LatLng(
@@ -5343,13 +5351,13 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
             // Map Tiles
             TileLayer(
               urlTemplate: MapTileProviders.getUrl(
-                _isSatellite ? AppMapType.satellite : AppMapType.standard,
+                isSatellite ? AppMapType.satellite : AppMapType.standard,
               ),
               userAgentPackageName: 'com.vmonitor.app',
               minZoom: 4,
               maxZoom: 19,
               maxNativeZoom: MapTileProviders.getMaxZoom(
-                _isSatellite ? AppMapType.satellite : AppMapType.standard,
+                isSatellite ? AppMapType.satellite : AppMapType.standard,
               ),
               tileProvider: NetworkTileProvider(silenceExceptions: true),
               errorImage: MemoryImage(TileProvider.transparentImage),
@@ -5430,8 +5438,10 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
                 _fitRouteBounds(state.validSamples);
               }
             },
-            onToggleMapType: () => setState(() => _isSatellite = !_isSatellite),
-            isSatellite: _isSatellite,
+            onToggleMapType: () => context.read<SettingsCubit>().updateMapType(
+              isSatellite ? AppMapType.standard : AppMapType.satellite,
+            ),
+            isSatellite: isSatellite,
             onToggleLabels: () =>
                 setState(() => _showRouteLabels = !_showRouteLabels),
             showLabels: _showRouteLabels,

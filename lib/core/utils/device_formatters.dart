@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../data/models/device_event_model.dart';
 import '../../data/models/device_model.dart';
+import '../../data/models/user_settings_model.dart';
 import '../../domain/entities/device_status_resolver.dart';
 
 class DeviceFormatters {
@@ -11,6 +12,17 @@ class DeviceFormatters {
   static final DateFormat _longDateTimeSeconds = DateFormat(
     'dd/MM/yyyy HH:mm:ss',
   );
+  static SpeedUnit _speedUnit = SpeedUnit.kmh;
+
+  static SpeedUnit get speedUnit => _speedUnit;
+
+  static void configureSpeedUnit(SpeedUnit value) {
+    _speedUnit = value;
+  }
+
+  static void resetRuntime() {
+    _speedUnit = SpeedUnit.kmh;
+  }
 
   static String displayName(DeviceModel device) {
     if (device.name.trim().isNotEmpty) return device.name.trim();
@@ -62,21 +74,20 @@ class DeviceFormatters {
   }
 
   static String speed(DeviceModel device, ResolvedDeviceStatus status) {
-    if (status.movement == MovementStatus.stopped) return '0 km/h';
+    if (status.movement == MovementStatus.stopped) return _zeroSpeed();
     if (status.movement != MovementStatus.moving ||
         device.currentSpeedMps == null) {
       return '--';
     }
+    if (_speedUnit == SpeedUnit.mps) {
+      return _formatMps(device.currentSpeedMps!);
+    }
     return '${(device.currentSpeedMps! * 3.6).toStringAsFixed(1)} km/h';
-  }
-
-  static String speedValue(DeviceModel device) {
-    if (device.currentSpeedMps == null) return '--';
-    return (device.currentSpeedMps! * 3.6).toStringAsFixed(1);
   }
 
   static String speedMps(double? speedMps) {
     if (speedMps == null) return '--';
+    if (_speedUnit == SpeedUnit.mps) return _formatMps(speedMps);
     final kmh = speedMps * 3.6;
     if (kmh.abs() >= 10 || kmh == 0) {
       return '${kmh.toStringAsFixed(0)} km/h';
@@ -134,21 +145,32 @@ class DeviceFormatters {
     return coordinates(device.latitude, device.longitude);
   }
 
-  static String speedKmh(
+  static String speedForStatus(
     double? speedMps, {
     required ResolvedDeviceStatus status,
   }) {
     if (status.connectivity == ConnectivityStatus.offline) return '--';
-    if (status.movement == MovementStatus.stopped) return '0 km/h';
+    if (status.movement == MovementStatus.stopped) return _zeroSpeed();
     if (status.movement != MovementStatus.moving || speedMps == null) {
       return '--';
     }
+    if (_speedUnit == SpeedUnit.mps) return _formatMps(speedMps);
     final kmh = speedMps * 3.6;
     if (kmh < 0.5) return '0 km/h';
     if (kmh >= 10 || kmh == kmh.roundToDouble()) {
       return '${kmh.toStringAsFixed(0)} km/h';
     }
     return '${kmh.toStringAsFixed(1)} km/h';
+  }
+
+  static String _zeroSpeed() =>
+      _speedUnit == SpeedUnit.mps ? '0 m/s' : '0 km/h';
+
+  static String _formatMps(double speedMps) {
+    final text = speedMps == speedMps.roundToDouble()
+        ? speedMps.toStringAsFixed(0)
+        : speedMps.toStringAsFixed(1);
+    return '$text m/s';
   }
 
   static String headingText(

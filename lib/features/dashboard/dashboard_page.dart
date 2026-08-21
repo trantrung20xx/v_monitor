@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../data/repositories/device_repository.dart';
 import '../../data/repositories/geocoding_repository.dart';
+import '../../data/repositories/settings_repository.dart';
 import '../../domain/entities/device_query_filter.dart';
 import 'dashboard_cubit.dart';
 import 'dashboard_state.dart';
@@ -19,6 +20,7 @@ class DashboardPage extends StatelessWidget {
       create: (context) => DashboardCubit(
         deviceRepo: context.read<DeviceRepository>(),
         geocodingRepo: context.read<GeocodingRepository>(),
+        settingsRepo: context.read<SettingsRepository>(),
       )..loadDashboard(),
       child: const _DashboardView(),
     );
