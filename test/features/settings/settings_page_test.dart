@@ -418,6 +418,14 @@ void main() {
     );
     expect(find.byKey(const Key('reload-users-button')), findsOneWidget);
     expect(find.byKey(const Key('create-user-button')), findsOneWidget);
+    expect(find.byKey(const Key('user-filter-button')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('user-filter-button')),
+        matching: find.text('Bộ lọc'),
+      ),
+      findsNothing,
+    );
     expect(find.text('Thêm tài khoản'), findsNothing);
 
     await tester.tap(find.byKey(const Key('create-user-button')));
@@ -437,7 +445,33 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('user management searches without accents and filters roles', (
+  testWidgets('desktop user toolbar keeps both filters in one control', (
+    tester,
+  ) async {
+    await _pumpSettings(
+      tester,
+      role: 'ADMIN',
+      size: const Size(1280, 900),
+      section: SettingsSection.users,
+    );
+
+    final filterButton = find.byKey(const Key('user-filter-button'));
+    expect(filterButton, findsOneWidget);
+    expect(
+      find.descendant(of: filterButton, matching: find.text('Bộ lọc')),
+      findsOneWidget,
+    );
+    expect(find.text('Vai trò'), findsNothing);
+    expect(find.text('Quyền đăng nhập'), findsNothing);
+
+    await tester.tap(filterButton);
+    await tester.pumpAndSettle();
+    expect(find.text('Vai trò'), findsOneWidget);
+    expect(find.text('Quyền đăng nhập'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('user management searches and combines role and login filters', (
     tester,
   ) async {
     await _pumpSettings(
@@ -449,11 +483,49 @@ void main() {
 
     final member = find.byKey(const Key('managed-user-user-2'));
     final admin = find.byKey(const Key('managed-user-user-3'));
+    Future<void> openFilters() async {
+      await tester.tap(find.byKey(const Key('user-filter-button')));
+      await tester.pumpAndSettle();
+    }
+
     expect(member, findsOneWidget);
     expect(admin, findsOneWidget);
-    expect(find.text('Tất cả (2)'), findsOneWidget);
+    expect(find.byKey(const Key('user-filter-button')), findsOneWidget);
+    expect(find.byKey(const Key('user-active-filter-count')), findsNothing);
+    expect(find.byKey(const Key('user-login-status-user-2')), findsOneWidget);
+    expect(find.byKey(const Key('user-login-status-user-3')), findsOneWidget);
+    expect(find.byTooltip('Được phép đăng nhập'), findsOneWidget);
+    expect(find.byTooltip('Không được phép đăng nhập'), findsOneWidget);
+    expect(find.text('Được phép đăng nhập'), findsNothing);
+    expect(find.text('Không được phép đăng nhập'), findsNothing);
+    expect(find.text('Vai trò'), findsNothing);
+    expect(find.text('Quyền đăng nhập'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('user-login-status-user-2')),
+        matching: find.byIcon(Icons.lock_open_rounded),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('user-login-status-user-3')),
+        matching: find.byIcon(Icons.lock_rounded),
+      ),
+      findsOneWidget,
+    );
+
+    await openFilters();
+    expect(find.text('Vai trò'), findsOneWidget);
+    expect(find.text('Mọi vai trò (2)'), findsOneWidget);
     expect(find.text('Thành viên (1)'), findsOneWidget);
     expect(find.text('Quản trị viên (1)'), findsOneWidget);
+    expect(find.text('Quyền đăng nhập'), findsOneWidget);
+    expect(find.text('Mọi quyền đăng nhập (2)'), findsOneWidget);
+    expect(find.text('Được phép (1)'), findsOneWidget);
+    expect(find.text('Đã chặn (1)'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('user-filter-all')));
+    await tester.pumpAndSettle();
 
     await tester.enterText(
       find.byKey(const Key('user-search-field')),
@@ -465,17 +537,60 @@ void main() {
 
     await tester.tap(find.byKey(const Key('clear-user-search')));
     await tester.pump();
-    await tester.ensureVisible(find.byKey(const Key('user-filter-admin')));
+    await openFilters();
     await tester.tap(find.byKey(const Key('user-filter-admin')));
-    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(member, findsNothing);
+    expect(admin, findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('user-active-filter-count')),
+        matching: find.text('1'),
+      ),
+      findsOneWidget,
+    );
+
+    await openFilters();
+    await tester.tap(find.byKey(const Key('user-filter-member')));
+    await tester.pumpAndSettle();
+    expect(member, findsOneWidget);
+    expect(admin, findsNothing);
+
+    await openFilters();
+    await tester.tap(find.byKey(const Key('user-filter-all')));
+    await tester.pumpAndSettle();
+    await openFilters();
+    await tester.tap(find.byKey(const Key('user-login-filter-blocked')));
+    await tester.pumpAndSettle();
     expect(member, findsNothing);
     expect(admin, findsOneWidget);
 
-    await tester.ensureVisible(find.byKey(const Key('user-filter-member')));
-    await tester.tap(find.byKey(const Key('user-filter-member')));
-    await tester.pump();
+    await openFilters();
+    await tester.tap(find.byKey(const Key('user-login-filter-allowed')));
+    await tester.pumpAndSettle();
     expect(member, findsOneWidget);
     expect(admin, findsNothing);
+
+    await openFilters();
+    await tester.tap(find.byKey(const Key('user-filter-admin')));
+    await tester.pumpAndSettle();
+    expect(member, findsNothing);
+    expect(admin, findsNothing);
+    expect(find.byKey(const Key('user-filter-empty')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('user-active-filter-count')),
+        matching: find.text('2'),
+      ),
+      findsOneWidget,
+    );
+
+    await openFilters();
+    await tester.tap(find.byKey(const Key('user-filter-reset')));
+    await tester.pumpAndSettle();
+    expect(member, findsOneWidget);
+    expect(admin, findsOneWidget);
+    expect(find.byKey(const Key('user-active-filter-count')), findsNothing);
 
     await tester.enterText(
       find.byKey(const Key('user-search-field')),
@@ -660,7 +775,7 @@ class _FakeSettingsRepository extends SettingsRepository {
       fullName: 'Quản trị bảo mật',
       email: 'security@example.test',
       role: 'ADMIN',
-      isActive: true,
+      isActive: false,
     ),
   ];
 

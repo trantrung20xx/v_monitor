@@ -7,6 +7,18 @@ import '../settings_cubit.dart';
 
 enum _UserRoleFilter { all, member, admin }
 
+enum _UserLoginFilter { all, allowed, blocked }
+
+enum _UserFilterAction {
+  roleAll,
+  roleMember,
+  roleAdmin,
+  loginAll,
+  loginAllowed,
+  loginBlocked,
+  reset,
+}
+
 class UserManagementCard extends StatefulWidget {
   const UserManagementCard({
     super.key,
@@ -26,6 +38,7 @@ class UserManagementCard extends StatefulWidget {
 class _UserManagementCardState extends State<UserManagementCard> {
   final TextEditingController _searchController = TextEditingController();
   _UserRoleFilter _roleFilter = _UserRoleFilter.all;
+  _UserLoginFilter _loginFilter = _UserLoginFilter.all;
   String _normalizedQuery = '';
 
   @override
@@ -43,6 +56,12 @@ class _UserManagementCardState extends State<UserManagementCard> {
             _UserRoleFilter.admin => user.isAdmin,
           };
           if (!matchesRole) return false;
+          final matchesLoginPermission = switch (_loginFilter) {
+            _UserLoginFilter.all => true,
+            _UserLoginFilter.allowed => user.isActive,
+            _UserLoginFilter.blocked => !user.isActive,
+          };
+          if (!matchesLoginPermission) return false;
           if (_normalizedQuery.isEmpty) return true;
           final searchableText = _normalizeSearchText(
             '${user.fullName} ${user.username} ${user.email ?? ''}',
@@ -61,8 +80,31 @@ class _UserManagementCardState extends State<UserManagementCard> {
     _updateSearch('');
   }
 
-  void _selectRole(_UserRoleFilter value) {
-    if (_roleFilter != value) setState(() => _roleFilter = value);
+  int get _activeFilterCount {
+    return (_roleFilter == _UserRoleFilter.all ? 0 : 1) +
+        (_loginFilter == _UserLoginFilter.all ? 0 : 1);
+  }
+
+  void _selectFilter(_UserFilterAction action) {
+    setState(() {
+      switch (action) {
+        case _UserFilterAction.roleAll:
+          _roleFilter = _UserRoleFilter.all;
+        case _UserFilterAction.roleMember:
+          _roleFilter = _UserRoleFilter.member;
+        case _UserFilterAction.roleAdmin:
+          _roleFilter = _UserRoleFilter.admin;
+        case _UserFilterAction.loginAll:
+          _loginFilter = _UserLoginFilter.all;
+        case _UserFilterAction.loginAllowed:
+          _loginFilter = _UserLoginFilter.allowed;
+        case _UserFilterAction.loginBlocked:
+          _loginFilter = _UserLoginFilter.blocked;
+        case _UserFilterAction.reset:
+          _roleFilter = _UserRoleFilter.all;
+          _loginFilter = _UserLoginFilter.all;
+      }
+    });
   }
 
   @override
@@ -70,6 +112,10 @@ class _UserManagementCardState extends State<UserManagementCard> {
     final visibleUsers = _visibleUsers;
     final memberCount = widget.users.where((user) => !user.isAdmin).length;
     final adminCount = widget.users.length - memberCount;
+    final allowedLoginCount = widget.users
+        .where((user) => user.isActive)
+        .length;
+    final blockedLoginCount = widget.users.length - allowedLoginCount;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -84,11 +130,24 @@ class _UserManagementCardState extends State<UserManagementCard> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    'Quản lý người dùng',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Quản lý người dùng',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.loading
+                            ? 'Đang tải danh sách...'
+                            : '${widget.users.length} tài khoản',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 IconButton(
@@ -111,53 +170,46 @@ class _UserManagementCardState extends State<UserManagementCard> {
               ],
             ),
             const SizedBox(height: 16),
-            TextField(
-              key: const Key('user-search-field'),
-              controller: _searchController,
-              onChanged: _updateSearch,
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                hintText: 'Tìm theo tên, username hoặc email',
-                prefixIcon: const Icon(Icons.search_rounded),
-                suffixIcon: _normalizedQuery.isEmpty
-                    ? null
-                    : IconButton(
-                        key: const Key('clear-user-search'),
-                        tooltip: 'Xóa tìm kiếm',
-                        onPressed: _clearSearch,
-                        icon: const Icon(Icons.close_rounded),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                return Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        key: const Key('user-search-field'),
+                        controller: _searchController,
+                        onChanged: _updateSearch,
+                        textInputAction: TextInputAction.search,
+                        decoration: InputDecoration(
+                          hintText: 'Tìm theo tên, username hoặc email',
+                          prefixIcon: const Icon(Icons.search_rounded),
+                          suffixIcon: _normalizedQuery.isEmpty
+                              ? null
+                              : IconButton(
+                                  key: const Key('clear-user-search'),
+                                  tooltip: 'Xóa tìm kiếm',
+                                  onPressed: _clearSearch,
+                                  icon: const Icon(Icons.close_rounded),
+                                ),
+                        ),
                       ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Bộ lọc cuộn ngang giữ bố cục gọn trên điện thoại và vẫn hiển thị
-            // đầy đủ tên nhóm, tương tự các bộ lọc hội thoại phổ biến.
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _UserFilterChip(
-                    key: const Key('user-filter-all'),
-                    label: 'Tất cả (${widget.users.length})',
-                    selected: _roleFilter == _UserRoleFilter.all,
-                    onSelected: () => _selectRole(_UserRoleFilter.all),
-                  ),
-                  const SizedBox(width: 8),
-                  _UserFilterChip(
-                    key: const Key('user-filter-member'),
-                    label: 'Thành viên ($memberCount)',
-                    selected: _roleFilter == _UserRoleFilter.member,
-                    onSelected: () => _selectRole(_UserRoleFilter.member),
-                  ),
-                  const SizedBox(width: 8),
-                  _UserFilterChip(
-                    key: const Key('user-filter-admin'),
-                    label: 'Quản trị viên ($adminCount)',
-                    selected: _roleFilter == _UserRoleFilter.admin,
-                    onSelected: () => _selectRole(_UserRoleFilter.admin),
-                  ),
-                ],
-              ),
+                    ),
+                    const SizedBox(width: 10),
+                    _UserFilterMenuButton(
+                      compact: constraints.maxWidth < 520,
+                      activeFilterCount: _activeFilterCount,
+                      totalCount: widget.users.length,
+                      memberCount: memberCount,
+                      adminCount: adminCount,
+                      allowedLoginCount: allowedLoginCount,
+                      blockedLoginCount: blockedLoginCount,
+                      roleFilter: _roleFilter,
+                      loginFilter: _loginFilter,
+                      onSelected: _selectFilter,
+                    ),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 12),
             if (widget.loading)
@@ -195,25 +247,264 @@ class _UserManagementCardState extends State<UserManagementCard> {
   }
 }
 
-class _UserFilterChip extends StatelessWidget {
-  const _UserFilterChip({
-    super.key,
-    required this.label,
-    required this.selected,
+class _UserFilterMenuButton extends StatelessWidget {
+  const _UserFilterMenuButton({
+    required this.compact,
+    required this.activeFilterCount,
+    required this.totalCount,
+    required this.memberCount,
+    required this.adminCount,
+    required this.allowedLoginCount,
+    required this.blockedLoginCount,
+    required this.roleFilter,
+    required this.loginFilter,
     required this.onSelected,
   });
 
-  final String label;
-  final bool selected;
-  final VoidCallback onSelected;
+  final bool compact;
+  final int activeFilterCount;
+  final int totalCount;
+  final int memberCount;
+  final int adminCount;
+  final int allowedLoginCount;
+  final int blockedLoginCount;
+  final _UserRoleFilter roleFilter;
+  final _UserLoginFilter loginFilter;
+  final ValueChanged<_UserFilterAction> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    return ChoiceChip(
-      label: Text(label),
-      selected: selected,
-      showCheckmark: false,
-      onSelected: (_) => onSelected(),
+    final colors = Theme.of(context).colorScheme;
+    final hasActiveFilters = activeFilterCount > 0;
+    final tooltip = hasActiveFilters
+        ? 'Bộ lọc người dùng ($activeFilterCount đang áp dụng)'
+        : 'Bộ lọc người dùng';
+
+    return PopupMenuButton<_UserFilterAction>(
+      key: const Key('user-filter-button'),
+      tooltip: tooltip,
+      position: PopupMenuPosition.under,
+      constraints: const BoxConstraints(minWidth: 260, maxWidth: 300),
+      onSelected: onSelected,
+      itemBuilder: (context) => [
+        const PopupMenuItem<_UserFilterAction>(
+          enabled: false,
+          height: 34,
+          padding: EdgeInsets.zero,
+          child: _FilterMenuHeader(
+            icon: Icons.badge_outlined,
+            label: 'Vai trò',
+          ),
+        ),
+        _menuItem(
+          key: const Key('user-filter-all'),
+          value: _UserFilterAction.roleAll,
+          icon: Icons.people_outline_rounded,
+          label: 'Mọi vai trò ($totalCount)',
+          selected: roleFilter == _UserRoleFilter.all,
+        ),
+        _menuItem(
+          key: const Key('user-filter-member'),
+          value: _UserFilterAction.roleMember,
+          icon: Icons.person_outline_rounded,
+          label: 'Thành viên ($memberCount)',
+          selected: roleFilter == _UserRoleFilter.member,
+        ),
+        _menuItem(
+          key: const Key('user-filter-admin'),
+          value: _UserFilterAction.roleAdmin,
+          icon: Icons.admin_panel_settings_outlined,
+          label: 'Quản trị viên ($adminCount)',
+          selected: roleFilter == _UserRoleFilter.admin,
+        ),
+        const PopupMenuDivider(height: 10),
+        const PopupMenuItem<_UserFilterAction>(
+          enabled: false,
+          height: 34,
+          padding: EdgeInsets.zero,
+          child: _FilterMenuHeader(
+            icon: Icons.lock_outline_rounded,
+            label: 'Quyền đăng nhập',
+          ),
+        ),
+        _menuItem(
+          key: const Key('user-login-filter-all'),
+          value: _UserFilterAction.loginAll,
+          icon: Icons.rule_rounded,
+          label: 'Mọi quyền đăng nhập ($totalCount)',
+          selected: loginFilter == _UserLoginFilter.all,
+        ),
+        _menuItem(
+          key: const Key('user-login-filter-allowed'),
+          value: _UserFilterAction.loginAllowed,
+          icon: Icons.lock_open_rounded,
+          label: 'Được phép ($allowedLoginCount)',
+          selected: loginFilter == _UserLoginFilter.allowed,
+        ),
+        _menuItem(
+          key: const Key('user-login-filter-blocked'),
+          value: _UserFilterAction.loginBlocked,
+          icon: Icons.lock_rounded,
+          label: 'Đã chặn ($blockedLoginCount)',
+          selected: loginFilter == _UserLoginFilter.blocked,
+        ),
+        if (hasActiveFilters) ...[
+          const PopupMenuDivider(height: 10),
+          _menuItem(
+            key: const Key('user-filter-reset'),
+            value: _UserFilterAction.reset,
+            icon: Icons.filter_alt_off_outlined,
+            label: 'Xóa bộ lọc',
+            selected: false,
+          ),
+        ],
+      ],
+      child: Semantics(
+        button: true,
+        label: tooltip,
+        child: Container(
+          height: 56,
+          constraints: compact
+              ? const BoxConstraints.tightFor(width: 56)
+              : const BoxConstraints(minWidth: 118),
+          padding: EdgeInsets.symmetric(horizontal: compact ? 14 : 16),
+          decoration: BoxDecoration(
+            color: hasActiveFilters
+                ? colors.primaryContainer.withValues(alpha: 0.55)
+                : colors.surfaceContainerLowest,
+            border: Border.all(
+              color: hasActiveFilters ? colors.primary : colors.outlineVariant,
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: compact
+              ? Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.center,
+                  children: [
+                    Icon(
+                      Icons.tune_rounded,
+                      size: 21,
+                      color: hasActiveFilters
+                          ? colors.primary
+                          : colors.onSurfaceVariant,
+                    ),
+                    if (hasActiveFilters)
+                      Positioned(
+                        top: -7,
+                        right: -7,
+                        child: _FilterCountBadge(count: activeFilterCount),
+                      ),
+                  ],
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.tune_rounded,
+                      size: 21,
+                      color: hasActiveFilters
+                          ? colors.primary
+                          : colors.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Bộ lọc',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: hasActiveFilters
+                            ? colors.primary
+                            : colors.onSurface,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (hasActiveFilters) ...[
+                      const SizedBox(width: 8),
+                      _FilterCountBadge(count: activeFilterCount),
+                    ],
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+
+  PopupMenuItem<_UserFilterAction> _menuItem({
+    required Key key,
+    required _UserFilterAction value,
+    required IconData icon,
+    required String label,
+    required bool selected,
+  }) {
+    return PopupMenuItem<_UserFilterAction>(
+      key: key,
+      value: value,
+      height: 44,
+      padding: EdgeInsets.zero,
+      child: AppMenuItem(
+        icon: icon,
+        label: label,
+        selected: selected,
+        trailing: selected
+            ? const Icon(Icons.check_rounded)
+            : const SizedBox(width: 18),
+      ),
+    );
+  }
+}
+
+class _FilterCountBadge extends StatelessWidget {
+  const _FilterCountBadge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      key: const Key('user-active-filter-count'),
+      constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 5),
+      decoration: BoxDecoration(
+        color: colors.primary,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        '$count',
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colors.onPrimary,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterMenuHeader extends StatelessWidget {
+  const _FilterMenuHeader({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 7, 12, 3),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: colors.onSurfaceVariant),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: colors.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -245,24 +536,54 @@ class _UserRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return Column(
-      children: [
-        ListTile(
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerLowest,
+          border: Border.all(
+            color: colors.outlineVariant.withValues(alpha: 0.65),
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: ListTile(
           key: Key('managed-user-${user.id}'),
-          contentPadding: const EdgeInsets.symmetric(vertical: 4),
-          leading: CircleAvatar(
-            backgroundColor: colors.primaryContainer,
-            foregroundColor: colors.onPrimaryContainer,
-            child: Text(
-              user.fullName.trim().isNotEmpty
-                  ? user.fullName.trim().characters.first.toUpperCase()
-                  : user.username.characters.first.toUpperCase(),
+          contentPadding: const EdgeInsets.fromLTRB(12, 5, 4, 5),
+          leading: SizedBox(
+            width: 44,
+            height: 44,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned.fill(
+                  child: CircleAvatar(
+                    backgroundColor: colors.primaryContainer,
+                    foregroundColor: colors.onPrimaryContainer,
+                    child: Text(
+                      user.fullName.trim().isNotEmpty
+                          ? user.fullName.trim().characters.first.toUpperCase()
+                          : user.username.characters.first.toUpperCase(),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: -2,
+                  bottom: -2,
+                  child: _LoginPermissionIndicator(
+                    key: Key('user-login-status-${user.id}'),
+                    allowed: user.isActive,
+                  ),
+                ),
+              ],
             ),
           ),
           title: Text(
             user.fullName.trim().isNotEmpty ? user.fullName : user.username,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
           ),
           subtitle: Wrap(
             spacing: 8,
@@ -270,13 +591,9 @@ class _UserRow extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text('@${user.username}'),
-              _StatusLabel(
+              _RoleBadge(
                 text: user.isAdmin ? 'Quản trị viên' : 'Thành viên',
                 color: colors.primary,
-              ),
-              _StatusLabel(
-                text: user.isActive ? 'Đang hoạt động' : 'Đã khóa',
-                color: user.isActive ? const Color(0xFF15803D) : colors.error,
               ),
             ],
           ),
@@ -313,14 +630,54 @@ class _UserRow extends StatelessWidget {
             ],
           ),
         ),
-        const Divider(),
-      ],
+      ),
     );
   }
 }
 
-class _StatusLabel extends StatelessWidget {
-  const _StatusLabel({required this.text, required this.color});
+class _LoginPermissionIndicator extends StatelessWidget {
+  const _LoginPermissionIndicator({super.key, required this.allowed});
+
+  final bool allowed;
+
+  @override
+  Widget build(BuildContext context) {
+    // `isActive` là quyền đăng nhập, không phải trạng thái online theo thời gian thực.
+    final colors = Theme.of(context).colorScheme;
+    final label = allowed ? 'Được phép đăng nhập' : 'Không được phép đăng nhập';
+    final color = allowed ? const Color(0xFF15803D) : colors.error;
+
+    return Tooltip(
+      message: label,
+      child: Semantics(
+        label: label,
+        image: true,
+        child: ExcludeSemantics(
+          child: Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: colors.surfaceContainerLowest,
+                width: 2,
+              ),
+            ),
+            child: Icon(
+              allowed ? Icons.lock_open_rounded : Icons.lock_rounded,
+              size: 11,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RoleBadge extends StatelessWidget {
+  const _RoleBadge({required this.text, required this.color});
 
   final String text;
   final Color color;
