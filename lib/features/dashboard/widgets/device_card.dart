@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme_colors.dart';
 import '../../../core/utils/device_formatters.dart';
 import '../../../core/widgets/app_menu.dart';
 import '../../../core/widgets/device_icon.dart';
@@ -20,6 +21,7 @@ class DeviceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appColors = context.appColors;
     final status = DeviceStatusResolver.resolve(
       isOnline: device.isOnline,
       lastSeenAt: device.lastSeenAt,
@@ -52,28 +54,34 @@ class DeviceCard extends StatelessWidget {
         : (device.name.trim().isEmpty ? null : device.deviceCode.trim());
 
     // Device icon color & bg
-    final (typeColor, typeBgColor) = _deviceTypeColors(device.deviceType);
+    final (typeColor, typeBgColor) = _deviceTypeColors(
+      device.deviceType,
+      appColors,
+    );
 
     // Connection metric details
-    final (connIcon, connColor, connLabel) = _connectionStatusDetails(status);
+    final (connIcon, connColor, connLabel) = _connectionStatusDetails(
+      status,
+      appColors,
+    );
 
     final isStale = status.freshness == DataFreshnessStatus.stale;
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: appColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E9ED), width: 1),
+        border: Border.all(color: appColors.borderSoft, width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: appColors.shadow.withValues(alpha: 0.03),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Material(
-        color: Colors.transparent,
+        color: AppPalette.transparent,
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
@@ -110,10 +118,10 @@ class DeviceCard extends StatelessWidget {
                         children: [
                           Text(
                             displayName,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF18212A),
+                              color: appColors.textPrimary,
                               height: 1.2,
                             ),
                             maxLines: 1,
@@ -123,10 +131,10 @@ class DeviceCard extends StatelessWidget {
                             const SizedBox(height: 1),
                             Text(
                               subCode,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w400,
-                                color: Color(0xFF66727D),
+                                color: appColors.textSecondary,
                                 height: 1.1,
                               ),
                               maxLines: 1,
@@ -142,13 +150,13 @@ class DeviceCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Row(
+                        Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               Icons.bolt_rounded,
                               size: 12,
-                              color: Color(0xFF1677FF),
+                              color: appColors.primary,
                             ),
                             SizedBox(width: 2),
                             Text(
@@ -156,7 +164,7 @@ class DeviceCard extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w500,
-                                color: Color(0xFF66727D),
+                                color: appColors.textSecondary,
                               ),
                             ),
                           ],
@@ -167,10 +175,10 @@ class DeviceCard extends StatelessWidget {
                           alignment: Alignment.centerRight,
                           child: Text(
                             speedStr,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF18212A),
+                              color: appColors.textPrimary,
                             ),
                           ),
                         ),
@@ -181,18 +189,18 @@ class DeviceCard extends StatelessWidget {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.battery_std_rounded,
                                 size: 11,
-                                color: Color(0xFF16A34A),
+                                color: appColors.success,
                               ),
                               const SizedBox(width: 2),
                               Text(
                                 batteryText,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.w700,
-                                  color: Color(0xFF166534),
+                                  color: appColors.successStrong,
                                 ),
                               ),
                             ],
@@ -207,10 +215,10 @@ class DeviceCard extends StatelessWidget {
                       height: 24,
                       child: PopupMenuButton<String>(
                         tooltip: 'Thao tác thiết bị',
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.more_vert_rounded,
                           size: 16,
-                          color: Color(0xFF66727D),
+                          color: appColors.textSecondary,
                         ),
                         padding: EdgeInsets.zero,
                         splashRadius: 14,
@@ -240,7 +248,7 @@ class DeviceCard extends StatelessWidget {
                 ),
 
                 const SizedBox(height: 6),
-                const Divider(height: 1, color: Color(0xFFE8ECEF)),
+                Divider(height: 1, color: appColors.divider),
                 const SizedBox(height: 6),
 
                 // ── METRICS ROW: Kết nối | Cập nhật | Hướng ──
@@ -267,13 +275,13 @@ class DeviceCard extends StatelessWidget {
                             ? Icons.warning_amber_rounded
                             : Icons.schedule_rounded,
                         iconColor: isStale
-                            ? const Color(0xFFDC2626)
-                            : const Color(0xFF66727D),
+                            ? appColors.danger
+                            : appColors.textSecondary,
                         label: 'Cập nhật',
                         value: relativeTimeStr,
                         valueColor: isStale
-                            ? const Color(0xFFDC2626)
-                            : const Color(0xFF18212A),
+                            ? appColors.danger
+                            : appColors.textPrimary,
                       ),
                     ),
                     const SizedBox(width: 4),
@@ -282,27 +290,27 @@ class DeviceCard extends StatelessWidget {
                       flex: 9,
                       child: _MetricItem(
                         icon: Icons.explore_outlined,
-                        iconColor: const Color(0xFF1677FF),
+                        iconColor: appColors.primary,
                         label: 'Hướng',
                         value: headingText,
-                        valueColor: const Color(0xFF18212A),
+                        valueColor: appColors.textPrimary,
                       ),
                     ),
                   ],
                 ),
 
                 const SizedBox(height: 6),
-                const Divider(height: 1, color: Color(0xFFE8ECEF)),
+                Divider(height: 1, color: appColors.divider),
                 const SizedBox(height: 6),
 
                 // ── LOCATION BLOCK: Vị trí & địa chỉ ──
-                const Row(
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Icon(
                       Icons.location_on_outlined,
                       size: 13,
-                      color: Color(0xFFD95656),
+                      color: appColors.danger,
                     ),
                     SizedBox(width: 3),
                     Text(
@@ -310,7 +318,7 @@ class DeviceCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
-                        color: Color(0xFF66727D),
+                        color: appColors.textSecondary,
                       ),
                     ),
                   ],
@@ -318,10 +326,10 @@ class DeviceCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   fullLocation,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFF18212A),
+                    color: appColors.textPrimary,
                     height: 1.25,
                   ),
                   maxLines: 2,
@@ -336,40 +344,35 @@ class DeviceCard extends StatelessWidget {
     );
   }
 
-  static (Color, Color) _deviceTypeColors(String type) {
+  static (Color, Color) _deviceTypeColors(String type, AppThemeColors colors) {
     switch (type.toUpperCase()) {
       case 'UAV_CONTROLLER':
-        return (
-          const Color(0xFF1677FF),
-          const Color(0xFF1677FF).withValues(alpha: 0.1),
-        );
+        return (colors.primary, colors.primary.withValues(alpha: 0.1));
       case 'VEHICLE':
-        return (
-          const Color(0xFF1677FF),
-          const Color(0xFF1677FF).withValues(alpha: 0.1),
-        );
+        return (colors.primary, colors.primary.withValues(alpha: 0.1));
       default:
         return (
-          const Color(0xFF66727D),
-          const Color(0xFF66727D).withValues(alpha: 0.1),
+          colors.textSecondary,
+          colors.textSecondary.withValues(alpha: 0.1),
         );
     }
   }
 
   static (IconData, Color, String) _connectionStatusDetails(
     ResolvedDeviceStatus status,
+    AppThemeColors colors,
   ) {
     if (status.connectivity == ConnectivityStatus.offline) {
-      return (Icons.wifi_off_rounded, const Color(0xFF8B949E), 'Ngoại tuyến');
+      return (Icons.wifi_off_rounded, colors.offline, 'Ngoại tuyến');
     }
     if (status.freshness == DataFreshnessStatus.stale) {
       return (
         Icons.signal_wifi_statusbar_connected_no_internet_4_rounded,
-        const Color(0xFFDC2626),
+        colors.danger,
         'Mất tín hiệu GPS',
       );
     }
-    return (Icons.wifi_rounded, const Color(0xFF16A34A), 'Trực tuyến');
+    return (Icons.wifi_rounded, colors.success, 'Trực tuyến');
   }
 }
 
@@ -402,10 +405,10 @@ class _MetricItem extends StatelessWidget {
             Flexible(
               child: Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 10.5,
                   fontWeight: FontWeight.w500,
-                  color: Color(0xFF66727D),
+                  color: context.appColors.textSecondary,
                 ),
                 maxLines: 1,
               ),

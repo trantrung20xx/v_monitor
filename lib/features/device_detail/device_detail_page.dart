@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/config/map_tile_providers.dart';
+import '../../core/theme/app_theme_colors.dart';
 import '../../core/widgets/app_menu.dart';
 import '../../core/widgets/device_icon.dart';
 import '../../core/utils/map_launcher_service.dart';
@@ -86,7 +87,7 @@ class _DeviceDetailView extends StatelessWidget {
         return DefaultTabController(
           length: 3,
           child: Scaffold(
-            backgroundColor: _refBackground,
+            backgroundColor: context.appColors.surfaceRaised,
             body: SafeArea(
               bottom: false,
               child: Column(
@@ -123,15 +124,6 @@ class _DeviceDetailView extends StatelessWidget {
 
 // ─── Tab 1: Overview + Map ────────────────────────────────────────────────────
 
-const _refBackground = Color(0xFFF7F9FC);
-const _refSurface = Color(0xFFFFFFFF);
-const _refPrimaryBlue = Color(0xFF1677FF);
-const _refText = Color(0xFF111827);
-const _refMuted = Color(0xFF667085);
-const _refBorder = Color(0xFFE5EAF2);
-const _refOnline = Color(0xFF16A34A);
-const _refAmber = Color(0xFFD97706);
-
 class _DeviceDetailHeader extends StatelessWidget {
   const _DeviceDetailHeader({
     required this.device,
@@ -151,11 +143,11 @@ class _DeviceDetailHeader extends StatelessWidget {
         ? 'Trực tuyến'
         : 'Ngoại tuyến';
     final statusColor = status.connectivity == ConnectivityStatus.online
-        ? _refOnline
-        : _refMuted;
+        ? context.appColors.success
+        : context.appColors.textSecondary;
 
     return Container(
-      color: _refSurface,
+      color: context.appColors.surface,
       child: Column(
         children: [
           Padding(
@@ -183,11 +175,11 @@ class _DeviceDetailHeader extends StatelessWidget {
                   width: compact ? 34 : 38,
                   height: compact ? 34 : 38,
                   decoration: BoxDecoration(
-                    color: _refPrimaryBlue,
+                    color: context.appColors.primary,
                     borderRadius: BorderRadius.circular(8),
                     boxShadow: [
                       BoxShadow(
-                        color: _refPrimaryBlue.withValues(alpha: 0.2),
+                        color: context.appColors.primary.withValues(alpha: 0.2),
                         blurRadius: 6,
                         offset: const Offset(0, 2),
                       ),
@@ -195,7 +187,7 @@ class _DeviceDetailHeader extends StatelessWidget {
                   ),
                   child: Icon(
                     DeviceIcon.iconFor(device.deviceType),
-                    color: Colors.white,
+                    color: AppPalette.onAccent,
                     size: compact ? 18 : 20,
                   ),
                 ),
@@ -212,7 +204,7 @@ class _DeviceDetailHeader extends StatelessWidget {
                         style: TextStyle(
                           fontSize: compact ? 15 : 17,
                           fontWeight: FontWeight.w700,
-                          color: _refText,
+                          color: context.appColors.textPrimary,
                           height: 1.15,
                         ),
                       ),
@@ -224,7 +216,7 @@ class _DeviceDetailHeader extends StatelessWidget {
                         style: TextStyle(
                           fontSize: compact ? 11.5 : 12.5,
                           fontWeight: FontWeight.w400,
-                          color: _refMuted,
+                          color: context.appColors.textSecondary,
                           height: 1.1,
                         ),
                       ),
@@ -261,10 +253,10 @@ class _DeviceDetailHeader extends StatelessWidget {
               child: TabBar(
                 isScrollable: true,
                 tabAlignment: TabAlignment.start,
-                labelColor: _refPrimaryBlue,
-                unselectedLabelColor: _refMuted,
-                dividerColor: Colors.transparent,
-                indicatorColor: _refPrimaryBlue,
+                labelColor: context.appColors.primary,
+                unselectedLabelColor: context.appColors.textSecondary,
+                dividerColor: AppPalette.transparent,
+                indicatorColor: context.appColors.primary,
                 indicatorWeight: 2.5,
                 indicatorSize: TabBarIndicatorSize.tab,
                 labelPadding: EdgeInsets.symmetric(
@@ -286,7 +278,7 @@ class _DeviceDetailHeader extends StatelessWidget {
               ),
             ),
           ),
-          const Divider(height: 1, color: _refBorder),
+          Divider(height: 1, color: context.appColors.borderSoft),
         ],
       ),
     );
@@ -309,14 +301,14 @@ class _BackSquareButton extends StatelessWidget {
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
           padding: EdgeInsets.zero,
-          side: const BorderSide(color: _refBorder),
+          side: BorderSide(color: context.appColors.borderSoft),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          foregroundColor: _refPrimaryBlue,
+          foregroundColor: context.appColors.primary,
         ),
         child: Icon(
           Icons.arrow_back_rounded,
           size: compact ? 18 : 20,
-          color: _refPrimaryBlue,
+          color: context.appColors.primary,
         ),
       ),
     );
@@ -364,12 +356,14 @@ class _HeaderActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return OutlinedButton.icon(
       onPressed: onPressed,
-      icon: Icon(icon, size: 16, color: _refPrimaryBlue),
+      icon: Icon(icon, size: 16, color: context.appColors.primary),
       label: Text(label),
       style: OutlinedButton.styleFrom(
-        foregroundColor: _refPrimaryBlue,
-        backgroundColor: _refSurface,
-        side: BorderSide(color: _refPrimaryBlue.withValues(alpha: 0.35)),
+        foregroundColor: context.appColors.primary,
+        backgroundColor: context.appColors.surface,
+        side: BorderSide(
+          color: context.appColors.primary.withValues(alpha: 0.35),
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
       ),
@@ -574,8 +568,8 @@ class _SummaryStripState extends State<_SummaryStrip> {
               ? 'Đang di chuyển'
               : 'Đang dừng',
           color: status.movement == MovementStatus.moving
-              ? const Color(0xFF2563EB)
-              : const Color(0xFFD97706),
+              ? context.appColors.primaryStrong
+              : context.appColors.warning,
         ),
       _SummaryPill(
         icon: status.freshness == DataFreshnessStatus.fresh
@@ -586,7 +580,7 @@ class _SummaryStripState extends State<_SummaryStrip> {
           device.latestMeasuredAt ?? device.lastSeenAt,
         ),
         color: status.freshness == DataFreshnessStatus.fresh
-            ? const Color(0xFF16A34A)
+            ? context.appColors.success
             : theme.colorScheme.error,
         subtle: status.freshness == DataFreshnessStatus.unknown,
       ),
@@ -708,9 +702,9 @@ class _AddressInfoBlock extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 6),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
-          color: const Color(0xFFF0FDFA),
+          color: context.appColors.tealSoft,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFCCFBF1)),
+          border: Border.all(color: context.appColors.tealBorder),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -719,14 +713,14 @@ class _AddressInfoBlock extends StatelessWidget {
               width: 22,
               height: 22,
               decoration: BoxDecoration(
-                color: const Color(0xFF0D9488).withValues(alpha: 0.14),
+                color: context.appColors.teal.withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(5),
               ),
-              child: const Center(
+              child: Center(
                 child: Icon(
                   Icons.location_on_rounded,
                   size: 13,
-                  color: Color(0xFF0D9488),
+                  color: context.appColors.teal,
                 ),
               ),
             ),
@@ -740,7 +734,7 @@ class _AddressInfoBlock extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: const Color(0xFF0F172A),
+                      color: context.appColors.textPrimary,
                       fontWeight: FontWeight.w800,
                       fontSize: 12,
                       height: 1.15,
@@ -753,7 +747,7 @@ class _AddressInfoBlock extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: const Color(0xFF64748B),
+                        color: context.appColors.textSecondary,
                         fontWeight: FontWeight.w500,
                         fontSize: 11,
                         height: 1.15,
@@ -926,7 +920,7 @@ class _MapOverviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: _referenceCardDecoration(),
+      decoration: _referenceCardDecoration(context),
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
@@ -934,9 +928,11 @@ class _MapOverviewCard extends StatelessWidget {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: const BoxDecoration(
-              color: _refSurface,
-              border: Border(top: BorderSide(color: _refBorder)),
+            decoration: BoxDecoration(
+              color: context.appColors.surface,
+              border: Border(
+                top: BorderSide(color: context.appColors.borderSoft),
+              ),
             ),
             child: strip,
           ),
@@ -954,21 +950,21 @@ class _MapSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: _referenceCardDecoration(),
+      decoration: _referenceCardDecoration(context),
       clipBehavior: Clip.antiAlias,
       child: child,
     );
   }
 }
 
-BoxDecoration _referenceCardDecoration() {
+BoxDecoration _referenceCardDecoration(BuildContext context) {
   return BoxDecoration(
-    color: _refSurface,
+    color: context.appColors.surface,
     borderRadius: BorderRadius.circular(14),
-    border: Border.all(color: _refBorder),
+    border: Border.all(color: context.appColors.borderSoft),
     boxShadow: [
       BoxShadow(
-        color: Colors.black.withValues(alpha: 0.035),
+        color: context.appColors.shadow.withValues(alpha: 0.035),
         blurRadius: 16,
         offset: const Offset(0, 8),
       ),
@@ -1006,9 +1002,9 @@ class _OverviewTimeRangeFilterBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: _refSurface,
+        color: context.appColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _refBorder),
+        border: Border.all(color: context.appColors.borderSoft),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -1025,55 +1021,61 @@ class _OverviewTimeRangeFilterBar extends StatelessWidget {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
+                  color: context.appColors.surfaceSubtle,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: _refBorder),
+                  border: Border.all(color: context.appColors.borderSoft),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
+                    Text(
                       'Từ ',
-                      style: TextStyle(fontSize: 11.5, color: _refMuted),
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: context.appColors.textSecondary,
+                      ),
                     ),
-                    const Icon(
+                    Icon(
                       Icons.calendar_today_rounded,
                       size: 13,
-                      color: _refPrimaryBlue,
+                      color: context.appColors.primary,
                     ),
                     const SizedBox(width: 4),
                     Text(
                       dtFormat.format(from),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w700,
-                        color: _refText,
+                        color: context.appColors.textPrimary,
                       ),
                     ),
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.symmetric(horizontal: 6),
                       child: Icon(
                         Icons.arrow_forward_rounded,
                         size: 12,
-                        color: _refMuted,
+                        color: context.appColors.textSecondary,
                       ),
                     ),
-                    const Text(
+                    Text(
                       'Đến ',
-                      style: TextStyle(fontSize: 11.5, color: _refMuted),
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: context.appColors.textSecondary,
+                      ),
                     ),
-                    const Icon(
+                    Icon(
                       Icons.calendar_today_rounded,
                       size: 13,
-                      color: _refPrimaryBlue,
+                      color: context.appColors.primary,
                     ),
                     const SizedBox(width: 4),
                     Text(
                       dtFormat.format(to),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w700,
-                        color: _refText,
+                        color: context.appColors.textPrimary,
                       ),
                     ),
                   ],
@@ -1106,13 +1108,13 @@ class _OverviewTimeRangeFilterBar extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? _refPrimaryBlue.withValues(alpha: 0.1)
-                            : const Color(0xFFF8FAFC),
+                            ? context.appColors.primary.withValues(alpha: 0.1)
+                            : context.appColors.surfaceSubtle,
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
                           color: isSelected
-                              ? _refPrimaryBlue
-                              : const Color(0xFFE2E8F0),
+                              ? context.appColors.primary
+                              : context.appColors.border,
                           width: isSelected ? 1.2 : 1.0,
                         ),
                       ),
@@ -1124,8 +1126,8 @@ class _OverviewTimeRangeFilterBar extends StatelessWidget {
                               ? FontWeight.w700
                               : FontWeight.w500,
                           color: isSelected
-                              ? _refPrimaryBlue
-                              : const Color(0xFF475569),
+                              ? context.appColors.primary
+                              : context.appColors.textSecondary,
                         ),
                       ),
                     ),
@@ -1137,7 +1139,7 @@ class _OverviewTimeRangeFilterBar extends StatelessWidget {
 
           final reloadButton = FilledButton.icon(
             style: FilledButton.styleFrom(
-              backgroundColor: _refPrimaryBlue,
+              backgroundColor: context.appColors.primary,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -1151,7 +1153,7 @@ class _OverviewTimeRangeFilterBar extends StatelessWidget {
                     height: 12,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.white,
+                      color: AppPalette.onAccent,
                     ),
                   )
                 : const Icon(Icons.refresh_rounded, size: 15),
@@ -1170,12 +1172,12 @@ class _OverviewTimeRangeFilterBar extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
+                    Text(
                       'Khoảng thời gian',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: _refMuted,
+                        color: context.appColors.textSecondary,
                       ),
                     ),
                     const SizedBox(height: 5),
@@ -1183,9 +1185,12 @@ class _OverviewTimeRangeFilterBar extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(width: 16),
-                const SizedBox(
+                SizedBox(
                   height: 38,
-                  child: VerticalDivider(width: 1, color: _refBorder),
+                  child: VerticalDivider(
+                    width: 1,
+                    color: context.appColors.borderSoft,
+                  ),
                 ),
                 const SizedBox(width: 16),
 
@@ -1195,12 +1200,12 @@ class _OverviewTimeRangeFilterBar extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
+                      Text(
                         'Khoảng nhanh',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: _refMuted,
+                          color: context.appColors.textSecondary,
                         ),
                       ),
                       const SizedBox(height: 5),
@@ -1209,9 +1214,12 @@ class _OverviewTimeRangeFilterBar extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 16),
-                const SizedBox(
+                SizedBox(
                   height: 38,
-                  child: VerticalDivider(width: 1, color: _refBorder),
+                  child: VerticalDivider(
+                    width: 1,
+                    color: context.appColors.borderSoft,
+                  ),
                 ),
                 const SizedBox(width: 16),
 
@@ -1263,8 +1271,10 @@ class _OverviewLiveLocationCard extends StatelessWidget {
         ? 'Đang di chuyển'
         : (isStopped ? 'Đang dừng' : 'Không xác định');
     final movementStatusColor = isMoving
-        ? _refOnline
-        : (isStopped ? _refAmber : _refMuted);
+        ? context.appColors.success
+        : (isStopped
+              ? context.appColors.warning
+              : context.appColors.textSecondary);
 
     final cardTitle = status.freshness == DataFreshnessStatus.stale
         ? 'Vị trí gần nhất'
@@ -1277,11 +1287,11 @@ class _OverviewLiveLocationCard extends StatelessWidget {
 
     return Card(
       elevation: 0,
-      color: _refSurface,
-      shadowColor: Colors.black.withValues(alpha: 0.05),
+      color: context.appColors.surface,
+      shadowColor: context.appColors.shadow.withValues(alpha: 0.05),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: _refBorder),
+        side: BorderSide(color: context.appColors.borderSoft),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -1305,13 +1315,13 @@ class _OverviewLiveLocationCard extends StatelessWidget {
                     width: 28,
                     height: 28,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0D9488).withValues(alpha: 0.12),
+                      color: context.appColors.teal.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.location_on_rounded,
                       size: 16,
-                      color: Color(0xFF0D9488),
+                      color: context.appColors.teal,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -1321,7 +1331,7 @@ class _OverviewLiveLocationCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleSmall?.copyWith(
-                        color: _refText,
+                        color: context.appColors.textPrimary,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -1334,7 +1344,7 @@ class _OverviewLiveLocationCard extends StatelessWidget {
                       status: status,
                     ),
                     icon: const Icon(Icons.info_outline_rounded, size: 18),
-                    color: _refPrimaryBlue,
+                    color: context.appColors.primary,
                     tooltip: 'Thông tin thiết bị',
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
@@ -1354,9 +1364,9 @@ class _OverviewLiveLocationCard extends StatelessWidget {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
+                  color: context.appColors.surfaceSubtle,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  border: Border.all(color: context.appColors.border),
                 ),
                 child: Row(
                   children: [
@@ -1364,13 +1374,13 @@ class _OverviewLiveLocationCard extends StatelessWidget {
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: _refPrimaryBlue.withValues(alpha: 0.1),
+                        color: context.appColors.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.speed_rounded,
                         size: 18,
-                        color: _refPrimaryBlue,
+                        color: context.appColors.primary,
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -1381,7 +1391,7 @@ class _OverviewLiveLocationCard extends StatelessWidget {
                           Text(
                             'TỐC ĐỘ HIỆN TẠI',
                             style: theme.textTheme.labelSmall?.copyWith(
-                              color: _refMuted,
+                              color: context.appColors.textSecondary,
                               fontWeight: FontWeight.w700,
                               fontSize: 10,
                               letterSpacing: 0.2,
@@ -1391,7 +1401,7 @@ class _OverviewLiveLocationCard extends StatelessWidget {
                           Text(
                             speed,
                             style: theme.textTheme.titleMedium?.copyWith(
-                              color: _refText,
+                              color: context.appColors.textPrimary,
                               fontWeight: FontWeight.w800,
                               fontSize: 16,
                               height: 1.15,
@@ -1436,24 +1446,24 @@ class _OverviewLiveLocationCard extends StatelessWidget {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: context.appColors.surface,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFF1F5F9)),
+                  border: Border.all(color: context.appColors.borderSoft),
                 ),
                 child: Column(
                   children: [
                     Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.my_location_rounded,
                           size: 14,
-                          color: Color(0xFF0D9488),
+                          color: context.appColors.teal,
                         ),
                         const SizedBox(width: 6),
                         Text(
                           'Tọa độ GPS:',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: _refMuted,
+                            color: context.appColors.textSecondary,
                             fontWeight: FontWeight.w600,
                             fontSize: 11.5,
                           ),
@@ -1469,7 +1479,7 @@ class _OverviewLiveLocationCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.end,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: _refText,
+                              color: context.appColors.textPrimary,
                               fontWeight: FontWeight.w700,
                               fontSize: 12,
                             ),
@@ -1480,16 +1490,16 @@ class _OverviewLiveLocationCard extends StatelessWidget {
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.schedule_rounded,
                           size: 14,
-                          color: Color(0xFFEA580C),
+                          color: context.appColors.orange,
                         ),
                         const SizedBox(width: 6),
                         Text(
                           'Thời điểm:',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: _refMuted,
+                            color: context.appColors.textSecondary,
                             fontWeight: FontWeight.w600,
                             fontSize: 11.5,
                           ),
@@ -1504,7 +1514,7 @@ class _OverviewLiveLocationCard extends StatelessWidget {
                             style: theme.textTheme.bodySmall?.copyWith(
                               color:
                                   status.freshness == DataFreshnessStatus.fresh
-                                  ? _refText
+                                  ? context.appColors.textPrimary
                                   : theme.colorScheme.error,
                               fontWeight: FontWeight.w700,
                               fontSize: 12,
@@ -1528,8 +1538,8 @@ class _OverviewLiveLocationCard extends StatelessWidget {
                       onPressed: () =>
                           DefaultTabController.of(context).animateTo(1),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: _refPrimaryBlue,
-                        side: const BorderSide(color: _refPrimaryBlue),
+                        foregroundColor: context.appColors.primary,
+                        side: BorderSide(color: context.appColors.primary),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -1548,7 +1558,7 @@ class _OverviewLiveLocationCard extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.labelMedium?.copyWith(
-                                color: _refPrimaryBlue,
+                                color: context.appColors.primary,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -1621,8 +1631,8 @@ class _OverviewMetricsDashboard extends StatelessWidget {
           _MetricDashboardCard(
             title: 'TỔNG QUÃNG ĐƯỜNG',
             icon: Icons.route_rounded,
-            iconColor: const Color(0xFFEA580C),
-            accentBg: const Color(0xFFFFF7ED),
+            iconColor: context.appColors.orange,
+            accentBg: context.appColors.orangeSoft,
             primaryValue: distanceStr,
             primaryLabel: timeRangeLabel != null
                 ? 'Trong $timeRangeLabel'
@@ -1634,63 +1644,63 @@ class _OverviewMetricsDashboard extends StatelessWidget {
           _MetricDashboardCard(
             title: 'THỜI GIAN HOẠT ĐỘNG',
             icon: Icons.timer_outlined,
-            iconColor: const Color(0xFF16A34A),
-            accentBg: const Color(0xFFF0FDF4),
+            iconColor: context.appColors.success,
+            accentBg: context.appColors.successSoft,
             labelWidth: 42.0,
             dualRows: [
               (
                 icon: Icons.play_arrow_rounded,
                 label: 'Chạy:',
                 value: movingStr,
-                color: const Color(0xFF16A34A),
+                color: context.appColors.success,
               ),
               (
                 icon: Icons.pause_rounded,
                 label: 'Dừng:',
                 value: stoppedStr,
-                color: const Color(0xFFD97706),
+                color: context.appColors.warning,
               ),
             ],
           ),
           _MetricDashboardCard(
             title: 'VẬN TỐC HÀNH TRÌNH',
             icon: Icons.speed_rounded,
-            iconColor: const Color(0xFF2563EB),
-            accentBg: const Color(0xFFEFF6FF),
+            iconColor: context.appColors.primaryStrong,
+            accentBg: context.appColors.primarySoft,
             labelWidth: 66.0,
             dualRows: [
               (
                 icon: Icons.trending_flat_rounded,
                 label: 'Trung bình:',
                 value: avgSpeedStr,
-                color: const Color(0xFF2563EB),
+                color: context.appColors.primaryStrong,
               ),
               (
                 icon: Icons.flash_on_rounded,
                 label: 'Tối đa:',
                 value: maxSpeedStr,
-                color: const Color(0xFFDC2626),
+                color: context.appColors.danger,
               ),
             ],
           ),
           _MetricDashboardCard(
             title: 'KHUNG THỜI GIAN',
             icon: Icons.calendar_today_rounded,
-            iconColor: const Color(0xFF7C3AED),
-            accentBg: const Color(0xFFF5F3FF),
+            iconColor: context.appColors.purple,
+            accentBg: context.appColors.purpleSoft,
             labelWidth: 56.0,
             dualRows: [
               (
                 icon: Icons.play_circle_outline_rounded,
                 label: 'Bắt đầu:',
                 value: startedStr,
-                color: const Color(0xFF7C3AED),
+                color: context.appColors.purple,
               ),
               (
                 icon: Icons.flag_outlined,
                 label: 'Kết thúc:',
                 value: endedStr,
-                color: const Color(0xFF475569),
+                color: context.appColors.textSecondary,
               ),
             ],
           ),
@@ -1814,12 +1824,12 @@ class _MetricDashboardCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: _refSurface,
+        color: context.appColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _refBorder),
+        border: Border.all(color: context.appColors.borderSoft),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.025),
+            color: context.appColors.shadow.withValues(alpha: 0.025),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -1854,7 +1864,7 @@ class _MetricDashboardCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: _refMuted,
+                        color: context.appColors.textSecondary,
                         fontWeight: FontWeight.w700,
                         fontSize: 10,
                         letterSpacing: 0.2,
@@ -1870,7 +1880,7 @@ class _MetricDashboardCard extends StatelessWidget {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF1F5F9),
+                          color: context.appColors.surfaceMuted,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -1878,7 +1888,7 @@ class _MetricDashboardCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: const Color(0xFF475569),
+                            color: context.appColors.textSecondary,
                             fontSize: 9.5,
                             fontWeight: FontWeight.w600,
                           ),
@@ -1901,7 +1911,7 @@ class _MetricDashboardCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleLarge?.copyWith(
-                        color: _refText,
+                        color: context.appColors.textPrimary,
                         fontWeight: FontWeight.w900,
                         fontSize: 19,
                         height: 1.15,
@@ -1914,7 +1924,7 @@ class _MetricDashboardCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: _refMuted,
+                          color: context.appColors.textSecondary,
                           fontWeight: FontWeight.w500,
                           fontSize: 10.5,
                         ),
@@ -1950,7 +1960,7 @@ class _MetricDashboardCard extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: _refMuted,
+                                color: context.appColors.textSecondary,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 11,
                               ),
@@ -1964,7 +1974,7 @@ class _MetricDashboardCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.end,
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: _refText,
+                                color: context.appColors.textPrimary,
                                 fontWeight: FontWeight.w700,
                                 fontSize: 11.5,
                               ),
@@ -2003,7 +2013,7 @@ void _showDeviceTechnicalInfoModal(
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.transparent,
+    backgroundColor: AppPalette.transparent,
     builder: (modalContext) {
       final theme = Theme.of(modalContext);
       return Container(
@@ -2012,8 +2022,8 @@ void _showDeviceTechnicalInfoModal(
           maxWidth: 680,
         ),
         margin: const EdgeInsets.only(top: 40),
-        decoration: const BoxDecoration(
-          color: _refSurface,
+        decoration: BoxDecoration(
+          color: context.appColors.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
@@ -2027,7 +2037,7 @@ void _showDeviceTechnicalInfoModal(
                 height: 4,
                 margin: const EdgeInsets.only(top: 12, bottom: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFCBD5E1),
+                  color: context.appColors.textDisabled,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -2042,13 +2052,13 @@ void _showDeviceTechnicalInfoModal(
                     width: 34,
                     height: 34,
                     decoration: BoxDecoration(
-                      color: _refPrimaryBlue.withValues(alpha: 0.12),
+                      color: context.appColors.primary.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.memory_rounded,
                       size: 18,
-                      color: _refPrimaryBlue,
+                      color: context.appColors.primary,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -2060,14 +2070,14 @@ void _showDeviceTechnicalInfoModal(
                           'Thông số kỹ thuật thiết bị',
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w800,
-                            color: _refText,
+                            color: context.appColors.textPrimary,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           DeviceFormatters.displayName(device),
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: _refMuted,
+                            color: context.appColors.textSecondary,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -2082,7 +2092,7 @@ void _showDeviceTechnicalInfoModal(
                 ],
               ),
             ),
-            const Divider(height: 1, color: _refBorder),
+            Divider(height: 1, color: context.appColors.borderSoft),
 
             // Scrollable Content
             Flexible(
@@ -2093,6 +2103,7 @@ void _showDeviceTechnicalInfoModal(
                   children: [
                     // Section 1: Thông tin phần cứng
                     _buildTechSectionTitle(
+                      context: context,
                       icon: Icons.devices_other_rounded,
                       title: 'Thông tin phần cứng',
                     ),
@@ -2103,48 +2114,59 @@ void _showDeviceTechnicalInfoModal(
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
+                        color: context.appColors.surfaceSubtle,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        border: Border.all(color: context.appColors.border),
                       ),
                       child: Column(
                         children: [
                           _buildTechRow(
+                            context,
                             'Tên thiết bị',
                             DeviceFormatters.displayName(device),
                           ),
-                          _buildTechRow('Mã định danh', device.deviceCode),
                           _buildTechRow(
+                            context,
+                            'Mã định danh',
+                            device.deviceCode,
+                          ),
+                          _buildTechRow(
+                            context,
                             'Loại phương tiện',
                             DeviceFormatters.deviceTypeLabel(device.deviceType),
                           ),
                           _buildTechRow(
+                            context,
                             'Model / Hãng',
                             modelManufacturer.isNotEmpty
                                 ? modelManufacturer
                                 : '--',
                           ),
                           _buildTechRow(
+                            context,
                             'Số Serial / IMEI',
                             device.serialNumber ?? '--',
                           ),
                           _buildTechRow(
+                            context,
                             'Phiên bản Firmware',
                             device.firmwareVersion ?? '--',
                           ),
                           // Mức pin lấy từ trạng thái mới nhất của chính thiết bị.
                           // Giá trị chưa được thiết bị gửi sẽ hiển thị "--" thay vì 0%.
                           _buildTechRow(
+                            context,
                             'Pin thiết bị',
                             DeviceFormatters.batteryPct(device.batteryPct),
                           ),
                           _buildTechRow(
+                            context,
                             'Trạng thái',
                             device.statusLabel,
                             valueColor:
                                 status.connectivity == ConnectivityStatus.online
-                                ? _refOnline
-                                : _refMuted,
+                                ? context.appColors.success
+                                : context.appColors.textSecondary,
                           ),
                         ],
                       ),
@@ -2153,6 +2175,7 @@ void _showDeviceTechnicalInfoModal(
 
                     // Section 2: Vị trí & Cảm biến GPS
                     _buildTechSectionTitle(
+                      context: context,
                       icon: Icons.satellite_alt_rounded,
                       title: 'Thông số GPS & Vệ tinh',
                     ),
@@ -2163,13 +2186,14 @@ void _showDeviceTechnicalInfoModal(
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
+                        color: context.appColors.surfaceSubtle,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        border: Border.all(color: context.appColors.border),
                       ),
                       child: Column(
                         children: [
                           _buildTechRow(
+                            context,
                             'Tọa độ GPS',
                             DeviceFormatters.coordinatePair(
                               device.latitude,
@@ -2177,24 +2201,28 @@ void _showDeviceTechnicalInfoModal(
                             ),
                           ),
                           _buildTechRow(
+                            context,
                             'Độ cao',
                             altitudeM != null
                                 ? '${altitudeM.toStringAsFixed(1)} m'
                                 : '--',
                           ),
                           _buildTechRow(
+                            context,
                             'Độ chính xác vệ tinh',
                             accuracyM != null
                                 ? '±${accuracyM.toStringAsFixed(0)} m'
                                 : '--',
                           ),
                           _buildTechRow(
+                            context,
                             'Số lượng vệ tinh',
                             latestLocation?.satelliteCount != null
                                 ? '${latestLocation!.satelliteCount} vệ tinh'
                                 : '--',
                           ),
                           _buildTechRow(
+                            context,
                             'Thời điểm GPS',
                             DeviceFormatters.dateTime(
                               latestLocation?.measuredAt ??
@@ -2216,24 +2244,33 @@ void _showDeviceTechnicalInfoModal(
   );
 }
 
-Widget _buildTechSectionTitle({required IconData icon, required String title}) {
+Widget _buildTechSectionTitle({
+  required BuildContext context,
+  required IconData icon,
+  required String title,
+}) {
   return Row(
     children: [
-      Icon(icon, size: 16, color: _refPrimaryBlue),
+      Icon(icon, size: 16, color: context.appColors.primary),
       const SizedBox(width: 8),
       Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 13.5,
           fontWeight: FontWeight.w800,
-          color: _refText,
+          color: context.appColors.textPrimary,
         ),
       ),
     ],
   );
 }
 
-Widget _buildTechRow(String label, String value, {Color? valueColor}) {
+Widget _buildTechRow(
+  BuildContext context,
+  String label,
+  String value, {
+  Color? valueColor,
+}) {
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 6),
     child: Row(
@@ -2243,10 +2280,10 @@ Widget _buildTechRow(String label, String value, {Color? valueColor}) {
           width: 140,
           child: Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF64748B),
+              color: context.appColors.textSecondary,
             ),
           ),
         ),
@@ -2258,7 +2295,7 @@ Widget _buildTechRow(String label, String value, {Color? valueColor}) {
             style: TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w700,
-              color: valueColor ?? const Color(0xFF0F172A),
+              color: valueColor ?? context.appColors.textPrimary,
             ),
           ),
         ),
@@ -2285,10 +2322,10 @@ class _RecentActivityCard extends StatelessWidget {
 
     return Card(
       elevation: 0,
-      color: _refSurface,
+      color: context.appColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: _refBorder),
+        side: BorderSide(color: context.appColors.borderSoft),
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -2404,7 +2441,7 @@ class _RecentActivityRow extends StatelessWidget {
             child: Icon(
               Icons.circle_rounded,
               size: 12,
-              color: _eventAccent(event.eventType),
+              color: _eventAccent(event.eventType, context.appColors),
             ),
           ),
           const SizedBox(width: 10),
@@ -2440,19 +2477,19 @@ class _RecentActivityRow extends StatelessWidget {
   }
 }
 
-Color _eventAccent(String type) {
+Color _eventAccent(String type, AppThemeColors colors) {
   switch (type) {
     case 'MOVEMENT_STOPPED':
     case 'IDLE':
-      return _refAmber;
+      return colors.warning;
     case 'MOVEMENT_STARTED':
     case 'MOVING':
-      return _refPrimaryBlue;
+      return colors.primary;
     case 'ONLINE':
     case 'GPS_RESTORED':
-      return _refOnline;
+      return colors.success;
     default:
-      return _refMuted;
+      return colors.textSecondary;
   }
 }
 
@@ -2628,7 +2665,7 @@ class _MapWidgetState extends State<_MapWidget> {
       children: [
         Positioned.fill(
           child: ColoredBox(
-            color: const Color(0xFFEFF5F8),
+            color: context.appColors.mapBackground,
             child: FlutterMap(
               mapController: _mapController,
               options: MapOptions(
@@ -2728,12 +2765,16 @@ class _MapWidgetState extends State<_MapWidget> {
   }
 
   Color _markerColor(ResolvedDeviceStatus status) {
-    if (status.connectivity == ConnectivityStatus.offline) return Colors.grey;
-    if (status.freshness == DataFreshnessStatus.stale) return Colors.redAccent;
-    if (status.movement == MovementStatus.moving) {
-      return const Color(0xFF2563EB);
+    if (status.connectivity == ConnectivityStatus.offline) {
+      return context.appColors.offline;
     }
-    return const Color(0xFF16A34A);
+    if (status.freshness == DataFreshnessStatus.stale) {
+      return context.appColors.danger;
+    }
+    if (status.movement == MovementStatus.moving) {
+      return context.appColors.primaryStrong;
+    }
+    return context.appColors.success;
   }
 }
 
@@ -2762,7 +2803,7 @@ class _DeviceMapMarker extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: color,
                   borderRadius: BorderRadius.circular(5),
-                  border: Border.all(color: Colors.white, width: 2),
+                  border: Border.all(color: AppPalette.onAccent, width: 2),
                   boxShadow: [
                     BoxShadow(
                       color: color.withValues(alpha: 0.28),
@@ -2781,7 +2822,7 @@ class _DeviceMapMarker extends StatelessWidget {
             decoration: BoxDecoration(
               color: color,
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 3),
+              border: Border.all(color: AppPalette.onAccent, width: 3),
               boxShadow: [
                 BoxShadow(
                   color: color.withValues(alpha: 0.32),
@@ -2791,7 +2832,7 @@ class _DeviceMapMarker extends StatelessWidget {
                 ),
               ],
             ),
-            child: Icon(icon, color: Colors.white, size: 18),
+            child: Icon(icon, color: AppPalette.onAccent, size: 18),
           ),
         ],
       ),
@@ -2821,7 +2862,7 @@ class _MapControls extends StatelessWidget {
       children: [
         // Cụm 1: Phóng to, thu nhỏ, căn giữa thiết bị
         DecoratedBox(
-          decoration: _mapControlDecoration(),
+          decoration: _mapControlDecoration(context),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -2848,13 +2889,13 @@ class _MapControls extends StatelessWidget {
         const SizedBox(height: 8),
         // Cụm 2: Chuyển đổi mode bản đồ riêng biệt
         DecoratedBox(
-          decoration: _mapControlDecoration(),
+          decoration: _mapControlDecoration(context),
           child: _MapControlButton(
             icon: isSatellite ? Icons.map_rounded : Icons.satellite_alt_rounded,
             tooltip: isSatellite
                 ? 'Chuyển sang bản đồ đường phố'
                 : 'Chuyển sang bản đồ vệ tinh',
-            iconColor: _refPrimaryBlue,
+            iconColor: context.appColors.primary,
             onPressed: onToggleMapType,
           ),
         ),
@@ -2862,13 +2903,17 @@ class _MapControls extends StatelessWidget {
     );
   }
 
-  BoxDecoration _mapControlDecoration() {
+  BoxDecoration _mapControlDecoration(BuildContext context) {
     return BoxDecoration(
-      color: Colors.white.withValues(alpha: 0.96),
+      color: context.appColors.surface.withValues(alpha: 0.96),
       borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: _refBorder),
-      boxShadow: const [
-        BoxShadow(color: Colors.black12, blurRadius: 12, offset: Offset(0, 4)),
+      border: Border.all(color: context.appColors.borderSoft),
+      boxShadow: [
+        BoxShadow(
+          color: context.appColors.shadow.withValues(alpha: 0.12),
+          blurRadius: 12,
+          offset: const Offset(0, 4),
+        ),
       ],
     );
   }
@@ -2899,7 +2944,7 @@ class _MapControlButton extends StatelessWidget {
           padding: EdgeInsets.zero,
           visualDensity: VisualDensity.compact,
           splashRadius: 18,
-          icon: Icon(icon, size: 18, color: _refPrimaryBlue),
+          icon: Icon(icon, size: 18, color: context.appColors.primary),
         ),
       ),
     );
@@ -2975,7 +3020,7 @@ class _JourneyTabState extends State<_JourneyTab> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.errorMessage!),
-                backgroundColor: Colors.redAccent,
+                backgroundColor: context.appColors.danger,
               ),
             );
           }
@@ -3247,9 +3292,9 @@ class _JourneyFilterPanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: _refSurface,
+        color: context.appColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _refBorder),
+        border: Border.all(color: context.appColors.borderSoft),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -3264,12 +3309,12 @@ class _JourneyFilterPanel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
+                    Text(
                       'Khoảng thời gian',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: _refMuted,
+                        color: context.appColors.textSecondary,
                       ),
                     ),
                     const SizedBox(height: 5),
@@ -3282,61 +3327,63 @@ class _JourneyFilterPanel extends StatelessWidget {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
+                          color: context.appColors.surfaceSubtle,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: _refBorder),
+                          border: Border.all(
+                            color: context.appColors.borderSoft,
+                          ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text(
+                            Text(
                               'Từ ',
                               style: TextStyle(
                                 fontSize: 11.5,
-                                color: _refMuted,
+                                color: context.appColors.textSecondary,
                               ),
                             ),
-                            const Icon(
+                            Icon(
                               Icons.calendar_today_rounded,
                               size: 13,
-                              color: _refPrimaryBlue,
+                              color: context.appColors.primary,
                             ),
                             const SizedBox(width: 4),
                             Text(
                               dtFormat.format(fromTime),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w700,
-                                color: _refText,
+                                color: context.appColors.textPrimary,
                               ),
                             ),
-                            const Padding(
+                            Padding(
                               padding: EdgeInsets.symmetric(horizontal: 6),
                               child: Icon(
                                 Icons.arrow_forward_rounded,
                                 size: 12,
-                                color: _refMuted,
+                                color: context.appColors.textSecondary,
                               ),
                             ),
-                            const Text(
+                            Text(
                               'Đến ',
                               style: TextStyle(
                                 fontSize: 11.5,
-                                color: _refMuted,
+                                color: context.appColors.textSecondary,
                               ),
                             ),
-                            const Icon(
+                            Icon(
                               Icons.calendar_today_rounded,
                               size: 13,
-                              color: _refPrimaryBlue,
+                              color: context.appColors.primary,
                             ),
                             const SizedBox(width: 4),
                             Text(
                               dtFormat.format(toTime),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w700,
-                                color: _refText,
+                                color: context.appColors.textPrimary,
                               ),
                             ),
                           ],
@@ -3346,9 +3393,12 @@ class _JourneyFilterPanel extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(width: 16),
-                const SizedBox(
+                SizedBox(
                   height: 38,
-                  child: VerticalDivider(width: 1, color: _refBorder),
+                  child: VerticalDivider(
+                    width: 1,
+                    color: context.appColors.borderSoft,
+                  ),
                 ),
                 const SizedBox(width: 16),
 
@@ -3358,12 +3408,12 @@ class _JourneyFilterPanel extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
+                      Text(
                         'Khoảng nhanh',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: _refMuted,
+                          color: context.appColors.textSecondary,
                         ),
                       ),
                       const SizedBox(height: 5),
@@ -3371,15 +3421,16 @@ class _JourneyFilterPanel extends StatelessWidget {
                         scrollDirection: Axis.horizontal,
                         child: Row(
                           children: [
-                            _buildQuickChip('Hôm nay', 0),
+                            _buildQuickChip(context, 'Hôm nay', 0),
                             const SizedBox(width: 6),
-                            _buildQuickChip('Hôm qua', 1),
+                            _buildQuickChip(context, 'Hôm qua', 1),
                             const SizedBox(width: 6),
-                            _buildQuickChip('24h qua', 2),
+                            _buildQuickChip(context, '24h qua', 2),
                             const SizedBox(width: 6),
-                            _buildQuickChip('7 ngày', 3),
+                            _buildQuickChip(context, '7 ngày', 3),
                             const SizedBox(width: 6),
                             _buildQuickChip(
+                              context,
                               'Tùy chọn',
                               4,
                               onTap: onCustomRangePressed,
@@ -3391,9 +3442,12 @@ class _JourneyFilterPanel extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 16),
-                const SizedBox(
+                SizedBox(
                   height: 38,
-                  child: VerticalDivider(width: 1, color: _refBorder),
+                  child: VerticalDivider(
+                    width: 1,
+                    color: context.appColors.borderSoft,
+                  ),
                 ),
                 const SizedBox(width: 16),
 
@@ -3402,12 +3456,12 @@ class _JourneyFilterPanel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
+                    Text(
                       'Ngắt quãng',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: _refMuted,
+                        color: context.appColors.textSecondary,
                       ),
                     ),
                     const SizedBox(height: 5),
@@ -3418,7 +3472,7 @@ class _JourneyFilterPanel extends StatelessWidget {
                         const SizedBox(width: 8),
                         FilledButton.icon(
                           style: FilledButton.styleFrom(
-                            backgroundColor: _refPrimaryBlue,
+                            backgroundColor: context.appColors.primary,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
                               vertical: 8,
@@ -3435,7 +3489,7 @@ class _JourneyFilterPanel extends StatelessWidget {
                                   height: 12,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: Colors.white,
+                                    color: AppPalette.onAccent,
                                   ),
                                 )
                               : const Icon(Icons.refresh_rounded, size: 15),
@@ -3469,25 +3523,25 @@ class _JourneyFilterPanel extends StatelessWidget {
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
+                    color: context.appColors.surfaceSubtle,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: _refBorder),
+                    border: Border.all(color: context.appColors.borderSoft),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.calendar_today_rounded,
                         size: 14,
-                        color: _refPrimaryBlue,
+                        color: context.appColors.primary,
                       ),
                       const SizedBox(width: 6),
                       Text(
                         '${dtFormat.format(fromTime)}  →  ${dtFormat.format(toTime)}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w700,
-                          color: _refText,
+                          color: context.appColors.textPrimary,
                         ),
                       ),
                     ],
@@ -3501,15 +3555,20 @@ class _JourneyFilterPanel extends StatelessWidget {
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
-                    _buildQuickChip('Hôm nay', 0),
+                    _buildQuickChip(context, 'Hôm nay', 0),
                     const SizedBox(width: 6),
-                    _buildQuickChip('Hôm qua', 1),
+                    _buildQuickChip(context, 'Hôm qua', 1),
                     const SizedBox(width: 6),
-                    _buildQuickChip('24h qua', 2),
+                    _buildQuickChip(context, '24h qua', 2),
                     const SizedBox(width: 6),
-                    _buildQuickChip('7 ngày', 3),
+                    _buildQuickChip(context, '7 ngày', 3),
                     const SizedBox(width: 6),
-                    _buildQuickChip('Tùy chọn', 4, onTap: onCustomRangePressed),
+                    _buildQuickChip(
+                      context,
+                      'Tùy chọn',
+                      4,
+                      onTap: onCustomRangePressed,
+                    ),
                   ],
                 ),
               ),
@@ -3521,16 +3580,19 @@ class _JourneyFilterPanel extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const Text(
+                      Text(
                         'Ngắt quãng: ',
-                        style: TextStyle(fontSize: 11, color: _refMuted),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: context.appColors.textSecondary,
+                        ),
                       ),
                       _buildGapDropdown(context),
                     ],
                   ),
                   FilledButton.icon(
                     style: FilledButton.styleFrom(
-                      backgroundColor: _refPrimaryBlue,
+                      backgroundColor: context.appColors.primary,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 8,
@@ -3567,9 +3629,9 @@ class _JourneyFilterPanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: context.appColors.surfaceSubtle,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _refBorder),
+        border: Border.all(color: context.appColors.borderSoft),
       ),
       child: DropdownButton<int>(
         value: currentMinutes,
@@ -3578,15 +3640,15 @@ class _JourneyFilterPanel extends StatelessWidget {
         dropdownColor: AppMenuStyle.surfaceColor(context),
         menuMaxHeight: AppMenuStyle.dropdownMaxHeight(context),
         underline: const SizedBox.shrink(),
-        icon: const Icon(
+        icon: Icon(
           Icons.arrow_drop_down_rounded,
           size: 18,
-          color: _refText,
+          color: context.appColors.textPrimary,
         ),
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 11.5,
           fontWeight: FontWeight.w700,
-          color: _refText,
+          color: context.appColors.textPrimary,
         ),
         items: [
           const DropdownMenuItem(value: 1, child: Text('1 phút')),
@@ -3599,12 +3661,16 @@ class _JourneyFilterPanel extends StatelessWidget {
               value: currentMinutes,
               child: Text('${formatGapDuration(gapThreshold)} (Tùy chỉnh)'),
             ),
-          const DropdownMenuItem(
+          DropdownMenuItem(
             value: -1,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.tune_rounded, size: 14, color: _refPrimaryBlue),
+                Icon(
+                  Icons.tune_rounded,
+                  size: 14,
+                  color: context.appColors.primary,
+                ),
                 SizedBox(width: 4),
                 Text('Tùy chỉnh'),
               ],
@@ -3629,7 +3695,12 @@ class _JourneyFilterPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildQuickChip(String label, int index, {VoidCallback? onTap}) {
+  Widget _buildQuickChip(
+    BuildContext context,
+    String label,
+    int index, {
+    VoidCallback? onTap,
+  }) {
     final isSelected = presetIndex == index;
 
     return InkWell(
@@ -3639,10 +3710,14 @@ class _JourneyFilterPanel extends StatelessWidget {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFEBF3FF) : Colors.white,
+          color: isSelected
+              ? context.appColors.primarySoft
+              : context.appColors.surface,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: isSelected ? _refPrimaryBlue : _refBorder,
+            color: isSelected
+                ? context.appColors.primary
+                : context.appColors.borderSoft,
             width: isSelected ? 1.2 : 1.0,
           ),
         ),
@@ -3651,7 +3726,9 @@ class _JourneyFilterPanel extends StatelessWidget {
           style: TextStyle(
             fontSize: 11.5,
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? _refPrimaryBlue : _refMuted,
+            color: isSelected
+                ? context.appColors.primary
+                : context.appColors.textSecondary,
           ),
         ),
       ),
@@ -3677,43 +3754,43 @@ class _JourneyMetricsRow extends StatelessWidget {
         icon: Icons.route_rounded,
         label: 'Tổng quãng đường',
         value: DeviceFormatters.distance(state.totalDistanceM),
-        tintColor: const Color(0xFFEBF3FF),
-        iconColor: const Color(0xFF1677FF),
+        tintColor: context.appColors.primarySoft,
+        iconColor: context.appColors.primary,
       ),
       _MetricItemData(
         icon: Icons.navigation_rounded,
         label: 'Thời gian di chuyển',
         value: DeviceFormatters.secondsDuration(state.movingDurationS),
-        tintColor: const Color(0xFFECFDF5),
-        iconColor: const Color(0xFF16A34A),
+        tintColor: context.appColors.successSoft,
+        iconColor: context.appColors.success,
       ),
       _MetricItemData(
         icon: Icons.pause_circle_rounded,
         label: 'Thời gian dừng',
         value: DeviceFormatters.secondsDuration(state.stoppedDurationS),
-        tintColor: const Color(0xFFFFFBEB),
-        iconColor: const Color(0xFFD97706),
+        tintColor: context.appColors.warningSoft,
+        iconColor: context.appColors.warning,
       ),
       _MetricItemData(
         icon: Icons.speed_rounded,
         label: 'Tốc độ tối đa',
         value: DeviceFormatters.speedMps(state.maxSpeedMps),
-        tintColor: const Color(0xFFFEF2F2),
-        iconColor: const Color(0xFFEF4444),
+        tintColor: context.appColors.dangerSoft,
+        iconColor: context.appColors.dangerStrong,
       ),
       _MetricItemData(
         icon: Icons.trending_up_rounded,
         label: 'Tốc độ trung bình',
         value: DeviceFormatters.speedMps(state.avgSpeedMps),
-        tintColor: const Color(0xFFEEF2FF),
-        iconColor: const Color(0xFF6366F1),
+        tintColor: context.appColors.indigoSoft,
+        iconColor: context.appColors.indigo,
       ),
       _MetricItemData(
         icon: Icons.local_parking_rounded,
         label: 'Số lần đỗ xe',
         value: '$parkCount lần',
-        tintColor: const Color(0xFFFFF7ED),
-        iconColor: const Color(0xFFEA580C),
+        tintColor: context.appColors.orangeSoft,
+        iconColor: context.appColors.orange,
       ),
     ];
 
@@ -3741,9 +3818,9 @@ class _JourneyMetricsRow extends StatelessWidget {
             return Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: _refSurface,
+                color: context.appColors.surface,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: _refBorder),
+                border: Border.all(color: context.appColors.borderSoft),
               ),
               child: Row(
                 children: [
@@ -3766,10 +3843,10 @@ class _JourneyMetricsRow extends StatelessWidget {
                           item.label,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
-                            color: _refMuted,
+                            color: context.appColors.textSecondary,
                             height: 1.1,
                           ),
                         ),
@@ -3778,10 +3855,10 @@ class _JourneyMetricsRow extends StatelessWidget {
                           item.value,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14.5,
                             fontWeight: FontWeight.w700,
-                            color: _refText,
+                            color: context.appColors.textPrimary,
                             height: 1.1,
                           ),
                         ),
@@ -3838,9 +3915,9 @@ class _JourneyMapCard extends StatelessWidget {
       key: const Key('journey-map-card-surface'),
       height: height,
       decoration: BoxDecoration(
-        color: _refSurface,
+        color: context.appColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _refBorder),
+        border: Border.all(color: context.appColors.borderSoft),
       ),
       clipBehavior: Clip.antiAlias,
       child: Stack(
@@ -3931,8 +4008,10 @@ class _JourneyPlaybackCard extends StatelessWidget {
               : (state.isPaused ? 'Tạm dừng ($speedStr)' : 'Sẵn sàng'));
 
     final statusColor = state.isCompleted
-        ? const Color(0xFFEF4444)
-        : (state.isPlaying ? const Color(0xFF16A34A) : _refMuted);
+        ? context.appColors.dangerStrong
+        : (state.isPlaying
+              ? context.appColors.success
+              : context.appColors.textSecondary);
 
     final width = MediaQuery.sizeOf(context).width;
     final isCompact = width < 680;
@@ -3943,9 +4022,9 @@ class _JourneyPlaybackCard extends StatelessWidget {
         vertical: isCompact ? 8 : 10,
       ),
       decoration: BoxDecoration(
-        color: _refSurface,
+        color: context.appColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _refBorder),
+        border: Border.all(color: context.appColors.borderSoft),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -3963,10 +4042,10 @@ class _JourneyPlaybackCard extends StatelessWidget {
                     children: [
                       Text(
                         currentTimeStr,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: _refText,
+                          color: context.appColors.textPrimary,
                           letterSpacing: -0.2,
                         ),
                       ),
@@ -4021,13 +4100,15 @@ class _JourneyPlaybackCard extends StatelessWidget {
                       height: 44,
                       decoration: BoxDecoration(
                         color: hasSamples
-                            ? _refPrimaryBlue
-                            : Colors.grey.shade300,
+                            ? context.appColors.primary
+                            : context.appColors.textDisabled,
                         shape: BoxShape.circle,
                         boxShadow: hasSamples
                             ? [
                                 BoxShadow(
-                                  color: _refPrimaryBlue.withValues(alpha: 0.3),
+                                  color: context.appColors.primary.withValues(
+                                    alpha: 0.3,
+                                  ),
                                   blurRadius: 8,
                                   offset: const Offset(0, 3),
                                 ),
@@ -4040,7 +4121,7 @@ class _JourneyPlaybackCard extends StatelessWidget {
                               ? Icons.pause_rounded
                               : Icons.play_arrow_rounded,
                           size: 24,
-                          color: Colors.white,
+                          color: AppPalette.onAccent,
                         ),
                         onPressed: !hasSamples
                             ? null
@@ -4082,9 +4163,9 @@ class _JourneyPlaybackCard extends StatelessWidget {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
+                        color: context.appColors.surfaceSubtle,
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: _refBorder),
+                        border: Border.all(color: context.appColors.borderSoft),
                       ),
                       child: DropdownButton<double>(
                         value: state.playbackSpeed,
@@ -4093,10 +4174,10 @@ class _JourneyPlaybackCard extends StatelessWidget {
                         menuMaxHeight: AppMenuStyle.dropdownMaxHeight(context),
                         underline: const SizedBox.shrink(),
                         isDense: true,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w700,
-                          color: _refText,
+                          color: context.appColors.textPrimary,
                         ),
                         items: const [
                           DropdownMenuItem(value: 0.5, child: Text('0.5x')),
@@ -4124,13 +4205,13 @@ class _JourneyPlaybackCard extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                           color: state.followCamera
-                              ? const Color(0xFFEBF3FF)
-                              : const Color(0xFFF8FAFC),
+                              ? context.appColors.primarySoft
+                              : context.appColors.surfaceSubtle,
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(
                             color: state.followCamera
-                                ? _refPrimaryBlue
-                                : _refBorder,
+                                ? context.appColors.primary
+                                : context.appColors.borderSoft,
                           ),
                         ),
                         child: Row(
@@ -4140,8 +4221,8 @@ class _JourneyPlaybackCard extends StatelessWidget {
                               Icons.my_location_rounded,
                               size: 14,
                               color: state.followCamera
-                                  ? _refPrimaryBlue
-                                  : _refMuted,
+                                  ? context.appColors.primary
+                                  : context.appColors.textSecondary,
                             ),
                             const SizedBox(width: 4),
                             Text(
@@ -4150,8 +4231,8 @@ class _JourneyPlaybackCard extends StatelessWidget {
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
                                 color: state.followCamera
-                                    ? _refPrimaryBlue
-                                    : _refMuted,
+                                    ? context.appColors.primary
+                                    : context.appColors.textSecondary,
                               ),
                             ),
                           ],
@@ -4175,10 +4256,10 @@ class _JourneyPlaybackCard extends StatelessWidget {
                     children: [
                       Text(
                         currentTimeStr,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: _refText,
+                          color: context.appColors.textPrimary,
                           letterSpacing: -0.2,
                         ),
                       ),
@@ -4219,9 +4300,9 @@ class _JourneyPlaybackCard extends StatelessWidget {
                         vertical: 1,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
+                        color: context.appColors.surfaceSubtle,
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: _refBorder),
+                        border: Border.all(color: context.appColors.borderSoft),
                       ),
                       child: DropdownButton<double>(
                         value: state.playbackSpeed,
@@ -4230,10 +4311,10 @@ class _JourneyPlaybackCard extends StatelessWidget {
                         menuMaxHeight: AppMenuStyle.dropdownMaxHeight(context),
                         underline: const SizedBox.shrink(),
                         isDense: true,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: _refText,
+                          color: context.appColors.textPrimary,
                         ),
                         items: const [
                           DropdownMenuItem(value: 0.5, child: Text('0.5x')),
@@ -4259,13 +4340,13 @@ class _JourneyPlaybackCard extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                           color: state.followCamera
-                              ? const Color(0xFFEBF3FF)
-                              : const Color(0xFFF8FAFC),
+                              ? context.appColors.primarySoft
+                              : context.appColors.surfaceSubtle,
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(
                             color: state.followCamera
-                                ? _refPrimaryBlue
-                                : _refBorder,
+                                ? context.appColors.primary
+                                : context.appColors.borderSoft,
                           ),
                         ),
                         child: Row(
@@ -4275,8 +4356,8 @@ class _JourneyPlaybackCard extends StatelessWidget {
                               Icons.my_location_rounded,
                               size: 13,
                               color: state.followCamera
-                                  ? _refPrimaryBlue
-                                  : _refMuted,
+                                  ? context.appColors.primary
+                                  : context.appColors.textSecondary,
                             ),
                             if (width >= 360) ...[
                               const SizedBox(width: 3),
@@ -4286,8 +4367,8 @@ class _JourneyPlaybackCard extends StatelessWidget {
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.w600,
                                   color: state.followCamera
-                                      ? _refPrimaryBlue
-                                      : _refMuted,
+                                      ? context.appColors.primary
+                                      : context.appColors.textSecondary,
                                 ),
                               ),
                             ],
@@ -4340,12 +4421,16 @@ class _JourneyPlaybackCard extends StatelessWidget {
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
-                    color: hasSamples ? _refPrimaryBlue : Colors.grey.shade300,
+                    color: hasSamples
+                        ? context.appColors.primary
+                        : context.appColors.textDisabled,
                     shape: BoxShape.circle,
                     boxShadow: hasSamples
                         ? [
                             BoxShadow(
-                              color: _refPrimaryBlue.withValues(alpha: 0.3),
+                              color: context.appColors.primary.withValues(
+                                alpha: 0.3,
+                              ),
                               blurRadius: 6,
                               offset: const Offset(0, 2),
                             ),
@@ -4359,7 +4444,7 @@ class _JourneyPlaybackCard extends StatelessWidget {
                           ? Icons.pause_rounded
                           : Icons.play_arrow_rounded,
                       size: 22,
-                      color: Colors.white,
+                      color: AppPalette.onAccent,
                     ),
                     onPressed: !hasSamples
                         ? null
@@ -4399,19 +4484,19 @@ class _JourneyPlaybackCard extends StatelessWidget {
             children: [
               Text(
                 startTimeStr,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 10.5,
                   fontWeight: FontWeight.w500,
-                  color: _refMuted,
+                  color: context.appColors.textSecondary,
                 ),
               ),
               Expanded(
                 child: SliderTheme(
                   data: SliderTheme.of(context).copyWith(
                     trackHeight: 3.5,
-                    activeTrackColor: _refPrimaryBlue,
-                    inactiveTrackColor: const Color(0xFFE2E8F0),
-                    thumbColor: _refPrimaryBlue,
+                    activeTrackColor: context.appColors.primary,
+                    inactiveTrackColor: context.appColors.border,
+                    thumbColor: context.appColors.primary,
                     thumbShape: const RoundSliderThumbShape(
                       enabledThumbRadius: 6.5,
                     ),
@@ -4427,10 +4512,10 @@ class _JourneyPlaybackCard extends StatelessWidget {
               ),
               Text(
                 endTimeStr,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 10.5,
                   fontWeight: FontWeight.w500,
-                  color: _refMuted,
+                  color: context.appColors.textSecondary,
                 ),
               ),
             ],
@@ -4484,10 +4569,10 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
         ? 'Đang di chuyển'
         : 'Đang dừng';
     final movementColor = !hasSpeed
-        ? const Color(0xFF64748B)
+        ? context.appColors.textSecondary
         : isMoving
-        ? const Color(0xFF16A34A)
-        : const Color(0xFFD97706);
+        ? context.appColors.success
+        : context.appColors.warning;
 
     final timeStr = state.currentReplayTime != null
         ? DateFormat(
@@ -4498,9 +4583,9 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: _refSurface,
+        color: context.appColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _refBorder),
+        border: Border.all(color: context.appColors.borderSoft),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -4516,34 +4601,40 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
+                      Text(
                         'Vị trí GPS',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: _refMuted,
+                          color: context.appColors.textSecondary,
                         ),
                       ),
                       const SizedBox(height: 3),
                       Text(
                         gpsPositionText,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w700,
-                          color: _refText,
+                          color: context.appColors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 1),
                       Text(
                         gpsDetailsText,
-                        style: const TextStyle(fontSize: 10, color: _refMuted),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: context.appColors.textSecondary,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(
+                SizedBox(
                   height: 34,
-                  child: VerticalDivider(width: 20, color: _refBorder),
+                  child: VerticalDivider(
+                    width: 20,
+                    color: context.appColors.borderSoft,
+                  ),
                 ),
 
                 // 2. Tốc độ
@@ -4553,29 +4644,32 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
+                      Text(
                         'Tốc độ',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: _refMuted,
+                          color: context.appColors.textSecondary,
                         ),
                       ),
                       const SizedBox(height: 3),
                       Text(
                         speedStr,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13.5,
                           fontWeight: FontWeight.w700,
-                          color: _refText,
+                          color: context.appColors.textPrimary,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(
+                SizedBox(
                   height: 34,
-                  child: VerticalDivider(width: 20, color: _refBorder),
+                  child: VerticalDivider(
+                    width: 20,
+                    color: context.appColors.borderSoft,
+                  ),
                 ),
 
                 // 3. Quãng đường đã đi / Tổng
@@ -4585,29 +4679,32 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
+                      Text(
                         'Đã đi',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: _refMuted,
+                          color: context.appColors.textSecondary,
                         ),
                       ),
                       const SizedBox(height: 3),
                       Text(
                         distanceProgressStr,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: _refText,
+                          color: context.appColors.textPrimary,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(
+                SizedBox(
                   height: 34,
-                  child: VerticalDivider(width: 20, color: _refBorder),
+                  child: VerticalDivider(
+                    width: 20,
+                    color: context.appColors.borderSoft,
+                  ),
                 ),
 
                 // 4. Trạng thái
@@ -4617,12 +4714,12 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
+                      Text(
                         'Trạng thái',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: _refMuted,
+                          color: context.appColors.textSecondary,
                         ),
                       ),
                       const SizedBox(height: 3),
@@ -4652,9 +4749,12 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(
+                SizedBox(
                   height: 34,
-                  child: VerticalDivider(width: 20, color: _refBorder),
+                  child: VerticalDivider(
+                    width: 20,
+                    color: context.appColors.borderSoft,
+                  ),
                 ),
 
                 // 5. Thời điểm
@@ -4664,21 +4764,21 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
+                      Text(
                         'Thời điểm',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: _refMuted,
+                          color: context.appColors.textSecondary,
                         ),
                       ),
                       const SizedBox(height: 3),
                       Text(
                         timeStr,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w600,
-                          color: _refText,
+                          color: context.appColors.textPrimary,
                         ),
                       ),
                     ],
@@ -4696,9 +4796,12 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Vị trí GPS',
-                    style: TextStyle(fontSize: 11, color: _refMuted),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: context.appColors.textSecondary,
+                    ),
                   ),
                   Text(
                     gpsPositionText,
@@ -4709,16 +4812,22 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
                   ),
                   Text(
                     gpsDetailsText,
-                    style: const TextStyle(fontSize: 10, color: _refMuted),
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: context.appColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Tốc độ',
-                    style: TextStyle(fontSize: 11, color: _refMuted),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: context.appColors.textSecondary,
+                    ),
                   ),
                   Text(
                     speedStr,
@@ -4732,9 +4841,12 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Đã đi',
-                    style: TextStyle(fontSize: 11, color: _refMuted),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: context.appColors.textSecondary,
+                    ),
                   ),
                   Text(
                     distanceProgressStr,
@@ -4748,9 +4860,12 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Trạng thái',
-                    style: TextStyle(fontSize: 11, color: _refMuted),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: context.appColors.textSecondary,
+                    ),
                   ),
                   Text(
                     movementLabel,
@@ -4765,9 +4880,12 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Thời điểm',
-                    style: TextStyle(fontSize: 11, color: _refMuted),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: context.appColors.textSecondary,
+                    ),
                   ),
                   Text(
                     timeStr,
@@ -4821,9 +4939,9 @@ class _JourneyTimelineCard extends StatelessWidget {
       height: height,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _refSurface,
+        color: context.appColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _refBorder),
+        border: Border.all(color: context.appColors.borderSoft),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -4832,13 +4950,13 @@ class _JourneyTimelineCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Flexible(
+              Flexible(
                 child: Text(
                   'Lộ trình di chuyển',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: _refText,
+                    color: context.appColors.textPrimary,
                   ),
                 ),
               ),
@@ -4846,15 +4964,15 @@ class _JourneyTimelineCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEBF3FF),
+                  color: context.appColors.primarySoft,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   '${timelineEvents.length} mốc',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
-                    color: _refPrimaryBlue,
+                    color: context.appColors.primary,
                   ),
                 ),
               ),
@@ -4863,19 +4981,25 @@ class _JourneyTimelineCard extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             journeySummary,
-            style: const TextStyle(fontSize: 11, color: _refMuted),
+            style: TextStyle(
+              fontSize: 11,
+              color: context.appColors.textSecondary,
+            ),
           ),
           const SizedBox(height: 10),
-          const Divider(height: 1, color: _refBorder),
+          Divider(height: 1, color: context.appColors.borderSoft),
           const SizedBox(height: 8),
 
           // List timeline cuộn độc lập
           Expanded(
             child: timelineEvents.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
                       'Chưa có dữ liệu lịch trình',
-                      style: TextStyle(fontSize: 12, color: _refMuted),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: context.appColors.textSecondary,
+                      ),
                     ),
                   )
                 : ListView.builder(
@@ -4887,7 +5011,7 @@ class _JourneyTimelineCard extends StatelessWidget {
                       final isFinalEvent = index == timelineEvents.length - 1;
 
                       // Dot color
-                      final dotColor = event.color;
+                      final dotColor = event.color(context.appColors);
                       final titleLabel = event.title;
 
                       return InkWell(
@@ -4903,6 +5027,8 @@ class _JourneyTimelineCard extends StatelessWidget {
                                 child: CustomPaint(
                                   painter: _JourneyTimelineRailPainter(
                                     nodeColor: dotColor,
+                                    lineColor: context.appColors.border,
+                                    haloColor: context.appColors.surface,
                                     drawTop: !isFirstEvent,
                                     drawBottom: !isFinalEvent,
                                   ),
@@ -4924,10 +5050,10 @@ class _JourneyTimelineCard extends StatelessWidget {
                                         timeFormat.format(
                                           s.measuredAt.toLocal(),
                                         ),
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 11.5,
                                           fontWeight: FontWeight.w700,
-                                          color: _refText,
+                                          color: context.appColors.textPrimary,
                                         ),
                                       ),
                                       const SizedBox(height: 1),
@@ -4945,9 +5071,11 @@ class _JourneyTimelineCard extends StatelessWidget {
                                           ),
                                           Text(
                                             ' · ${event.detail}',
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontSize: 9.5,
-                                              color: _refMuted,
+                                              color: context
+                                                  .appColors
+                                                  .textSecondary,
                                             ),
                                           ),
                                         ],
@@ -4974,11 +5102,15 @@ class _JourneyTimelineCard extends StatelessWidget {
 class _JourneyTimelineRailPainter extends CustomPainter {
   const _JourneyTimelineRailPainter({
     required this.nodeColor,
+    required this.lineColor,
+    required this.haloColor,
     required this.drawTop,
     required this.drawBottom,
   });
 
   final Color nodeColor;
+  final Color lineColor;
+  final Color haloColor;
   final bool drawTop;
   final bool drawBottom;
 
@@ -4987,7 +5119,7 @@ class _JourneyTimelineRailPainter extends CustomPainter {
     const nodeY = 12.0;
     final centerX = size.width / 2;
     final linePaint = Paint()
-      ..color = const Color(0xFFE2E8F0)
+      ..color = lineColor
       ..strokeWidth = 1.5;
 
     if (drawTop) {
@@ -5001,13 +5133,15 @@ class _JourneyTimelineRailPainter extends CustomPainter {
       );
     }
 
-    canvas.drawCircle(Offset(centerX, nodeY), 5, Paint()..color = Colors.white);
+    canvas.drawCircle(Offset(centerX, nodeY), 5, Paint()..color = haloColor);
     canvas.drawCircle(Offset(centerX, nodeY), 3.5, Paint()..color = nodeColor);
   }
 
   @override
   bool shouldRepaint(covariant _JourneyTimelineRailPainter oldDelegate) {
     return oldDelegate.nodeColor != nodeColor ||
+        oldDelegate.lineColor != lineColor ||
+        oldDelegate.haloColor != haloColor ||
         oldDelegate.drawTop != drawTop ||
         oldDelegate.drawBottom != drawBottom;
   }
@@ -5034,12 +5168,12 @@ class _JourneyTimelineEvent {
     _JourneyTimelineEventType.end => 'Kết thúc hành trình',
   };
 
-  Color get color => switch (type) {
-    _JourneyTimelineEventType.start => const Color(0xFF16A34A),
-    _JourneyTimelineEventType.moving => const Color(0xFF1677FF),
-    _JourneyTimelineEventType.parked => const Color(0xFFEA580C),
-    _JourneyTimelineEventType.dataRestored => const Color(0xFF64748B),
-    _JourneyTimelineEventType.end => const Color(0xFFEF4444),
+  Color color(AppThemeColors colors) => switch (type) {
+    _JourneyTimelineEventType.start => colors.success,
+    _JourneyTimelineEventType.moving => colors.primary,
+    _JourneyTimelineEventType.parked => colors.orange,
+    _JourneyTimelineEventType.dataRestored => colors.textSecondary,
+    _JourneyTimelineEventType.end => colors.dangerStrong,
   };
 }
 
@@ -5170,14 +5304,18 @@ class _JourneyEventAddressState extends State<_JourneyEventAddress> {
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.location_on_outlined, size: 12, color: _refMuted),
+            Icon(
+              Icons.location_on_outlined,
+              size: 12,
+              color: context.appColors.textSecondary,
+            ),
             const SizedBox(width: 3),
             Expanded(
               child: Text(
                 text,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 9.5,
-                  color: _refMuted,
+                  color: context.appColors.textSecondary,
                   height: 1.25,
                 ),
               ),
@@ -5380,10 +5518,11 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
                   ...HistoryMapLayers.buildGapPolylines(
                     segments: state.segments,
                     currentZoom: _currentZoom,
+                    gapColor: context.appColors.textSecondary,
                   ),
                   ...HistoryMapLayers.buildPolylines(
                     segments: state.segments,
-                    primaryColor: _refPrimaryBlue,
+                    primaryColor: context.appColors.primary,
                     currentZoom: _currentZoom,
                   ),
                 ],
@@ -5395,7 +5534,7 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
                 markers: HistoryMapLayers.buildDirectionArrows(
                   segments: state.segments,
                   currentZoom: _currentZoom,
-                  arrowColor: Colors.white,
+                  arrowColor: AppPalette.onAccent,
                 ),
               ),
 
@@ -5407,6 +5546,7 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
                   onPointSelected: widget.onPointSelected,
                   nodeAddresses: _nodeAddresses,
                   showLabels: _showRouteLabels,
+                  colors: context.appColors,
                 ),
               ),
 
@@ -5462,7 +5602,7 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
         if (state.isLoading)
           Positioned.fill(
             child: Container(
-              color: Colors.black.withValues(alpha: 0.15),
+              color: context.appColors.shadow.withValues(alpha: 0.15),
               child: const Center(
                 child: Card(
                   child: Padding(
@@ -5499,10 +5639,13 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
                     vertical: 16,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.95),
+                    color: context.appColors.surface.withValues(alpha: 0.95),
                     borderRadius: BorderRadius.circular(12),
-                    boxShadow: const [
-                      BoxShadow(color: Colors.black12, blurRadius: 12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: context.appColors.shadow.withValues(alpha: 0.12),
+                        blurRadius: 12,
+                      ),
                     ],
                   ),
                   child: Column(
@@ -5514,19 +5657,22 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
                         color: theme.colorScheme.outline,
                       ),
                       const SizedBox(height: 8),
-                      const Text(
+                      Text(
                         'Không có dữ liệu vị trí trong khoảng thời gian đã chọn.',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
-                          color: _refText,
+                          color: context.appColors.textPrimary,
                         ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 4),
-                      const Text(
+                      Text(
                         'Hãy chọn khoảng thời gian khác hoặc kiểm tra lại thiết bị.',
-                        style: TextStyle(fontSize: 12, color: _refMuted),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: context.appColors.textSecondary,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                     ],
@@ -5542,16 +5688,16 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.92),
+                color: context.appColors.surface.withValues(alpha: 0.92),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: _refBorder),
+                border: Border.all(color: context.appColors.borderSoft),
               ),
-              child: const Text(
+              child: Text(
                 'Chỉ có 1 mốc vị trí trong khoảng này.',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: _refText,
+                  color: context.appColors.textPrimary,
                 ),
               ),
             ),
@@ -5587,15 +5733,15 @@ class _MapZoomControls extends StatelessWidget {
       children: [
         // Cụm 1: Phóng to, thu nhỏ, vừa toàn bộ lộ trình
         Container(
-          decoration: _boxDecoration(),
+          decoration: _boxDecoration(context),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                icon: const Icon(
+                icon: Icon(
                   Icons.add_rounded,
                   size: 18,
-                  color: _refPrimaryBlue,
+                  color: context.appColors.primary,
                 ),
                 tooltip: 'Phóng to',
                 onPressed: onZoomIn,
@@ -5603,10 +5749,10 @@ class _MapZoomControls extends StatelessWidget {
               ),
               const SizedBox(width: 28, child: Divider(height: 1)),
               IconButton(
-                icon: const Icon(
+                icon: Icon(
                   Icons.remove_rounded,
                   size: 18,
-                  color: _refPrimaryBlue,
+                  color: context.appColors.primary,
                 ),
                 tooltip: 'Thu nhỏ',
                 onPressed: onZoomOut,
@@ -5614,10 +5760,10 @@ class _MapZoomControls extends StatelessWidget {
               ),
               const SizedBox(width: 28, child: Divider(height: 1)),
               IconButton(
-                icon: const Icon(
+                icon: Icon(
                   Icons.fit_screen_rounded,
                   size: 16,
-                  color: _refPrimaryBlue,
+                  color: context.appColors.primary,
                 ),
                 tooltip: 'Vừa toàn bộ lộ trình',
                 onPressed: onFitBounds,
@@ -5629,7 +5775,7 @@ class _MapZoomControls extends StatelessWidget {
         const SizedBox(height: 8),
         // Cụm 2: Kiểu bản đồ và bật/tắt nhãn node hành trình
         Container(
-          decoration: _boxDecoration(),
+          decoration: _boxDecoration(context),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -5637,7 +5783,7 @@ class _MapZoomControls extends StatelessWidget {
                 icon: Icon(
                   isSatellite ? Icons.map_rounded : Icons.satellite_alt_rounded,
                   size: 18,
-                  color: _refPrimaryBlue,
+                  color: context.appColors.primary,
                 ),
                 tooltip: isSatellite
                     ? 'Chuyển sang bản đồ đường phố'
@@ -5650,7 +5796,7 @@ class _MapZoomControls extends StatelessWidget {
                 icon: Icon(
                   showLabels ? Icons.label_off_rounded : Icons.label_rounded,
                   size: 18,
-                  color: _refPrimaryBlue,
+                  color: context.appColors.primary,
                 ),
                 tooltip: showLabels
                     ? 'Ẩn nhãn mốc hành trình'
@@ -5665,13 +5811,17 @@ class _MapZoomControls extends StatelessWidget {
     );
   }
 
-  BoxDecoration _boxDecoration() {
+  BoxDecoration _boxDecoration(BuildContext context) {
     return BoxDecoration(
-      color: Colors.white.withValues(alpha: 0.96),
+      color: context.appColors.surface.withValues(alpha: 0.96),
       borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: const Color(0xFFE2E8F0)),
-      boxShadow: const [
-        BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2)),
+      border: Border.all(color: context.appColors.border),
+      boxShadow: [
+        BoxShadow(
+          color: context.appColors.shadow.withValues(alpha: 0.12),
+          blurRadius: 8,
+          offset: Offset(0, 2),
+        ),
       ],
     );
   }
@@ -5716,9 +5866,11 @@ class _EventsTabState extends State<_EventsTab> {
         // ── CATEGORY FILTER BAR ──
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: const BoxDecoration(
-            color: _refSurface,
-            border: Border(bottom: BorderSide(color: _refBorder, width: 1)),
+          decoration: BoxDecoration(
+            color: context.appColors.surface,
+            border: Border(
+              bottom: BorderSide(color: context.appColors.borderSoft, width: 1),
+            ),
           ),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -5770,13 +5922,15 @@ class _EventsTabState extends State<_EventsTab> {
                           width: 56,
                           height: 56,
                           decoration: BoxDecoration(
-                            color: _refBorder.withValues(alpha: 0.5),
+                            color: context.appColors.borderSoft.withValues(
+                              alpha: 0.5,
+                            ),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.event_note_rounded,
                             size: 28,
-                            color: _refMuted,
+                            color: context.appColors.textSecondary,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -5785,7 +5939,7 @@ class _EventsTabState extends State<_EventsTab> {
                               ? 'Chưa có sự kiện nào'
                               : 'Không có sự kiện thuộc danh mục này',
                           style: theme.textTheme.titleSmall?.copyWith(
-                            color: _refText,
+                            color: context.appColors.textPrimary,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -5794,7 +5948,7 @@ class _EventsTabState extends State<_EventsTab> {
                           'Các sự kiện trạng thái và di chuyển sẽ tự động xuất hiện tại đây khi thiết bị hoạt động.',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: _refMuted,
+                            color: context.appColors.textSecondary,
                           ),
                         ),
                       ],
@@ -5846,13 +6000,13 @@ class _EventFilterChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected
-              ? _refPrimaryBlue.withValues(alpha: 0.1)
-              : const Color(0xFFF1F5F9),
+              ? context.appColors.primary.withValues(alpha: 0.1)
+              : context.appColors.surfaceMuted,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected
-                ? _refPrimaryBlue.withValues(alpha: 0.4)
-                : const Color(0xFFE2E8F0),
+                ? context.appColors.primary.withValues(alpha: 0.4)
+                : context.appColors.border,
             width: 1,
           ),
         ),
@@ -5864,14 +6018,18 @@ class _EventFilterChip extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected ? _refPrimaryBlue : const Color(0xFF475569),
+                color: isSelected
+                    ? context.appColors.primary
+                    : context.appColors.textSecondary,
               ),
             ),
             const SizedBox(width: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
               decoration: BoxDecoration(
-                color: isSelected ? _refPrimaryBlue : const Color(0xFFCBD5E1),
+                color: isSelected
+                    ? context.appColors.primary
+                    : context.appColors.textDisabled,
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
@@ -5879,7 +6037,9 @@ class _EventFilterChip extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
-                  color: isSelected ? Colors.white : const Color(0xFF334155),
+                  color: isSelected
+                      ? AppPalette.onAccent
+                      : context.appColors.textPrimary,
                 ),
               ),
             ),
@@ -5904,7 +6064,7 @@ class _EventTimelineItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = _eventColor(event.eventType);
+    final color = _eventColor(event.eventType, context.appColors);
     final icon = _eventIcon(event.eventType);
 
     return IntrinsicHeight(
@@ -5933,7 +6093,7 @@ class _EventTimelineItem extends StatelessWidget {
                   Expanded(
                     child: Container(
                       width: 1.5,
-                      color: const Color(0xFFE2E8F0),
+                      color: context.appColors.border,
                       margin: const EdgeInsets.symmetric(vertical: 4),
                     ),
                   ),
@@ -5947,12 +6107,12 @@ class _EventTimelineItem extends StatelessWidget {
               margin: EdgeInsets.only(bottom: isLast ? 0 : 12),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: _refSurface,
+                color: context.appColors.surface,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: _refBorder),
+                border: Border.all(color: context.appColors.borderSoft),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.02),
+                    color: context.appColors.shadow.withValues(alpha: 0.02),
                     blurRadius: 4,
                     offset: const Offset(0, 1),
                   ),
@@ -5969,7 +6129,7 @@ class _EventTimelineItem extends StatelessWidget {
                           event.eventLabel,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w700,
-                            color: _refText,
+                            color: context.appColors.textPrimary,
                             fontSize: 13,
                           ),
                           maxLines: 1,
@@ -5980,7 +6140,7 @@ class _EventTimelineItem extends StatelessWidget {
                       Text(
                         dateFormat.format(event.occurredAt.toLocal()),
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: _refMuted,
+                          color: context.appColors.textSecondary,
                           fontSize: 11.5,
                           fontWeight: FontWeight.w500,
                         ),
@@ -5994,7 +6154,9 @@ class _EventTimelineItem extends StatelessWidget {
                       event.description!,
                       style: TextStyle(
                         fontSize: 12,
-                        color: _refText.withValues(alpha: 0.8),
+                        color: context.appColors.textPrimary.withValues(
+                          alpha: 0.8,
+                        ),
                         height: 1.25,
                       ),
                     ),
@@ -6037,26 +6199,26 @@ class _EventTimelineItem extends StatelessWidget {
     }
   }
 
-  Color _eventColor(String type) {
+  Color _eventColor(String type, AppThemeColors colors) {
     switch (type.toUpperCase()) {
       case 'ONLINE':
-        return const Color(0xFF16A34A);
+        return colors.success;
       case 'OFFLINE':
-        return const Color(0xFF64748B);
+        return colors.textSecondary;
       case 'MOVING':
       case 'MOVEMENT_STARTED':
-        return const Color(0xFF1677FF);
+        return colors.primary;
       case 'IDLE':
       case 'MOVEMENT_STOPPED':
-        return const Color(0xFFD97706);
+        return colors.warning;
       case 'GPS_LOST':
       case 'GEOFENCE_EXIT':
       case 'ERROR':
-        return const Color(0xFFDC2626);
+        return colors.danger;
       case 'GPS_RESTORED':
-        return const Color(0xFF16A34A);
+        return colors.success;
       default:
-        return const Color(0xFF64748B);
+        return colors.textSecondary;
     }
   }
 }
@@ -6104,7 +6266,7 @@ class _ShareLocationInlineButton extends StatelessWidget {
         height: 40,
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
-          color: _refPrimaryBlue,
+          color: context.appColors.primary,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
@@ -6114,7 +6276,7 @@ class _ShareLocationInlineButton extends StatelessWidget {
             const Icon(
               Icons.share_location_rounded,
               size: 16,
-              color: Colors.white,
+              color: AppPalette.onAccent,
             ),
             const SizedBox(width: 6),
             Flexible(
@@ -6123,7 +6285,7 @@ class _ShareLocationInlineButton extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.labelMedium?.copyWith(
-                  color: Colors.white,
+                  color: AppPalette.onAccent,
                   fontWeight: FontWeight.w700,
                 ),
               ),

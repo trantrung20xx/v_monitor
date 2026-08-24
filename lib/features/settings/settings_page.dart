@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/config/map_tile_providers.dart';
+import '../../core/theme/app_theme_colors.dart';
 import '../../core/widgets/app_menu.dart';
 import '../../data/models/user_model.dart';
 import '../../data/models/user_settings_model.dart';
@@ -952,7 +953,7 @@ class _SoftwareBrandPanel extends StatelessWidget {
       width: 88,
       height: 88,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.appColors.surface,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: colors.outlineVariant),
         boxShadow: [

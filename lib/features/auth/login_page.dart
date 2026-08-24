@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/theme/app_theme_colors.dart';
 import 'auth_cubit.dart';
 import 'auth_state.dart';
 
@@ -36,11 +37,12 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return BlocBuilder<AuthCubit, AuthState>(
       builder: (context, state) {
+        final appColors = context.appColors;
         final isSubmitting = state.status == AuthStatus.authenticating;
         final serverUnavailable = state.status == AuthStatus.serverUnavailable;
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF4F7FA),
+          backgroundColor: appColors.background,
           body: SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -49,7 +51,7 @@ class _LoginPageState extends State<LoginPage> {
                   constraints: const BoxConstraints(maxWidth: 420),
                   child: Card(
                     elevation: 8,
-                    shadowColor: Colors.black.withValues(alpha: 0.08),
+                    shadowColor: appColors.shadow.withValues(alpha: 0.08),
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(32, 32, 32, 28),
                       child: AutofillGroup(
@@ -63,11 +65,9 @@ class _LoginPageState extends State<LoginPage> {
                                   width: 68,
                                   height: 68,
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
+                                    color: appColors.surface,
                                     borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: const Color(0xFFE2E8F0),
-                                    ),
+                                    border: Border.all(color: appColors.border),
                                   ),
                                   clipBehavior: Clip.antiAlias,
                                   child: Transform.scale(
@@ -87,7 +87,7 @@ class _LoginPageState extends State<LoginPage> {
                                 style: Theme.of(context).textTheme.headlineSmall
                                     ?.copyWith(
                                       fontWeight: FontWeight.w800,
-                                      color: const Color(0xFF17212B),
+                                      color: appColors.textPrimary,
                                     ),
                               ),
                               const SizedBox(height: 6),
@@ -95,7 +95,7 @@ class _LoginPageState extends State<LoginPage> {
                                 'Giám sát thiết bị nội bộ doanh nghiệp',
                                 textAlign: TextAlign.center,
                                 style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(color: const Color(0xFF66727D)),
+                                    ?.copyWith(color: appColors.textSecondary),
                               ),
                               const SizedBox(height: 28),
                               TextFormField(
@@ -158,16 +158,14 @@ class _LoginPageState extends State<LoginPage> {
                                 Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: const Color(
-                                      0xFFDC2626,
-                                    ).withValues(alpha: 0.08),
+                                    color: appColors.dangerSoft,
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
                                     state.message!,
                                     key: const Key('login-message'),
-                                    style: const TextStyle(
-                                      color: Color(0xFFB91C1C),
+                                    style: TextStyle(
+                                      color: appColors.dangerStrong,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -195,17 +193,17 @@ class _LoginPageState extends State<LoginPage> {
                                           height: 22,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2.4,
-                                            color: Colors.white,
+                                            color: AppPalette.onAccent,
                                           ),
                                         )
                                       : const Text('Đăng nhập'),
                                 ),
                               const SizedBox(height: 18),
-                              const Text(
+                              Text(
                                 'Tài khoản do quản trị viên doanh nghiệp cấp.',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
-                                  color: Color(0xFF7A8793),
+                                  color: appColors.textMuted,
                                   fontSize: 12,
                                 ),
                               ),
@@ -230,9 +228,9 @@ class AuthCheckingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Color(0xFFF4F7FA),
-      body: Center(
+    return Scaffold(
+      backgroundColor: context.appColors.background,
+      body: const Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/theme/app_theme_colors.dart';
 import 'auth_cubit.dart';
 
 class ChangePasswordDialog extends StatefulWidget {
@@ -100,7 +101,7 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                   alignment: Alignment.centerLeft,
                   child: Text(
                     _error!,
-                    style: const TextStyle(color: Color(0xFFB91C1C)),
+                    style: TextStyle(color: context.appColors.dangerStrong),
                   ),
                 ),
               ],
@@ -122,7 +123,7 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                   height: 18,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: Colors.white,
+                    color: AppPalette.onAccent,
                   ),
                 )
               : const Text('Đổi mật khẩu'),

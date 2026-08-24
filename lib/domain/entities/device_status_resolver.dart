@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_theme_colors.dart';
+
 enum ConnectivityStatus { online, offline }
 
 enum DataFreshnessStatus { fresh, stale, unknown }
@@ -112,28 +114,28 @@ class DeviceStatusResolver {
     }
 
     var label = 'Không xác định';
-    Color color = Colors.grey;
+    Color color = AppPalette.materialGrey;
 
     if (connectivity == ConnectivityStatus.offline) {
       label = 'Ngoại tuyến';
-      color = Colors.grey;
+      color = AppPalette.materialGrey;
     } else if (freshness == DataFreshnessStatus.stale) {
       label = 'Mất tín hiệu GPS';
-      color = Colors.redAccent;
+      color = AppPalette.materialRedAccent;
     } else if (movement == MovementStatus.moving) {
       label = 'Đang di chuyển';
-      color = Colors.blue;
+      color = AppPalette.materialBlue;
     } else if (movement == MovementStatus.stopped) {
       label = 'Đang dừng';
-      color = Colors.orange;
+      color = AppPalette.materialOrange;
     } else if (connectivity == ConnectivityStatus.online) {
       label = 'Trực tuyến';
-      color = Colors.green;
+      color = AppPalette.materialGreen;
     }
 
     if (activity == ActivityStatus.inactive) {
       label = 'Không hoạt động';
-      color = Colors.grey.shade600;
+      color = AppPalette.materialGrey600;
     }
 
     return ResolvedDeviceStatus(

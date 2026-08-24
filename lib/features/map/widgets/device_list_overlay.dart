@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/theme/app_theme_colors.dart';
 import '../../../core/utils/device_formatters.dart';
 import '../../../core/widgets/device_icon.dart';
 import '../../../data/models/device_model.dart';
@@ -38,12 +39,6 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
   DeviceFilter _statusFilter = DeviceFilter.all;
   final TextEditingController _searchController = TextEditingController();
 
-  static const Color _primaryBlue = Color(0xFF1677FF);
-  static const Color _textMain = Color(0xFF0F172A);
-  static const Color _textMuted = Color(0xFF64748B);
-  static const Color _borderColor = Color(0xFFE2E8F0);
-  static const Color _bgSurface = Color(0xFFF8FAFC);
-
   @override
   void dispose() {
     _searchController.dispose();
@@ -52,6 +47,7 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
 
   @override
   Widget build(BuildContext context) {
+    final appColors = context.appColors;
     final filteredDevices = DeviceQueryFilter.filter(
       widget.devices,
       query: _searchQuery,
@@ -96,16 +92,14 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
     return Container(
       width: panelWidth,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: appColors.surface,
         borderRadius: isSheet
             ? const BorderRadius.vertical(top: Radius.circular(18))
             : BorderRadius.circular(14),
-        border: isSheet ? null : Border.all(color: _borderColor),
+        border: isSheet ? null : Border.all(color: appColors.border),
         boxShadow: [
           BoxShadow(
-            color: const Color(
-              0xFF0F172A,
-            ).withValues(alpha: isSheet ? 0.08 : 0.12),
+            color: appColors.shadow.withValues(alpha: isSheet ? 0.08 : 0.12),
             blurRadius: isSheet ? 16 : 20,
             offset: isSheet ? const Offset(0, -3) : const Offset(0, 6),
           ),
@@ -123,7 +117,7 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
                 width: 38,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFCBD5E1),
+                  color: appColors.textDisabled,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -134,32 +128,32 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
           // ─── Header: Tiêu đề + Đếm số lượng + Nút đóng ───
           Container(
             padding: EdgeInsets.fromLTRB(12, isSheet ? 4 : 10, 8, 8),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: _borderColor)),
+            decoration: BoxDecoration(
+              color: appColors.surface,
+              border: Border(bottom: BorderSide(color: appColors.border)),
             ),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(5),
                   decoration: BoxDecoration(
-                    color: _primaryBlue.withValues(alpha: 0.1),
+                    color: appColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.devices_rounded,
                     size: 15,
-                    color: _primaryBlue,
+                    color: appColors.primary,
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: Text(
                     'Thiết bị trên bản đồ',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      color: _textMain,
+                      color: appColors.textPrimary,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -171,16 +165,16 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: _bgSurface,
+                    color: appColors.surfaceSubtle,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: _borderColor),
+                    border: Border.all(color: appColors.border),
                   ),
                   child: Text(
                     '${filteredDevices.length}/${widget.devices.length}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: _textMain,
+                      color: appColors.textPrimary,
                     ),
                   ),
                 ),
@@ -207,33 +201,33 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
             child: Container(
               height: 34,
               decoration: BoxDecoration(
-                color: _bgSurface,
+                color: appColors.surfaceSubtle,
                 borderRadius: BorderRadius.circular(7),
-                border: Border.all(color: _borderColor),
+                border: Border.all(color: appColors.border),
               ),
               child: Row(
                 children: [
-                  const Padding(
-                    padding: EdgeInsets.only(left: 8, right: 6),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8, right: 6),
                     child: Icon(
                       Icons.search_rounded,
                       size: 15,
-                      color: _textMuted,
+                      color: appColors.textSecondary,
                     ),
                   ),
                   Expanded(
                     child: TextField(
                       controller: _searchController,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: _textMain,
+                        color: appColors.textPrimary,
                         fontWeight: FontWeight.w500,
                       ),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: 'Tìm theo tên, mã, loại...',
                         hintStyle: TextStyle(
                           fontSize: 11.5,
-                          color: _textMuted,
+                          color: appColors.textSecondary,
                           fontWeight: FontWeight.w400,
                         ),
                         border: InputBorder.none,
@@ -256,12 +250,12 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
                           _searchController.clear();
                         });
                       },
-                      child: const Padding(
-                        padding: EdgeInsets.all(5),
+                      child: Padding(
+                        padding: const EdgeInsets.all(5),
                         child: Icon(
                           Icons.close_rounded,
                           size: 14,
-                          color: _textMuted,
+                          color: appColors.textSecondary,
                         ),
                       ),
                     ),
@@ -287,7 +281,7 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
               });
             },
           ),
-          const Divider(height: 1, color: _borderColor),
+          Divider(height: 1, color: appColors.border),
 
           // ─── Danh sách thiết bị (Cuộn mượt mà) ───
           Expanded(
@@ -300,30 +294,33 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
                         children: [
                           Container(
                             padding: const EdgeInsets.all(10),
-                            decoration: const BoxDecoration(
-                              color: _bgSurface,
+                            decoration: BoxDecoration(
+                              color: appColors.surfaceSubtle,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.search_off_rounded,
                               size: 28,
-                              color: _textMuted,
+                              color: appColors.textSecondary,
                             ),
                           ),
                           const SizedBox(height: 8),
-                          const Text(
+                          Text(
                             'Không tìm thấy thiết bị phù hợp',
                             style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w600,
-                              color: _textMain,
+                              color: appColors.textPrimary,
                             ),
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 3),
-                          const Text(
+                          Text(
                             'Thử đổi từ khóa hoặc bộ lọc',
-                            style: TextStyle(fontSize: 11, color: _textMuted),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: appColors.textSecondary,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                         ],
@@ -375,6 +372,7 @@ class _OverlayFilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appColors = context.appColors;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.fromLTRB(8, 3, 8, 6),
@@ -396,13 +394,11 @@ class _OverlayFilterBar extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? const Color(0xFF1677FF).withValues(alpha: 0.1)
-                      : const Color(0xFFF8FAFC),
+                      ? appColors.primary.withValues(alpha: 0.1)
+                      : appColors.surfaceSubtle,
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
-                    color: isSelected
-                        ? const Color(0xFF1677FF)
-                        : const Color(0xFFE2E8F0),
+                    color: isSelected ? appColors.primary : appColors.border,
                     width: isSelected ? 1.2 : 1.0,
                   ),
                 ),
@@ -417,8 +413,8 @@ class _OverlayFilterBar extends StatelessWidget {
                             ? FontWeight.w700
                             : FontWeight.w500,
                         color: isSelected
-                            ? const Color(0xFF1677FF)
-                            : const Color(0xFF475569),
+                            ? appColors.primary
+                            : appColors.textSecondary,
                       ),
                     ),
                     const SizedBox(width: 3),
@@ -428,8 +424,8 @@ class _OverlayFilterBar extends StatelessWidget {
                         fontSize: 9.5,
                         fontWeight: FontWeight.w600,
                         color: isSelected
-                            ? const Color(0xFF1677FF)
-                            : const Color(0xFF94A3B8),
+                            ? appColors.primary
+                            : appColors.textMuted,
                       ),
                     ),
                   ],
@@ -462,12 +458,9 @@ class _DeviceMapCard extends StatelessWidget {
   final String? address;
   final VoidCallback onTap;
 
-  static const Color _textMain = Color(0xFF0F172A);
-  static const Color _textMuted = Color(0xFF64748B);
-  static const Color _borderColor = Color(0xFFE2E8F0);
-
   @override
   Widget build(BuildContext context) {
+    final appColors = context.appColors;
     final status = DeviceStatusResolver.resolve(
       isOnline: device.isOnline,
       lastSeenAt: device.lastSeenAt,
@@ -494,15 +487,15 @@ class _DeviceMapCard extends StatelessWidget {
     final IconData badgeIcon;
 
     if (!isOnline) {
-      badgeColor = const Color(0xFF64748B);
+      badgeColor = appColors.offline;
       badgeText = 'Ngoại tuyến';
       badgeIcon = Icons.power_settings_new_rounded;
     } else if (isStale) {
-      badgeColor = const Color(0xFFDC2626);
+      badgeColor = appColors.danger;
       badgeText = 'Mất GPS';
       badgeIcon = Icons.warning_amber_rounded;
     } else if (isMoving) {
-      badgeColor = const Color(0xFF1677FF);
+      badgeColor = appColors.primary;
       final speedText = DeviceFormatters.speedForStatus(
         device.currentSpeedMps,
         status: status,
@@ -510,11 +503,11 @@ class _DeviceMapCard extends StatelessWidget {
       badgeText = speedText;
       badgeIcon = Icons.navigation_rounded;
     } else if (isStopped) {
-      badgeColor = const Color(0xFFD97706);
+      badgeColor = appColors.warning;
       badgeText = 'Đang dừng';
       badgeIcon = Icons.pause_circle_rounded;
     } else {
-      badgeColor = const Color(0xFF16A34A);
+      badgeColor = appColors.success;
       badgeText = 'Trực tuyến';
       badgeIcon = Icons.check_circle_outline_rounded;
     }
@@ -532,19 +525,19 @@ class _DeviceMapCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 5),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: appColors.surface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _borderColor),
+        border: Border.all(color: appColors.border),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.02),
+            color: appColors.shadow.withValues(alpha: 0.02),
             blurRadius: 3,
             offset: const Offset(0, 1),
           ),
         ],
       ),
       child: Material(
-        color: Colors.transparent,
+        color: AppPalette.transparent,
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(8),
@@ -578,10 +571,10 @@ class _DeviceMapCard extends StatelessWidget {
                         children: [
                           Text(
                             displayName,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w700,
-                              color: _textMain,
+                              color: appColors.textPrimary,
                               height: 1.15,
                             ),
                             maxLines: 1,
@@ -590,10 +583,10 @@ class _DeviceMapCard extends StatelessWidget {
                           const SizedBox(height: 1),
                           Text(
                             subIdentity,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w500,
-                              color: _textMuted,
+                              color: appColors.textSecondary,
                               height: 1.1,
                             ),
                             maxLines: 1,
@@ -636,25 +629,25 @@ class _DeviceMapCard extends StatelessWidget {
                 ),
 
                 const SizedBox(height: 5),
-                const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                Divider(height: 1, color: appColors.surfaceMuted),
                 const SizedBox(height: 4),
 
                 // ── Hàng 2: Vị trí & Thời gian cập nhật + Nút chi tiết ──
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.place_outlined,
                       size: 11.5,
-                      color: _textMuted,
+                      color: appColors.textSecondary,
                     ),
                     const SizedBox(width: 2.5),
                     Expanded(
                       child: Text(
                         locationLine1,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10.5,
-                          color: Color(0xFF334155),
+                          color: appColors.textPrimary,
                           fontWeight: FontWeight.w500,
                         ),
                         maxLines: 1,
@@ -670,7 +663,9 @@ class _DeviceMapCard extends StatelessWidget {
                               ? Icons.warning_amber_rounded
                               : Icons.schedule_rounded,
                           size: 10.5,
-                          color: isStale ? const Color(0xFFDC2626) : _textMuted,
+                          color: isStale
+                              ? appColors.danger
+                              : appColors.textSecondary,
                         ),
                         const SizedBox(width: 2.5),
                         Text(
@@ -681,8 +676,8 @@ class _DeviceMapCard extends StatelessWidget {
                                 ? FontWeight.w700
                                 : FontWeight.w500,
                             color: isStale
-                                ? const Color(0xFFDC2626)
-                                : _textMuted,
+                                ? appColors.danger
+                                : appColors.textSecondary,
                           ),
                         ),
                       ],
@@ -695,12 +690,12 @@ class _DeviceMapCard extends StatelessWidget {
                         'device-detail',
                         pathParameters: {'id': device.id},
                       ),
-                      child: const Padding(
-                        padding: EdgeInsets.all(1.5),
+                      child: Padding(
+                        padding: const EdgeInsets.all(1.5),
                         child: Icon(
                           Icons.chevron_right_rounded,
                           size: 15,
-                          color: _textMuted,
+                          color: appColors.textSecondary,
                         ),
                       ),
                     ),

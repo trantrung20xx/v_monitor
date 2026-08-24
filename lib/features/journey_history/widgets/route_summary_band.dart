@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_theme_colors.dart';
 import '../../../core/utils/device_formatters.dart';
 import '../journey_history_state.dart';
 
@@ -10,36 +11,38 @@ class RouteSummaryBand extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final appColors = context.appColors;
 
     final items = [
       _SummaryItem(
         icon: Icons.route_rounded,
         label: 'Tổng quãng đường',
         value: DeviceFormatters.distance(state.totalDistanceM),
-        color: const Color(0xFF0284C7),
+        color: appColors.primaryStrong,
       ),
       _SummaryItem(
         icon: Icons.navigation_rounded,
         label: 'Thời gian di chuyển',
         value: DeviceFormatters.secondsDuration(state.movingDurationS),
-        color: const Color(0xFF16A34A),
+        color: appColors.success,
       ),
       _SummaryItem(
         icon: Icons.pause_circle_rounded,
         label: 'Thời gian dừng',
         value: DeviceFormatters.secondsDuration(state.stoppedDurationS),
-        color: const Color(0xFFD97706),
+        color: appColors.warning,
       ),
       _SummaryItem(
         icon: Icons.speed_rounded,
         label: 'Tốc độ tối đa',
         value: DeviceFormatters.speedMps(state.maxSpeedMps),
-        color: const Color(0xFFDC2626),
+        color: appColors.danger,
       ),
       _SummaryItem(
         icon: Icons.scatter_plot_rounded,
         label: 'Số mẫu GPS',
-        value: '${state.validSamples.length} điểm${state.segments.length > 1 ? ' (${state.segments.length} đoạn)' : ''}',
+        value:
+            '${state.validSamples.length} điểm${state.segments.length > 1 ? ' (${state.segments.length} đoạn)' : ''}',
         color: theme.colorScheme.primary,
       ),
     ];
@@ -54,11 +57,16 @@ class RouteSummaryBand extends StatelessWidget {
               for (var i = 0; i < items.length; i++) ...[
                 if (i > 0) const SizedBox(width: 10),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: items[i].color.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: items[i].color.withValues(alpha: 0.2)),
+                    border: Border.all(
+                      color: items[i].color.withValues(alpha: 0.2),
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/theme/app_theme_colors.dart';
 import '../../../core/widgets/app_menu.dart';
 
 /// Định dạng thời lượng ngắt quãng thân thiện với người dùng (tiếng Việt).
@@ -27,7 +28,8 @@ Future<Duration?> showCustomGapThresholdDialog(
 }) {
   return showDialog<Duration>(
     context: context,
-    builder: (ctx) => CustomGapThresholdDialog(initialDuration: initialDuration),
+    builder: (ctx) =>
+        CustomGapThresholdDialog(initialDuration: initialDuration),
   );
 }
 
@@ -36,25 +38,17 @@ Future<Duration?> showCustomGapThresholdDialog(
 class CustomGapThresholdDialog extends StatefulWidget {
   final Duration initialDuration;
 
-  const CustomGapThresholdDialog({
-    super.key,
-    required this.initialDuration,
-  });
+  const CustomGapThresholdDialog({super.key, required this.initialDuration});
 
   @override
-  State<CustomGapThresholdDialog> createState() => _CustomGapThresholdDialogState();
+  State<CustomGapThresholdDialog> createState() =>
+      _CustomGapThresholdDialogState();
 }
 
 class _CustomGapThresholdDialogState extends State<CustomGapThresholdDialog> {
   late TextEditingController _valueController;
   late String _unit; // 'minutes' hoặc 'hours'
   String? _errorMessage;
-
-  static const Color _refPrimaryBlue = Color(0xFF2563EB);
-  static const Color _refText = Color(0xFF0F172A);
-  static const Color _refMuted = Color(0xFF64748B);
-  static const Color _refBorder = Color(0xFFE2E8F0);
-  static const Color _refCardBg = Color(0xFFF8FAFC);
 
   @override
   void initState() {
@@ -107,7 +101,8 @@ class _CustomGapThresholdDialogState extends State<CustomGapThresholdDialog> {
     final mins = _parsedMinutes;
     if (mins == null || mins < 1 || mins > 10080) {
       setState(() {
-        _errorMessage = 'Vui lòng nhập khoảng thời gian hợp lệ (từ 1 phút đến 7 ngày).';
+        _errorMessage =
+            'Vui lòng nhập khoảng thời gian hợp lệ (từ 1 phút đến 7 ngày).';
       });
       return;
     }
@@ -116,13 +111,12 @@ class _CustomGapThresholdDialogState extends State<CustomGapThresholdDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final appColors = context.appColors;
     final mins = _parsedMinutes;
     final valid = _isValid;
 
     return AlertDialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       contentPadding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
       titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       title: Row(
@@ -130,23 +124,23 @@ class _CustomGapThresholdDialogState extends State<CustomGapThresholdDialog> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: _refPrimaryBlue.withValues(alpha: 0.1),
+              color: appColors.primaryStrong.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.timer_outlined,
               size: 20,
-              color: _refPrimaryBlue,
+              color: appColors.primaryStrong,
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Text(
               'Tùy chọn ngưỡng ngắt quãng',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: _refText,
+                color: appColors.textPrimary,
               ),
             ),
           ),
@@ -160,23 +154,23 @@ class _CustomGapThresholdDialogState extends State<CustomGapThresholdDialog> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'Khoảng thời gian gián đoạn dữ liệu GPS tối thiểu để chia tách chặng di chuyển hoặc tự động nhảy cóc khi xem lại hành trình.',
                 style: TextStyle(
                   fontSize: 12,
-                  color: _refMuted,
+                  color: appColors.textSecondary,
                   height: 1.4,
                 ),
               ),
               const SizedBox(height: 16),
 
               // Gợi ý nhanh
-              const Text(
+              Text(
                 'Gợi ý nhanh:',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: _refText,
+                  color: appColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -198,12 +192,12 @@ class _CustomGapThresholdDialogState extends State<CustomGapThresholdDialog> {
               const SizedBox(height: 16),
 
               // Ô nhập liệu tùy ý
-              const Text(
+              Text(
                 'Nhập mốc thời gian tùy ý:',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: _refText,
+                  color: appColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -220,31 +214,37 @@ class _CustomGapThresholdDialogState extends State<CustomGapThresholdDialog> {
                         FilteringTextInputFormatter.digitsOnly,
                         LengthLimitingTextInputFormatter(5),
                       ],
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: _refText,
+                        color: appColors.textPrimary,
                       ),
                       decoration: InputDecoration(
                         hintText: 'Nhập số...',
-                        hintStyle: const TextStyle(fontSize: 12, color: _refMuted),
+                        hintStyle: TextStyle(
+                          fontSize: 12,
+                          color: appColors.textSecondary,
+                        ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 10,
                         ),
                         filled: true,
-                        fillColor: _refCardBg,
+                        fillColor: appColors.surfaceSubtle,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: _refBorder),
+                          borderSide: BorderSide(color: appColors.border),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: _refBorder),
+                          borderSide: BorderSide(color: appColors.border),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: _refPrimaryBlue, width: 1.5),
+                          borderSide: BorderSide(
+                            color: appColors.primaryStrong,
+                            width: 1.5,
+                          ),
                         ),
                       ),
                       onChanged: (_) {
@@ -263,9 +263,9 @@ class _CustomGapThresholdDialogState extends State<CustomGapThresholdDialog> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       decoration: BoxDecoration(
-                        color: _refCardBg,
+                        color: appColors.surfaceSubtle,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: _refBorder),
+                        border: Border.all(color: appColors.border),
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
@@ -276,10 +276,10 @@ class _CustomGapThresholdDialogState extends State<CustomGapThresholdDialog> {
                           menuMaxHeight: AppMenuStyle.dropdownMaxHeight(
                             context,
                           ),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
-                            color: _refText,
+                            color: appColors.textPrimary,
                           ),
                           items: const [
                             DropdownMenuItem(
@@ -310,9 +310,9 @@ class _CustomGapThresholdDialogState extends State<CustomGapThresholdDialog> {
                 const SizedBox(height: 8),
                 Text(
                   _errorMessage!,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11.5,
-                    color: Colors.redAccent,
+                    color: appColors.danger,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -325,22 +325,26 @@ class _CustomGapThresholdDialogState extends State<CustomGapThresholdDialog> {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: valid
-                      ? _refPrimaryBlue.withValues(alpha: 0.06)
-                      : Colors.orange.withValues(alpha: 0.08),
+                      ? appColors.primaryStrong.withValues(alpha: 0.06)
+                      : appColors.warning.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: valid
-                        ? _refPrimaryBlue.withValues(alpha: 0.2)
-                        : Colors.orange.withValues(alpha: 0.3),
+                        ? appColors.primaryStrong.withValues(alpha: 0.2)
+                        : appColors.warning.withValues(alpha: 0.3),
                   ),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(
-                      valid ? Icons.info_outline_rounded : Icons.warning_amber_rounded,
+                      valid
+                          ? Icons.info_outline_rounded
+                          : Icons.warning_amber_rounded,
                       size: 16,
-                      color: valid ? _refPrimaryBlue : Colors.orange[800],
+                      color: valid
+                          ? appColors.primaryStrong
+                          : appColors.warningStrong,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -351,7 +355,9 @@ class _CustomGapThresholdDialogState extends State<CustomGapThresholdDialog> {
                         style: TextStyle(
                           fontSize: 11.5,
                           fontWeight: valid ? FontWeight.w600 : FontWeight.w500,
-                          color: valid ? _refPrimaryBlue : Colors.orange[900],
+                          color: valid
+                              ? appColors.primaryStrong
+                              : appColors.warningStrong,
                           height: 1.3,
                         ),
                       ),
@@ -370,7 +376,7 @@ class _CustomGapThresholdDialogState extends State<CustomGapThresholdDialog> {
         ),
         FilledButton(
           style: FilledButton.styleFrom(
-            backgroundColor: _refPrimaryBlue,
+            backgroundColor: appColors.primaryStrong,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
@@ -383,7 +389,9 @@ class _CustomGapThresholdDialogState extends State<CustomGapThresholdDialog> {
   }
 
   Widget _buildPresetChip(int value, String unit, String label) {
-    final isSelected = _unit == unit && _valueController.text.trim() == value.toString();
+    final appColors = context.appColors;
+    final isSelected =
+        _unit == unit && _valueController.text.trim() == value.toString();
 
     return ActionChip(
       label: Text(
@@ -391,12 +399,14 @@ class _CustomGapThresholdDialogState extends State<CustomGapThresholdDialog> {
         style: TextStyle(
           fontSize: 11,
           fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-          color: isSelected ? _refPrimaryBlue : _refText,
+          color: isSelected ? appColors.primaryStrong : appColors.textPrimary,
         ),
       ),
-      backgroundColor: isSelected ? _refPrimaryBlue.withValues(alpha: 0.1) : _refCardBg,
+      backgroundColor: isSelected
+          ? appColors.primaryStrong.withValues(alpha: 0.1)
+          : appColors.surfaceSubtle,
       side: BorderSide(
-        color: isSelected ? _refPrimaryBlue : _refBorder,
+        color: isSelected ? appColors.primaryStrong : appColors.border,
       ),
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
       visualDensity: VisualDensity.compact,

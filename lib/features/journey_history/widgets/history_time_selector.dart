@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/theme/app_theme_colors.dart';
 import '../../../core/utils/device_formatters.dart';
 import '../../../core/widgets/app_menu.dart';
 import '../../../data/models/device_model.dart';
@@ -99,7 +100,7 @@ class HistoryTimeSelector extends StatelessWidget {
                         height: 16,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: AppPalette.onAccent,
                         ),
                       )
                     : const Icon(Icons.search_rounded, size: 18),
@@ -154,7 +155,7 @@ class HistoryTimeSelector extends StatelessWidget {
                     height: 16,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.white,
+                      color: AppPalette.onAccent,
                     ),
                   )
                 : const Icon(Icons.search_rounded, size: 18),

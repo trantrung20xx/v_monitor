@@ -4,6 +4,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 
+import '../../../core/theme/app_theme_colors.dart';
 import '../../../core/utils/device_formatters.dart';
 import '../../../core/widgets/device_icon.dart';
 import '../../../data/models/location_model.dart';
@@ -107,7 +108,7 @@ class HistoryMapLayers {
       polylines.add(
         Polyline(
           points: seg.polylinePoints,
-          color: Colors.white.withValues(alpha: 0.94),
+          color: AppPalette.onAccent.withValues(alpha: 0.94),
           strokeWidth: casingWidth,
           strokeCap: StrokeCap.round,
           strokeJoin: StrokeJoin.round,
@@ -134,6 +135,7 @@ class HistoryMapLayers {
   static List<Polyline> buildGapPolylines({
     required List<RouteSegment> segments,
     double currentZoom = 14.0,
+    Color? gapColor,
   }) {
     if (segments.length < 2) return const [];
 
@@ -154,7 +156,9 @@ class HistoryMapLayers {
             ),
             LatLng(next.samples.first.latitude, next.samples.first.longitude),
           ],
-          color: const Color(0xFF64748B).withValues(alpha: 0.72),
+          color: (gapColor ?? AppThemeColors.light.textSecondary).withValues(
+            alpha: 0.72,
+          ),
           strokeWidth: gapWidth,
           pattern: StrokePattern.dashed(segments: const [7, 7]),
           strokeCap: StrokeCap.round,
@@ -527,6 +531,7 @@ class HistoryMapLayers {
     required ValueChanged<LocationModel> onPointSelected,
     Map<String, String> nodeAddresses = const {},
     bool showLabels = true,
+    AppThemeColors colors = AppThemeColors.light,
   }) {
     if (validSamples.isEmpty) return const [];
 
@@ -553,7 +558,7 @@ class HistoryMapLayers {
             title: 'BẮT ĐẦU',
             dateTimeText: dateTimeFormat.format(startDt),
             addressText: _nodeAddress(start, nodeAddresses),
-            color: const Color(0xFF16A34A),
+            color: colors.success,
             icon: Icons.play_arrow_rounded,
             showLabel: showLabels,
           ),
@@ -579,7 +584,7 @@ class HistoryMapLayers {
               title: 'KẾT THÚC',
               dateTimeText: dateTimeFormat.format(endDt),
               addressText: _nodeAddress(end, nodeAddresses),
-              color: const Color(0xFFDC2626),
+              color: colors.danger,
               icon: Icons.flag_rounded,
               showLabel: showLabels,
             ),
@@ -607,6 +612,7 @@ class HistoryMapLayers {
               dateTimeText: dateTimeFormat.format(stopDt),
               addressText: _nodeAddress(stop.sample, nodeAddresses),
               showLabel: showLabels,
+              colors: colors,
             ),
           ),
         ),
@@ -629,6 +635,7 @@ class HistoryMapLayers {
               dateTimeText: dateTimeFormat.format(sample.measuredAt.toLocal()),
               addressText: _nodeAddress(sample, nodeAddresses),
               showLabel: showLabels,
+              colors: colors,
             ),
           ),
         ),
@@ -650,29 +657,30 @@ class HistoryMapLayers {
     required String dateTimeText,
     required String addressText,
     required bool showLabel,
+    required AppThemeColors colors,
   }) {
     return _buildRouteNodeMarker(
       showLabel: showLabel,
-      bubbleFillColor: Colors.white,
-      bubbleBorderColor: const Color(0xFF93C5FD),
-      nodeColor: const Color(0xFF2563EB),
+      bubbleFillColor: colors.surface,
+      bubbleBorderColor: colors.primaryBorder,
+      nodeColor: colors.primaryStrong,
       nodeChild: Container(
         width: 5,
         height: 5,
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppPalette.onAccent,
           shape: BoxShape.circle,
         ),
       ),
       label: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: colors.surface,
           borderRadius: BorderRadius.circular(9),
-          border: Border.all(color: const Color(0xFF93C5FD), width: 1.2),
-          boxShadow: const [
+          border: Border.all(color: colors.primaryBorder, width: 1.2),
+          boxShadow: [
             BoxShadow(
-              color: Color(0x1F000000),
+              color: colors.shadow.withValues(alpha: 0.12),
               blurRadius: 6,
               offset: Offset(0, 2),
             ),
@@ -684,8 +692,8 @@ class HistoryMapLayers {
           children: [
             Text(
               dateTimeText,
-              style: const TextStyle(
-                color: Color(0xFF1D4ED8),
+              style: TextStyle(
+                color: colors.primaryStrong,
                 fontSize: 9.5,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 0.1,
@@ -694,8 +702,8 @@ class HistoryMapLayers {
             const SizedBox(height: 2),
             Text(
               addressText,
-              style: const TextStyle(
-                color: Color(0xFF0F172A),
+              style: TextStyle(
+                color: colors.textPrimary,
                 fontSize: 9,
                 fontWeight: FontWeight.w600,
                 height: 1.2,
@@ -713,17 +721,18 @@ class HistoryMapLayers {
     required String dateTimeText,
     required String addressText,
     required bool showLabel,
+    required AppThemeColors colors,
   }) {
-    const color = Color(0xFFEA580C);
+    final color = colors.orange;
     return _buildRouteNodeMarker(
       showLabel: showLabel,
       bubbleFillColor: color,
-      bubbleBorderColor: Colors.white,
+      bubbleBorderColor: AppPalette.onAccent,
       nodeColor: color,
       nodeChild: const Text(
         'P',
         style: TextStyle(
-          color: Colors.white,
+          color: AppPalette.onAccent,
           fontSize: 8,
           fontWeight: FontWeight.w900,
           height: 1,
@@ -734,10 +743,10 @@ class HistoryMapLayers {
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.white, width: 1.5),
-          boxShadow: const [
+          border: Border.all(color: AppPalette.onAccent, width: 1.5),
+          boxShadow: [
             BoxShadow(
-              color: Colors.black26,
+              color: colors.shadow.withValues(alpha: 0.26),
               blurRadius: 6,
               offset: Offset(0, 2),
             ),
@@ -752,14 +761,14 @@ class HistoryMapLayers {
                 const Icon(
                   Icons.local_parking_rounded,
                   size: 13,
-                  color: Colors.white,
+                  color: AppPalette.onAccent,
                 ),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
                     'ĐỖ $durationText · $dateTimeText',
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: AppPalette.onAccent,
                       fontSize: 9.5,
                       fontWeight: FontWeight.w900,
                     ),
@@ -771,7 +780,7 @@ class HistoryMapLayers {
             Text(
               addressText,
               style: const TextStyle(
-                color: Colors.white,
+                color: AppPalette.onAccent,
                 fontSize: 9,
                 fontWeight: FontWeight.w600,
                 height: 1.2,
@@ -795,16 +804,16 @@ class HistoryMapLayers {
     return _buildRouteNodeMarker(
       showLabel: showLabel,
       bubbleFillColor: color,
-      bubbleBorderColor: Colors.white,
+      bubbleBorderColor: AppPalette.onAccent,
       nodeColor: color,
-      nodeChild: Icon(icon, size: 10, color: Colors.white),
+      nodeChild: Icon(icon, size: 10, color: AppPalette.onAccent),
       label: Container(
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(9),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.8),
+            color: AppPalette.onAccent.withValues(alpha: 0.8),
             width: 1.2,
           ),
           boxShadow: [
@@ -813,8 +822,8 @@ class HistoryMapLayers {
               blurRadius: 8,
               offset: const Offset(0, 2.5),
             ),
-            const BoxShadow(
-              color: Colors.black26,
+            BoxShadow(
+              color: AppPalette.shadow.withValues(alpha: 0.26),
               blurRadius: 4,
               offset: Offset(0, 1.5),
             ),
@@ -826,12 +835,12 @@ class HistoryMapLayers {
           children: [
             Row(
               children: [
-                Icon(icon, size: 12, color: Colors.white),
+                Icon(icon, size: 12, color: AppPalette.onAccent),
                 const SizedBox(width: 4),
                 Text(
                   title,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AppPalette.onAccent,
                     fontSize: 9.5,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.2,
@@ -843,7 +852,7 @@ class HistoryMapLayers {
             Text(
               dateTimeText,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.9),
+                color: AppPalette.onAccent.withValues(alpha: 0.9),
                 fontSize: 9,
                 fontWeight: FontWeight.w700,
               ),
@@ -852,7 +861,7 @@ class HistoryMapLayers {
             Text(
               addressText,
               style: const TextStyle(
-                color: Colors.white,
+                color: AppPalette.onAccent,
                 fontSize: 9,
                 fontWeight: FontWeight.w600,
                 height: 1.2,
@@ -909,9 +918,12 @@ class HistoryMapLayers {
               decoration: BoxDecoration(
                 color: nodeColor,
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-                boxShadow: const [
-                  BoxShadow(color: Colors.black26, blurRadius: 3),
+                border: Border.all(color: AppPalette.onAccent, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppPalette.shadow.withValues(alpha: 0.26),
+                    blurRadius: 3,
+                  ),
                 ],
               ),
               alignment: Alignment.center,
@@ -929,6 +941,11 @@ class HistoryMapLayers {
     required ThemeData theme,
   }) {
     if (state.currentPosition == null) return null;
+    final appColors =
+        theme.extension<AppThemeColors>() ??
+        (theme.brightness == Brightness.dark
+            ? AppThemeColors.dark
+            : AppThemeColors.light);
 
     final deviceType = state.selectedDevice?.deviceType ?? 'VEHICLE';
     final heading = state.currentHeadingDeg ?? 0.0;
@@ -945,12 +962,12 @@ class HistoryMapLayers {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: theme.colorScheme.primary,
+              color: appColors.primary,
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: Colors.white, width: 1.2),
+              border: Border.all(color: AppPalette.onAccent, width: 1.2),
               boxShadow: [
                 BoxShadow(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.28),
+                  color: appColors.primary.withValues(alpha: 0.28),
                   blurRadius: 5,
                   offset: const Offset(0, 2),
                 ),
@@ -959,7 +976,7 @@ class HistoryMapLayers {
             child: Text(
               DeviceFormatters.speedMps(speed),
               style: const TextStyle(
-                color: Colors.white,
+                color: AppPalette.onAccent,
                 fontSize: 9,
                 fontWeight: FontWeight.w800,
               ),
@@ -971,12 +988,12 @@ class HistoryMapLayers {
             width: 28,
             height: 28,
             decoration: BoxDecoration(
-              color: theme.colorScheme.primary,
+              color: appColors.primary,
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
+              border: Border.all(color: AppPalette.onAccent, width: 2),
               boxShadow: [
                 BoxShadow(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                  color: appColors.primary.withValues(alpha: 0.5),
                   blurRadius: 7,
                   spreadRadius: 1,
                 ),
@@ -986,7 +1003,7 @@ class HistoryMapLayers {
               angle: heading * (math.pi / 180.0),
               child: Icon(
                 DeviceIcon.iconFor(deviceType),
-                color: Colors.white,
+                color: AppPalette.onAccent,
                 size: 15,
               ),
             ),
@@ -1067,7 +1084,7 @@ class _RouteChevronPainter extends CustomPainter {
 
     // Vẽ bóng đổ nhẹ phía dưới
     final shadowPaint = Paint()
-      ..color = const Color(0x66000000)
+      ..color = AppPalette.shadow.withValues(alpha: 0.4)
       ..strokeWidth = strokeWidth + 0.6
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round

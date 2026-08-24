@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/theme/app_theme_colors.dart';
 import '../../../data/models/system_settings_model.dart';
 import '../settings_cubit.dart';
 
@@ -459,7 +460,7 @@ class _TrackingSavePanel extends StatelessWidget {
               height: 18,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: Colors.white,
+                color: AppPalette.onAccent,
               ),
             )
           : const Icon(Icons.save_outlined),

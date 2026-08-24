@@ -7,6 +7,7 @@ import '../features/device_detail/device_detail_page.dart';
 import '../features/map/map_view_page.dart';
 import '../features/auth/auth_cubit.dart';
 import '../features/settings/settings_page.dart';
+import '../core/theme/app_theme_colors.dart';
 import '../core/widgets/app_menu.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(
@@ -266,6 +267,7 @@ class _DesktopNavRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appColors = context.appColors;
     return Container(
       width: 88,
       decoration: BoxDecoration(
@@ -287,12 +289,12 @@ class _DesktopNavRail extends StatelessWidget {
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: appColors.surface,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFE4E9ED)),
+                border: Border.all(color: appColors.borderSoft),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF1677FF).withValues(alpha: 0.14),
+                    color: appColors.primary.withValues(alpha: 0.14),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -343,6 +345,7 @@ class _DesktopAccountMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appColors = context.appColors;
     final state = context.watch<AuthCubit>().state;
     final user = state.user;
     final displayName = user?.fullName.trim().isNotEmpty == true
@@ -399,11 +402,11 @@ class _DesktopAccountMenu extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 18,
-              backgroundColor: const Color(0xFF1677FF).withValues(alpha: 0.12),
-              child: const Icon(
+              backgroundColor: appColors.primary.withValues(alpha: 0.12),
+              child: Icon(
                 Icons.person_outline_rounded,
                 size: 20,
-                color: Color(0xFF1677FF),
+                color: appColors.primary,
               ),
             ),
             const SizedBox(height: 4),
@@ -453,12 +456,12 @@ class _NavItem extends StatelessWidget {
           decoration: BoxDecoration(
             color: isSelected
                 ? activeColor.withValues(alpha: 0.08)
-                : Colors.transparent,
+                : AppPalette.transparent,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: isSelected
                   ? activeColor.withValues(alpha: 0.25)
-                  : Colors.transparent,
+                  : AppPalette.transparent,
               width: 1,
             ),
           ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_theme_colors.dart';
+
 /// A small colored badge showing device status text + icon for accessibility.
 class StatusBadge extends StatelessWidget {
   const StatusBadge({
@@ -15,21 +17,22 @@ class StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appColors = context.appColors;
     final Color bg;
     final Color fg;
     final IconData icon;
 
     if (!isOnline) {
-      bg = Colors.grey.shade100;
-      fg = Colors.grey.shade600;
+      bg = appColors.surfaceMuted;
+      fg = appColors.offline;
       icon = Icons.wifi_off_rounded;
     } else if (isMoving) {
-      bg = Colors.blue.shade50;
-      fg = Colors.blue.shade700;
+      bg = appColors.primarySoft;
+      fg = appColors.primaryStrong;
       icon = Icons.navigation_rounded;
     } else {
-      bg = Colors.green.shade50;
-      fg = Colors.green.shade700;
+      bg = appColors.successSoft;
+      fg = appColors.successStrong;
       icon = Icons.pause_circle_rounded;
     }
 

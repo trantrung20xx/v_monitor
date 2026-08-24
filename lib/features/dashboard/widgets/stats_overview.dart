@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme_colors.dart';
 import '../../../core/widgets/stat_card.dart';
 import '../dashboard_state.dart';
 
@@ -11,42 +12,43 @@ class StatsOverview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     final cards = [
       StatCard(
         label: 'Trực tuyến',
         value: '${state.onlineCount}',
         icon: Icons.wifi_rounded,
-        color: const Color(0xFF16A34A),
+        color: colors.success,
       ),
       StatCard(
         label: 'Ngoại tuyến',
         value: '${state.offlineCount}',
         icon: Icons.wifi_off_rounded,
-        color: Colors.grey.shade600,
+        color: colors.offline,
       ),
       StatCard(
         label: 'Di chuyển',
         value: '${state.movingCount}',
         icon: Icons.navigation_rounded,
-        color: const Color(0xFF2563EB),
+        color: colors.primaryStrong,
       ),
       StatCard(
         label: 'Đang dừng',
         value: '${state.stoppedCount}',
         icon: Icons.pause_circle_rounded,
-        color: const Color(0xFFD97706),
+        color: colors.warning,
       ),
       StatCard(
         label: 'Mất tín hiệu',
         value: '${state.staleCount}',
         icon: Icons.signal_wifi_statusbar_connected_no_internet_4_rounded,
-        color: const Color(0xFFDC2626),
+        color: colors.danger,
       ),
       StatCard(
         label: 'Cần kiểm tra',
         value: '${state.attentionCount}',
         icon: Icons.warning_amber_rounded,
-        color: const Color(0xFFEA580C),
+        color: colors.orange,
       ),
     ];
 

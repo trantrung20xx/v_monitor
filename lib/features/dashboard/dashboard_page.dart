@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/theme/app_theme_colors.dart';
 import '../../data/repositories/device_repository.dart';
 import '../../data/repositories/geocoding_repository.dart';
 import '../../data/repositories/settings_repository.dart';
@@ -34,11 +35,12 @@ class _DashboardView extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<DashboardCubit, DashboardState>(
       builder: (context, state) {
+        final appColors = context.appColors;
         if (state.isLoading) {
-          return const Scaffold(
-            backgroundColor: Color(0xFFF8FAFB),
+          return Scaffold(
+            backgroundColor: appColors.surfaceSubtle,
             body: Center(
-              child: CircularProgressIndicator(color: Color(0xFF1677FF)),
+              child: CircularProgressIndicator(color: appColors.primary),
             ),
           );
         }
@@ -48,7 +50,7 @@ class _DashboardView extends StatelessWidget {
         }
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF8FAFB),
+          backgroundColor: appColors.surfaceSubtle,
           body: LayoutBuilder(
             builder: (context, constraints) {
               final isDesktop = constraints.maxWidth >= 900;
@@ -71,6 +73,7 @@ class _DesktopLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appColors = context.appColors;
     final visibleCount = DeviceQueryFilter.filter(
       state.devices,
       query: state.searchQuery,
@@ -82,67 +85,16 @@ class _DesktopLayout extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ── Left panel: Tổng quan (Section 12, 13, 14) ──────────────────────
-          // SizedBox(
-          //   width: 270,
-          //   child: Container(
-          //     decoration: BoxDecoration(
-          //       color: Colors.white,
-          //       borderRadius: BorderRadius.circular(14),
-          //       border: Border.all(color: const Color(0xFFE4E9ED), width: 1),
-          //       boxShadow: [
-          //         BoxShadow(
-          //           color: Colors.black.withValues(alpha: 0.03),
-          //           blurRadius: 10,
-          //           offset: const Offset(0, 2),
-          //         ),
-          //       ],
-          //     ),
-          //     padding: const EdgeInsets.all(16),
-          //     child: Column(
-          //       crossAxisAlignment: CrossAxisAlignment.start,
-          //       children: [
-          //         // Panel header
-          //         const Text(
-          //           'Tổng quan',
-          //           style: TextStyle(
-          //             fontSize: 18,
-          //             fontWeight: FontWeight.w700,
-          //             color: Color(0xFF18212A),
-          //           ),
-          //         ),
-          //         const SizedBox(height: 2),
-          //         Text(
-          //           '${state.totalDevices} thiết bị',
-          //           style: const TextStyle(
-          //             fontSize: 12.5,
-          //             fontWeight: FontWeight.w500,
-          //             color: Color(0xFF66727D),
-          //           ),
-          //         ),
-          //         const SizedBox(height: 14),
-          //         // Status counters
-          //         _SidebarStats(state: state),
-          //         const SizedBox(height: 12),
-          //         const Divider(height: 1, color: Color(0xFFE8ECEF)),
-          //         const SizedBox(height: 12),
-          //         // Legend
-          //         const _SidebarLegend(),
-          //       ],
-          //     ),
-          //   ),
-          // ),
-          // const SizedBox(width: 14),
           // ── Right panel: Main Device List (Section 15, 16, 17, 18, 19) ─────
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: appColors.surface,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE4E9ED), width: 1),
+                border: Border.all(color: appColors.borderSoft, width: 1),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
+                    color: appColors.shadow.withValues(alpha: 0.03),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -159,12 +111,12 @@ class _DesktopLayout extends StatelessWidget {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text(
+                          Text(
                             'Danh sách thiết bị',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF18212A),
+                              color: appColors.textPrimary,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -174,19 +126,19 @@ class _DesktopLayout extends StatelessWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF1F5F9),
+                              color: appColors.surfaceMuted,
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: const Color(0xFFE2E8F0),
+                                color: appColors.border,
                                 width: 1,
                               ),
                             ),
                             child: Text(
                               '$visibleCount/${state.totalDevices}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF475569),
+                                color: appColors.textSecondary,
                               ),
                             ),
                           ),
@@ -236,6 +188,7 @@ class _MobileLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appColors = context.appColors;
     final visibleCount = DeviceQueryFilter.filter(
       state.devices,
       query: state.searchQuery,
@@ -243,24 +196,24 @@ class _MobileLayout extends StatelessWidget {
     ).length;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFB),
+      backgroundColor: appColors.surfaceSubtle,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: appColors.surface,
         elevation: 0,
         scrolledUnderElevation: 1,
-        title: const Text(
+        title: Text(
           'Dashboard',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF18212A),
+            color: appColors.textPrimary,
           ),
         ),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: IconButton(
-              icon: const Icon(Icons.refresh_rounded, color: Color(0xFF66727D)),
+              icon: Icon(Icons.refresh_rounded, color: appColors.textSecondary),
               tooltip: 'Tải lại',
               onPressed: () => context.read<DashboardCubit>().loadDashboard(),
             ),
@@ -298,16 +251,16 @@ class _MobileLayout extends StatelessWidget {
               children: [
                 Text(
                   '$visibleCount/${state.totalDevices} thiết bị hiển thị',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF66727D),
+                    color: appColors.textSecondary,
                   ),
                 ),
               ],
             ),
           ),
-          const Divider(height: 1, color: Color(0xFFE8ECEF)),
+          Divider(height: 1, color: appColors.divider),
           // Device list
           Expanded(
             child: Padding(
@@ -334,23 +287,24 @@ class _RefreshButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appColors = context.appColors;
     return Container(
       width: 36,
       height: 36,
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: appColors.surfaceSubtle,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+        border: Border.all(color: appColors.border, width: 1),
       ),
       child: Material(
-        color: Colors.transparent,
+        color: AppPalette.transparent,
         child: InkWell(
           onTap: onPressed,
           borderRadius: BorderRadius.circular(8),
-          child: const Center(
+          child: Center(
             child: Icon(
               Icons.refresh_rounded,
-              color: Color(0xFF64748B),
+              color: appColors.textSecondary,
               size: 18,
             ),
           ),
@@ -404,19 +358,20 @@ class _SearchBarState extends State<_SearchBar> {
 
   @override
   Widget build(BuildContext context) {
+    final appColors = context.appColors;
     return Container(
       height: 36,
       decoration: BoxDecoration(
-        color: _isFocused ? Colors.white : const Color(0xFFF8FAFC),
+        color: _isFocused ? appColors.surface : appColors.surfaceSubtle,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: _isFocused ? const Color(0xFF1677FF) : const Color(0xFFE2E8F0),
+          color: _isFocused ? appColors.primary : appColors.border,
           width: 1,
         ),
         boxShadow: _isFocused
             ? [
                 BoxShadow(
-                  color: const Color(0xFF1677FF).withValues(alpha: 0.12),
+                  color: appColors.primary.withValues(alpha: 0.12),
                   blurRadius: 4,
                   offset: const Offset(0, 1),
                 ),
@@ -426,28 +381,28 @@ class _SearchBarState extends State<_SearchBar> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(left: 10, right: 6),
+          Padding(
+            padding: const EdgeInsets.only(left: 10, right: 6),
             child: Icon(
               Icons.search_rounded,
               size: 16,
-              color: Color(0xFF94A3B8),
+              color: appColors.textMuted,
             ),
           ),
           Expanded(
             child: TextField(
               controller: _controller,
               focusNode: _focusNode,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
-                color: Color(0xFF18212A),
+                color: appColors.textPrimary,
                 fontWeight: FontWeight.w500,
               ),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Tìm thiết bị, biển số, mã...',
                 hintStyle: TextStyle(
                   fontSize: 12.5,
-                  color: Color(0xFF94A3B8),
+                  color: appColors.textMuted,
                   fontWeight: FontWeight.w400,
                 ),
                 border: InputBorder.none,
@@ -470,12 +425,12 @@ class _SearchBarState extends State<_SearchBar> {
                   context.read<DashboardCubit>().setSearchQuery('');
                   setState(() {});
                 },
-                child: const Padding(
-                  padding: EdgeInsets.all(4),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
                   child: Icon(
                     Icons.close_rounded,
                     size: 15,
-                    color: Color(0xFF94A3B8),
+                    color: appColors.textMuted,
                   ),
                 ),
               ),
@@ -522,13 +477,14 @@ class _StatusFilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appColors = context.appColors;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       clipBehavior: Clip.none,
       child: Container(
         padding: const EdgeInsets.all(3),
         decoration: BoxDecoration(
-          color: const Color(0xFFF1F5F9),
+          color: appColors.surfaceMuted,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
@@ -548,12 +504,14 @@ class _StatusFilterBar extends StatelessWidget {
                   height: 30,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
-                    color: isSelected ? Colors.white : Colors.transparent,
+                    color: isSelected
+                        ? appColors.surface
+                        : AppPalette.transparent,
                     borderRadius: BorderRadius.circular(6),
                     boxShadow: isSelected
                         ? [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
+                              color: appColors.shadow.withValues(alpha: 0.05),
                               blurRadius: 4,
                               offset: const Offset(0, 1),
                             ),
@@ -572,8 +530,8 @@ class _StatusFilterBar extends StatelessWidget {
                               ? FontWeight.w600
                               : FontWeight.w500,
                           color: isSelected
-                              ? const Color(0xFF1677FF)
-                              : const Color(0xFF64748B),
+                              ? appColors.primary
+                              : appColors.textSecondary,
                         ),
                       ),
                       if (count != null) ...[
@@ -585,10 +543,8 @@ class _StatusFilterBar extends StatelessWidget {
                           ),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? const Color(
-                                    0xFF1677FF,
-                                  ).withValues(alpha: 0.12)
-                                : const Color(0xFFE2E8F0),
+                                ? appColors.primary.withValues(alpha: 0.12)
+                                : appColors.border,
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
@@ -597,8 +553,8 @@ class _StatusFilterBar extends StatelessWidget {
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                               color: isSelected
-                                  ? const Color(0xFF1677FF)
-                                  : const Color(0xFF64748B),
+                                  ? appColors.primary
+                                  : appColors.textSecondary,
                             ),
                           ),
                         ),
@@ -630,41 +586,42 @@ class _SidebarStats extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appColors = context.appColors;
     final items = [
       _StatRow(
         label: 'Trực tuyến',
         value: state.onlineCount,
-        color: const Color(0xFF16A34A),
+        color: appColors.success,
         icon: Icons.wifi_rounded,
       ),
       _StatRow(
         label: 'Ngoại tuyến',
         value: state.offlineCount,
-        color: const Color(0xFF8B949E),
+        color: appColors.offline,
         icon: Icons.wifi_off_rounded,
       ),
       _StatRow(
         label: 'Di chuyển',
         value: state.movingCount,
-        color: const Color(0xFF1677FF),
+        color: appColors.primary,
         icon: Icons.navigation_rounded,
       ),
       _StatRow(
         label: 'Đang dừng',
         value: state.stoppedCount,
-        color: const Color(0xFFD97706),
+        color: appColors.warning,
         icon: Icons.pause_circle_rounded,
       ),
       _StatRow(
         label: 'Mất tín hiệu',
         value: state.staleCount,
-        color: const Color(0xFFDC2626),
+        color: appColors.danger,
         icon: Icons.signal_wifi_statusbar_connected_no_internet_4_rounded,
       ),
       _StatRow(
         label: 'Cần kiểm tra',
         value: state.attentionCount,
-        color: const Color(0xFFEA580C),
+        color: appColors.orange,
         icon: Icons.warning_amber_rounded,
       ),
     ];
@@ -677,9 +634,9 @@ class _SidebarStats extends StatelessWidget {
             height: 40,
             padding: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFB),
+              color: appColors.surfaceSubtle,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFEEF2F6), width: 1),
+              border: Border.all(color: appColors.borderSoft, width: 1),
             ),
             child: Row(
               children: [
@@ -696,10 +653,10 @@ class _SidebarStats extends StatelessWidget {
                 Expanded(
                   child: Text(
                     item.label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF18212A),
+                      color: appColors.textPrimary,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -751,7 +708,8 @@ class _SidebarLegend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    final appColors = context.appColors;
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
@@ -759,22 +717,22 @@ class _SidebarLegend extends StatelessWidget {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF18212A),
+            color: appColors.textPrimary,
           ),
         ),
-        SizedBox(height: 8),
-        _LegendItem(color: Color(0xFF16A34A), label: 'Trực tuyến'),
-        SizedBox(height: 4),
-        _LegendItem(color: Color(0xFF8B949E), label: 'Ngoại tuyến'),
-        SizedBox(height: 4),
-        _LegendItem(color: Color(0xFF1677FF), label: 'Di chuyển'),
-        SizedBox(height: 4),
-        _LegendItem(color: Color(0xFFD97706), label: 'Đang dừng'),
-        SizedBox(height: 4),
-        _LegendItem(color: Color(0xFFDC2626), label: 'Mất tín hiệu'),
-        SizedBox(height: 4),
+        const SizedBox(height: 8),
+        _LegendItem(color: appColors.success, label: 'Trực tuyến'),
+        const SizedBox(height: 4),
+        _LegendItem(color: appColors.offline, label: 'Ngoại tuyến'),
+        const SizedBox(height: 4),
+        _LegendItem(color: appColors.primary, label: 'Di chuyển'),
+        const SizedBox(height: 4),
+        _LegendItem(color: appColors.warning, label: 'Đang dừng'),
+        const SizedBox(height: 4),
+        _LegendItem(color: appColors.danger, label: 'Mất tín hiệu'),
+        const SizedBox(height: 4),
         _LegendItem(
-          color: Color(0xFFEA580C),
+          color: appColors.orange,
           isWarning: true,
           label: 'Cần kiểm tra',
         ),
@@ -809,10 +767,10 @@ class _LegendItem extends StatelessWidget {
         const SizedBox(width: 8),
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w400,
-            color: Color(0xFF66727D),
+            color: context.appColors.textSecondary,
           ),
         ),
       ],
@@ -828,16 +786,17 @@ class _ErrorView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final appColors = context.appColors;
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFB),
+      backgroundColor: appColors.surfaceSubtle,
       body: Center(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 400),
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: appColors.surface,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE4E9ED), width: 1),
+            border: Border.all(color: appColors.borderSoft, width: 1),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -848,24 +807,24 @@ class _ErrorView extends StatelessWidget {
                 color: theme.colorScheme.error.withValues(alpha: 0.7),
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'Không thể kết nối backend',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF18212A),
+                  color: appColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 6),
               Text(
                 error,
-                style: const TextStyle(fontSize: 13, color: Color(0xFF66727D)),
+                style: TextStyle(fontSize: 13, color: appColors.textSecondary),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 20),
               FilledButton.icon(
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF1677FF),
+                  backgroundColor: appColors.primary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),

@@ -4,6 +4,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/config/map_tile_providers.dart';
+import '../../core/theme/app_theme_colors.dart';
 import '../../data/models/device_model.dart';
 import '../../data/models/location_model.dart';
 import '../../data/repositories/device_repository.dart';
@@ -86,9 +87,11 @@ class _JourneyHistoryPageState extends State<JourneyHistoryPage> {
 
     if (_fromTime.isAfter(_toTime) || _fromTime.isAtSameMomentAs(_toTime)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Thời điểm bắt đầu phải nhỏ hơn thời điểm kết thúc.'),
-          backgroundColor: Colors.redAccent,
+        SnackBar(
+          content: const Text(
+            'Thời điểm bắt đầu phải nhỏ hơn thời điểm kết thúc.',
+          ),
+          backgroundColor: context.appColors.danger,
         ),
       );
       return;
@@ -124,7 +127,7 @@ class _JourneyHistoryPageState extends State<JourneyHistoryPage> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(state.errorMessage!),
-                  backgroundColor: Colors.redAccent,
+                  backgroundColor: context.appColors.danger,
                 ),
               );
             }
@@ -374,6 +377,7 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final appColors = context.appColors;
     final state = widget.state;
     final mapType = context.watch<SettingsCubit>().state.userSettings.mapType;
     final isSatellite = mapType == AppMapType.satellite;
@@ -439,7 +443,7 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
                 markers: HistoryMapLayers.buildDirectionArrows(
                   segments: state.segments,
                   currentZoom: _currentZoom,
-                  arrowColor: const Color(0xFF0F172A),
+                  arrowColor: AppPalette.mapArrow,
                 ),
               ),
 
@@ -451,6 +455,7 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
                   onPointSelected: widget.onPointSelected,
                   nodeAddresses: _nodeAddresses,
                   showLabels: _showRouteLabels,
+                  colors: appColors,
                 ),
               ),
 
@@ -505,7 +510,7 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
         if (state.isLoading)
           Positioned.fill(
             child: Container(
-              color: Colors.black.withValues(alpha: 0.15),
+              color: appColors.shadow.withValues(alpha: 0.15),
               child: const Center(
                 child: Card(
                   child: Padding(
@@ -539,10 +544,13 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
                     vertical: 20,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.95),
+                    color: appColors.surface.withValues(alpha: 0.95),
                     borderRadius: BorderRadius.circular(16),
-                    boxShadow: const [
-                      BoxShadow(color: Colors.black12, blurRadius: 16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: appColors.shadow.withValues(alpha: 0.12),
+                        blurRadius: 16,
+                      ),
                     ],
                   ),
                   child: Column(
@@ -582,9 +590,9 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.92),
+                color: appColors.surface.withValues(alpha: 0.92),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                border: Border.all(color: appColors.border),
               ),
               child: Text(
                 'Chỉ có 1 mốc vị trí trong khoảng này.',
@@ -620,20 +628,21 @@ class _MapZoomControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appColors = context.appColors;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         // Cụm 1: Phóng to, thu nhỏ, vừa toàn bộ lộ trình
         Container(
-          decoration: _boxDecoration(),
+          decoration: _boxDecoration(context),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                icon: const Icon(
+                icon: Icon(
                   Icons.add_rounded,
                   size: 20,
-                  color: Color(0xFF1677FF),
+                  color: appColors.primary,
                 ),
                 tooltip: 'Phóng to',
                 onPressed: onZoomIn,
@@ -641,10 +650,10 @@ class _MapZoomControls extends StatelessWidget {
               ),
               const SizedBox(width: 32, child: Divider(height: 1)),
               IconButton(
-                icon: const Icon(
+                icon: Icon(
                   Icons.remove_rounded,
                   size: 20,
-                  color: Color(0xFF1677FF),
+                  color: appColors.primary,
                 ),
                 tooltip: 'Thu nhỏ',
                 onPressed: onZoomOut,
@@ -652,10 +661,10 @@ class _MapZoomControls extends StatelessWidget {
               ),
               const SizedBox(width: 32, child: Divider(height: 1)),
               IconButton(
-                icon: const Icon(
+                icon: Icon(
                   Icons.fit_screen_rounded,
                   size: 18,
-                  color: Color(0xFF1677FF),
+                  color: appColors.primary,
                 ),
                 tooltip: 'Vừa toàn bộ lộ trình',
                 onPressed: onFitBounds,
@@ -667,7 +676,7 @@ class _MapZoomControls extends StatelessWidget {
         const SizedBox(height: 8),
         // Cụm 2: Kiểu bản đồ và bật/tắt nhãn node hành trình
         Container(
-          decoration: _boxDecoration(),
+          decoration: _boxDecoration(context),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -675,7 +684,7 @@ class _MapZoomControls extends StatelessWidget {
                 icon: Icon(
                   isSatellite ? Icons.map_rounded : Icons.satellite_alt_rounded,
                   size: 18,
-                  color: const Color(0xFF1677FF),
+                  color: appColors.primary,
                 ),
                 tooltip: isSatellite
                     ? 'Chuyển sang bản đồ đường phố'
@@ -688,7 +697,7 @@ class _MapZoomControls extends StatelessWidget {
                 icon: Icon(
                   showLabels ? Icons.label_off_rounded : Icons.label_rounded,
                   size: 18,
-                  color: const Color(0xFF1677FF),
+                  color: appColors.primary,
                 ),
                 tooltip: showLabels
                     ? 'Ẩn nhãn mốc hành trình'
@@ -703,13 +712,18 @@ class _MapZoomControls extends StatelessWidget {
     );
   }
 
-  BoxDecoration _boxDecoration() {
+  BoxDecoration _boxDecoration(BuildContext context) {
+    final appColors = context.appColors;
     return BoxDecoration(
-      color: Colors.white.withValues(alpha: 0.96),
+      color: appColors.surface.withValues(alpha: 0.96),
       borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: const Color(0xFFE2E8F0)),
-      boxShadow: const [
-        BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2)),
+      border: Border.all(color: appColors.border),
+      boxShadow: [
+        BoxShadow(
+          color: appColors.shadow.withValues(alpha: 0.12),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
       ],
     );
   }

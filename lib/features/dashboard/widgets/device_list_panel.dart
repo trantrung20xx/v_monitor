@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/theme/app_theme_colors.dart';
 import '../../../data/models/device_model.dart';
 import '../../../domain/entities/device_query_filter.dart';
 import 'device_card.dart';
@@ -21,6 +22,7 @@ class DeviceGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appColors = context.appColors;
     final filteredDevices = DeviceQueryFilter.filter(
       devices,
       query: searchQuery,
@@ -40,7 +42,7 @@ class DeviceGrid extends StatelessWidget {
                 width: 64,
                 height: 64,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
+                  color: appColors.surfaceMuted,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(
@@ -48,7 +50,7 @@ class DeviceGrid extends StatelessWidget {
                       ? Icons.search_off_rounded
                       : Icons.devices_other_rounded,
                   size: 32,
-                  color: const Color(0xFF64748B),
+                  color: appColors.textSecondary,
                 ),
               ),
               const SizedBox(height: 16),
@@ -56,10 +58,10 @@ class DeviceGrid extends StatelessWidget {
                 isFiltered
                     ? 'Không tìm thấy thiết bị phù hợp'
                     : 'Chưa có thiết bị nào',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF18212A),
+                  color: appColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 6),
@@ -67,7 +69,7 @@ class DeviceGrid extends StatelessWidget {
                 isFiltered
                     ? 'Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm'
                     : 'Kiểm tra kết nối backend và MQTT',
-                style: const TextStyle(fontSize: 13, color: Color(0xFF66727D)),
+                style: TextStyle(fontSize: 13, color: appColors.textSecondary),
                 textAlign: TextAlign.center,
               ),
             ],

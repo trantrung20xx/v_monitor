@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/theme/app_theme_colors.dart';
 import '../../../core/utils/device_formatters.dart';
 import '../../../data/models/location_model.dart';
 import '../../../domain/entities/device_status_resolver.dart';
@@ -56,6 +57,7 @@ class _PointInfoPopupState extends State<PointInfoPopup> {
 
   @override
   Widget build(BuildContext context) {
+    final appColors = context.appColors;
     final point = widget.point;
     final stop = widget.stopPoint;
     final isParked = stop?.isPark ?? false;
@@ -64,12 +66,12 @@ class _PointInfoPopupState extends State<PointInfoPopup> {
         point.speedMps! > DeviceStatusResolver.movingThresholdMps;
     final isStopped = stop != null || (point.speedMps != null && !isMoving);
     final accentColor = isParked
-        ? const Color(0xFFEA580C)
+        ? appColors.orange
         : isMoving
-        ? const Color(0xFF1677FF)
+        ? appColors.primary
         : isStopped
-        ? const Color(0xFFD97706)
-        : const Color(0xFF64748B);
+        ? appColors.warning
+        : appColors.textSecondary;
     final headerIcon = isParked
         ? Icons.local_parking_rounded
         : isMoving
@@ -88,16 +90,16 @@ class _PointInfoPopupState extends State<PointInfoPopup> {
     return TapRegion(
       onTapOutside: (_) => widget.onClose(),
       child: Material(
-        color: Colors.transparent,
+        color: AppPalette.transparent,
         child: Container(
           constraints: const BoxConstraints(maxWidth: 310),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.98),
+            color: appColors.surface.withValues(alpha: 0.98),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: accentColor.withValues(alpha: 0.28)),
-            boxShadow: const [
+            boxShadow: [
               BoxShadow(
-                color: Color(0x2E0F172A),
+                color: appColors.shadow.withValues(alpha: 0.18),
                 blurRadius: 24,
                 offset: Offset(0, 8),
               ),
@@ -117,10 +119,14 @@ class _PointInfoPopupState extends State<PointInfoPopup> {
                       width: 22,
                       height: 22,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
+                        color: AppPalette.onAccent.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(headerIcon, size: 14, color: Colors.white),
+                      child: Icon(
+                        headerIcon,
+                        size: 14,
+                        color: AppPalette.onAccent,
+                      ),
                     ),
                     const SizedBox(width: 7),
                     Expanded(
@@ -131,7 +137,7 @@ class _PointInfoPopupState extends State<PointInfoPopup> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: AppPalette.onAccent,
                           fontSize: 11,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 0.25,
@@ -143,7 +149,7 @@ class _PointInfoPopupState extends State<PointInfoPopup> {
                       icon: const Icon(
                         Icons.close_rounded,
                         size: 18,
-                        color: Colors.white,
+                        color: AppPalette.onAccent,
                       ),
                       tooltip: 'Đóng',
                       padding: EdgeInsets.zero,
@@ -316,8 +322,8 @@ class _PopupInfoRow extends StatelessWidget {
             padding: const EdgeInsets.only(top: 4),
             child: Text(
               '$label:',
-              style: const TextStyle(
-                color: Color(0xFF64748B),
+              style: TextStyle(
+                color: context.appColors.textSecondary,
                 fontSize: 9.5,
                 fontWeight: FontWeight.w700,
               ),
@@ -329,8 +335,8 @@ class _PopupInfoRow extends StatelessWidget {
             padding: const EdgeInsets.only(top: 3),
             child: Text(
               value,
-              style: const TextStyle(
-                color: Color(0xFF0F172A),
+              style: TextStyle(
+                color: context.appColors.textPrimary,
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
                 height: 1.35,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/theme/app_theme_colors.dart';
 import '../../../core/widgets/app_menu.dart';
 import '../../../data/models/user_model.dart';
 import '../settings_cubit.dart';
@@ -645,7 +646,7 @@ class _LoginPermissionIndicator extends StatelessWidget {
     // `isActive` là quyền đăng nhập, không phải trạng thái online theo thời gian thực.
     final colors = Theme.of(context).colorScheme;
     final label = allowed ? 'Được phép đăng nhập' : 'Không được phép đăng nhập';
-    final color = allowed ? const Color(0xFF15803D) : colors.error;
+    final color = allowed ? context.appColors.successStrong : colors.error;
 
     return Tooltip(
       message: label,
@@ -667,7 +668,7 @@ class _LoginPermissionIndicator extends StatelessWidget {
             child: Icon(
               allowed ? Icons.lock_open_rounded : Icons.lock_rounded,
               size: 11,
-              color: Colors.white,
+              color: AppPalette.onAccent,
             ),
           ),
         ),
@@ -890,7 +891,7 @@ class _UserEditorDialogState extends State<_UserEditorDialog> {
                   height: 18,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: Colors.white,
+                    color: AppPalette.onAccent,
                   ),
                 )
               : const Text('Lưu'),
@@ -1126,7 +1127,7 @@ class _ResetPasswordDialogState extends State<_ResetPasswordDialog> {
                   height: 18,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: Colors.white,
+                    color: AppPalette.onAccent,
                   ),
                 )
               : const Text('Đặt lại'),

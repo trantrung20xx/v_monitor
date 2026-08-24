@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_theme_colors.dart';
+
 /// Các thông số trình bày dùng chung cho popup menu và danh sách lựa chọn nhỏ.
 ///
 /// Widget Material gốc vẫn đảm nhiệm việc đặt menu trong viewport, điều hướng
@@ -75,7 +77,7 @@ class AppMenuItem extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected
               ? colors.primaryContainer.withValues(alpha: 0.45)
-              : Colors.transparent,
+              : AppPalette.transparent,
           borderRadius: const BorderRadius.all(Radius.circular(7)),
         ),
         child: Padding(

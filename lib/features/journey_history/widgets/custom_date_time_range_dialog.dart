@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/theme/app_theme_colors.dart';
+
 /// Mở hộp thoại chọn khoảng ngày giờ tùy chọn (đồng bộ giữa Tổng quan và Hành trình).
 Future<DateTimeRange?> showCustomDateTimeRangeDialog(
   BuildContext context, {
@@ -39,10 +41,6 @@ class _CustomDateTimeRangeDialogState extends State<CustomDateTimeRangeDialog> {
   static final DateFormat dateFormat = DateFormat('dd/MM/yyyy');
   static final DateFormat timeFormat = DateFormat('HH:mm');
 
-  static const Color _refPrimaryBlue = Color(0xFF2563EB);
-  static const Color _refText = Color(0xFF0F172A);
-  static const Color _refBorder = Color(0xFFE2E8F0);
-
   @override
   void initState() {
     super.initState();
@@ -52,26 +50,25 @@ class _CustomDateTimeRangeDialogState extends State<CustomDateTimeRangeDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final appColors = context.appColors;
     final isValid = tempFrom.isBefore(tempTo);
 
     return AlertDialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      title: const Row(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      title: Row(
         children: [
           Icon(
             Icons.edit_calendar_rounded,
             size: 20,
-            color: _refPrimaryBlue,
+            color: appColors.primaryStrong,
           ),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Text(
             'Tùy chọn khoảng thời gian',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: _refText,
+              color: appColors.textPrimary,
             ),
           ),
         ],
@@ -82,12 +79,12 @@ class _CustomDateTimeRangeDialogState extends State<CustomDateTimeRangeDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
+            Text(
               'Mốc bắt đầu (Từ):',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 12.5,
-                color: _refText,
+                color: appColors.textPrimary,
               ),
             ),
             const SizedBox(height: 6),
@@ -101,21 +98,21 @@ class _CustomDateTimeRangeDialogState extends State<CustomDateTimeRangeDialog> {
                         horizontal: 10,
                         vertical: 8,
                       ),
-                      side: const BorderSide(color: _refBorder),
+                      side: BorderSide(color: appColors.border),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.calendar_today_rounded,
                       size: 14,
-                      color: _refPrimaryBlue,
+                      color: appColors.primaryStrong,
                     ),
                     label: Text(
                       dateFormat.format(tempFrom),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: _refText,
+                        color: appColors.textPrimary,
                       ),
                     ),
                     onPressed: () async {
@@ -149,21 +146,21 @@ class _CustomDateTimeRangeDialogState extends State<CustomDateTimeRangeDialog> {
                         horizontal: 8,
                         vertical: 8,
                       ),
-                      side: const BorderSide(color: _refBorder),
+                      side: BorderSide(color: appColors.border),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.access_time_rounded,
                       size: 14,
-                      color: _refPrimaryBlue,
+                      color: appColors.primaryStrong,
                     ),
                     label: Text(
                       timeFormat.format(tempFrom),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: _refText,
+                        color: appColors.textPrimary,
                       ),
                     ),
                     onPressed: () async {
@@ -193,12 +190,12 @@ class _CustomDateTimeRangeDialogState extends State<CustomDateTimeRangeDialog> {
             ),
             const SizedBox(height: 14),
 
-            const Text(
+            Text(
               'Mốc kết thúc (Đến):',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 12.5,
-                color: _refText,
+                color: appColors.textPrimary,
               ),
             ),
             const SizedBox(height: 6),
@@ -212,21 +209,21 @@ class _CustomDateTimeRangeDialogState extends State<CustomDateTimeRangeDialog> {
                         horizontal: 10,
                         vertical: 8,
                       ),
-                      side: const BorderSide(color: _refBorder),
+                      side: BorderSide(color: appColors.border),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.calendar_today_rounded,
                       size: 14,
-                      color: _refPrimaryBlue,
+                      color: appColors.primaryStrong,
                     ),
                     label: Text(
                       dateFormat.format(tempTo),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: _refText,
+                        color: appColors.textPrimary,
                       ),
                     ),
                     onPressed: () async {
@@ -260,21 +257,21 @@ class _CustomDateTimeRangeDialogState extends State<CustomDateTimeRangeDialog> {
                         horizontal: 8,
                         vertical: 8,
                       ),
-                      side: const BorderSide(color: _refBorder),
+                      side: BorderSide(color: appColors.border),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.access_time_rounded,
                       size: 14,
-                      color: _refPrimaryBlue,
+                      color: appColors.primaryStrong,
                     ),
                     label: Text(
                       timeFormat.format(tempTo),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: _refText,
+                        color: appColors.textPrimary,
                       ),
                     ),
                     onPressed: () async {
@@ -305,10 +302,10 @@ class _CustomDateTimeRangeDialogState extends State<CustomDateTimeRangeDialog> {
             const SizedBox(height: 12),
 
             if (!isValid)
-              const Text(
+              Text(
                 'Thời gian bắt đầu phải trước thời gian kết thúc!',
                 style: TextStyle(
-                  color: Colors.redAccent,
+                  color: appColors.danger,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
@@ -323,15 +320,15 @@ class _CustomDateTimeRangeDialogState extends State<CustomDateTimeRangeDialog> {
         ),
         FilledButton(
           style: FilledButton.styleFrom(
-            backgroundColor: _refPrimaryBlue,
+            backgroundColor: appColors.primaryStrong,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
           ),
           onPressed: isValid
-              ? () => Navigator.of(context).pop(
-                    DateTimeRange(start: tempFrom, end: tempTo),
-                  )
+              ? () => Navigator.of(
+                  context,
+                ).pop(DateTimeRange(start: tempFrom, end: tempTo))
               : null,
           child: const Text('Áp dụng'),
         ),

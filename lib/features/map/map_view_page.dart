@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/config/map_tile_providers.dart';
+import '../../core/theme/app_theme_colors.dart';
 import '../../core/widgets/device_icon.dart';
 import '../../data/models/device_model.dart';
 import '../../data/repositories/device_repository.dart';
@@ -66,11 +67,6 @@ class _MapViewBodyState extends State<_MapViewBody> {
   static const double _maxZoom = 18;
   static const double _zoomStep = 1;
 
-  static const Color _primaryBlue = Color(0xFF1677FF);
-  static const Color _textMain = Color(0xFF0F172A);
-  static const Color _textMuted = Color(0xFF64748B);
-  static const Color _borderColor = Color(0xFFE2E8F0);
-
   final MapController _mapController = MapController();
   bool _showDesktopList = false;
   bool _mapReady = false;
@@ -97,7 +93,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppPalette.transparent,
       builder: (context) {
         return DraggableScrollableSheet(
           expand: false,
@@ -131,6 +127,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
 
   @override
   Widget build(BuildContext context) {
+    final appColors = context.appColors;
     final isDesktop = MediaQuery.of(context).size.width > 800;
     final mapType = context.watch<SettingsCubit>().state.userSettings.mapType;
     final isSatellite = mapType == AppMapType.satellite;
@@ -138,13 +135,16 @@ class _MapViewBodyState extends State<_MapViewBody> {
     return BlocBuilder<DashboardCubit, DashboardState>(
       builder: (context, state) {
         return Scaffold(
-          backgroundColor: const Color(0xFFEFF5F8),
+          backgroundColor: appColors.mapBackground,
           appBar: AppBar(
-            backgroundColor: Colors.white,
+            backgroundColor: appColors.surface,
             elevation: 0,
-            shape: const Border(bottom: BorderSide(color: _borderColor)),
+            shape: Border(bottom: BorderSide(color: appColors.border)),
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back_rounded, color: _textMain),
+              icon: Icon(
+                Icons.arrow_back_rounded,
+                color: appColors.textPrimary,
+              ),
               tooltip: 'Quay lại',
               onPressed: () {
                 if (context.canPop()) {
@@ -160,13 +160,13 @@ class _MapViewBodyState extends State<_MapViewBody> {
                 Container(
                   padding: const EdgeInsets.all(5),
                   decoration: BoxDecoration(
-                    color: _primaryBlue.withValues(alpha: 0.1),
+                    color: appColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(7),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.travel_explore_rounded,
                     size: 17,
-                    color: _primaryBlue,
+                    color: appColors.primary,
                   ),
                 ),
                 const SizedBox(width: 7),
@@ -176,7 +176,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
                     style: TextStyle(
                       fontSize: isDesktop ? 16 : 15,
                       fontWeight: FontWeight.w700,
-                      color: _textMain,
+                      color: appColors.textPrimary,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -189,16 +189,16 @@ class _MapViewBodyState extends State<_MapViewBody> {
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
+                      color: appColors.surfaceMuted,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: _borderColor),
+                      border: Border.all(color: appColors.border),
                     ),
                     child: Text(
                       '${state.devices.length} thiết bị',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w700,
-                        color: _textMain,
+                        color: appColors.textPrimary,
                       ),
                     ),
                   ),
@@ -216,13 +216,15 @@ class _MapViewBodyState extends State<_MapViewBody> {
                     child: FilledButton.tonalIcon(
                       style: FilledButton.styleFrom(
                         backgroundColor: _showDesktopList
-                            ? _primaryBlue.withValues(alpha: 0.15)
-                            : const Color(0xFFF8FAFC),
+                            ? appColors.primary.withValues(alpha: 0.15)
+                            : appColors.surfaceSubtle,
                         foregroundColor: _showDesktopList
-                            ? _primaryBlue
-                            : _textMain,
+                            ? appColors.primary
+                            : appColors.textPrimary,
                         side: BorderSide(
-                          color: _showDesktopList ? _primaryBlue : _borderColor,
+                          color: _showDesktopList
+                              ? appColors.primary
+                              : appColors.border,
                         ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -256,11 +258,11 @@ class _MapViewBodyState extends State<_MapViewBody> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      backgroundColor: _primaryBlue,
-                      textColor: Colors.white,
-                      child: const Icon(
+                      backgroundColor: appColors.primary,
+                      textColor: AppPalette.onAccent,
+                      child: Icon(
                         Icons.list_alt_rounded,
-                        color: _textMain,
+                        color: appColors.textPrimary,
                       ),
                     ),
                     tooltip: 'Danh sách thiết bị',
@@ -272,7 +274,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
                   ),
               ],
               IconButton(
-                icon: const Icon(Icons.refresh_rounded, color: _textMain),
+                icon: Icon(Icons.refresh_rounded, color: appColors.textPrimary),
                 tooltip: 'Làm mới dữ liệu',
                 onPressed: () => context.read<DashboardCubit>().loadDashboard(),
               ),
@@ -306,7 +308,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
               children: [
                 Positioned.fill(
                   child: ColoredBox(
-                    color: const Color(0xFFEFF5F8),
+                    color: appColors.mapBackground,
                     child: FlutterMap(
                       mapController: _mapController,
                       options: MapOptions(
@@ -385,12 +387,12 @@ class _MapViewBodyState extends State<_MapViewBody> {
                             vertical: 20,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.95),
+                            color: appColors.surface.withValues(alpha: 0.95),
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: _borderColor),
-                            boxShadow: const [
+                            border: Border.all(color: appColors.border),
+                            boxShadow: [
                               BoxShadow(
-                                color: Colors.black12,
+                                color: appColors.shadow.withValues(alpha: 0.12),
                                 blurRadius: 18,
                                 offset: Offset(0, 4),
                               ),
@@ -402,22 +404,24 @@ class _MapViewBodyState extends State<_MapViewBody> {
                               Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: _primaryBlue.withValues(alpha: 0.08),
+                                  color: appColors.primary.withValues(
+                                    alpha: 0.08,
+                                  ),
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(
+                                child: Icon(
                                   Icons.location_off_rounded,
                                   size: 36,
-                                  color: _primaryBlue,
+                                  color: appColors.primary,
                                 ),
                               ),
                               const SizedBox(height: 12),
-                              const Text(
+                              Text(
                                 'Chưa có thiết bị nào có dữ liệu GPS',
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,
-                                  color: _textMain,
+                                  color: appColors.textPrimary,
                                 ),
                                 textAlign: TextAlign.center,
                               ),
@@ -425,9 +429,9 @@ class _MapViewBodyState extends State<_MapViewBody> {
                                 const SizedBox(height: 4),
                                 Text(
                                   '${state.devices.length} thiết bị đang chờ tín hiệu GPS',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12,
-                                    color: _textMuted,
+                                    color: appColors.textSecondary,
                                   ),
                                 ),
                               ],
@@ -446,19 +450,19 @@ class _MapViewBodyState extends State<_MapViewBody> {
                       heroTag: 'mobile-map-device-list-fab',
                       elevation: 3,
                       highlightElevation: 5,
-                      backgroundColor: Colors.white,
-                      foregroundColor: _primaryBlue,
+                      backgroundColor: appColors.surface,
+                      foregroundColor: appColors.primary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(24),
-                        side: const BorderSide(color: _borderColor),
+                        side: BorderSide(color: appColors.border),
                       ),
                       icon: const Icon(Icons.list_alt_rounded, size: 18),
                       label: Text(
                         'Danh sách (${state.devices.length})',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w700,
-                          color: _textMain,
+                          color: appColors.textPrimary,
                         ),
                       ),
                       onPressed: () => _openMobileList(
@@ -490,6 +494,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
   }
 
   Marker _buildMarker(BuildContext context, DeviceModel device) {
+    final appColors = context.appColors;
     final status = DeviceStatusResolver.resolve(
       isOnline: device.isOnline,
       lastSeenAt: device.lastSeenAt,
@@ -501,15 +506,15 @@ class _MapViewBodyState extends State<_MapViewBody> {
     final isStale = status.freshness == DataFreshnessStatus.stale;
     final Color markerColor;
     if (status.connectivity == ConnectivityStatus.offline) {
-      markerColor = const Color(0xFF64748B);
+      markerColor = appColors.offline;
     } else if (isStale) {
-      markerColor = const Color(0xFFDC2626);
+      markerColor = appColors.danger;
     } else if (isMoving) {
-      markerColor = const Color(0xFF1677FF);
+      markerColor = appColors.primary;
     } else if (status.movement == MovementStatus.stopped) {
-      markerColor = const Color(0xFFD97706);
+      markerColor = appColors.warning;
     } else {
-      markerColor = const Color(0xFF16A34A);
+      markerColor = appColors.success;
     }
 
     final displayName = device.name.trim().isNotEmpty
@@ -546,7 +551,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
                 children: [
                   Icon(
                     DeviceIcon.iconFor(device.deviceType),
-                    color: Colors.white,
+                    color: AppPalette.onAccent,
                     size: 13,
                   ),
                   const SizedBox(width: 4),
@@ -554,7 +559,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
                     child: Text(
                       displayName,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AppPalette.onAccent,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                       ),
@@ -566,7 +571,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
                     const SizedBox(width: 4),
                     const Icon(
                       Icons.navigation_rounded,
-                      color: Colors.white,
+                      color: AppPalette.onAccent,
                       size: 10,
                     ),
                   ],
@@ -639,7 +644,7 @@ class _MapControls extends StatelessWidget {
       children: [
         // Cụm 1: Phóng to, thu nhỏ, căn giữa bản đồ
         DecoratedBox(
-          decoration: _decoration(),
+          decoration: _decoration(context),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -666,13 +671,13 @@ class _MapControls extends StatelessWidget {
         const SizedBox(height: 8),
         // Cụm 2: Chuyển đổi mode bản đồ (đường phố / vệ tinh) riêng biệt
         DecoratedBox(
-          decoration: _decoration(),
+          decoration: _decoration(context),
           child: _MapControlButton(
             icon: isSatellite ? Icons.map_rounded : Icons.satellite_alt_rounded,
             tooltip: isSatellite
                 ? 'Chuyển sang bản đồ đường phố'
                 : 'Chuyển sang bản đồ vệ tinh',
-            iconColor: const Color(0xFF1677FF),
+            iconColor: context.appColors.primary,
             onPressed: onToggleMapType,
           ),
         ),
@@ -680,13 +685,18 @@ class _MapControls extends StatelessWidget {
     );
   }
 
-  BoxDecoration _decoration() {
+  BoxDecoration _decoration(BuildContext context) {
+    final appColors = context.appColors;
     return BoxDecoration(
-      color: Colors.white.withValues(alpha: 0.96),
+      color: appColors.surface.withValues(alpha: 0.96),
       borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: const Color(0xFFE2E8F0)),
-      boxShadow: const [
-        BoxShadow(color: Colors.black12, blurRadius: 12, offset: Offset(0, 4)),
+      border: Border.all(color: appColors.border),
+      boxShadow: [
+        BoxShadow(
+          color: appColors.shadow.withValues(alpha: 0.12),
+          blurRadius: 12,
+          offset: const Offset(0, 4),
+        ),
       ],
     );
   }
@@ -720,7 +730,7 @@ class _MapControlButton extends StatelessWidget {
           icon: Icon(
             icon,
             size: 18,
-            color: iconColor ?? const Color(0xFF1677FF),
+            color: iconColor ?? context.appColors.primary,
           ),
         ),
       ),

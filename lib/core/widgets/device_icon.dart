@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_theme_colors.dart';
+
 /// Returns an icon representing the device type.
 class DeviceIcon extends StatelessWidget {
   const DeviceIcon({
@@ -17,10 +19,10 @@ class DeviceIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final colors = context.appColors;
     final color = isOnline
-        ? (isMoving ? theme.colorScheme.primary : Colors.green)
-        : Colors.grey;
+        ? (isMoving ? colors.primary : colors.success)
+        : colors.offline;
 
     return Icon(_iconForType(deviceType), color: color, size: size);
   }

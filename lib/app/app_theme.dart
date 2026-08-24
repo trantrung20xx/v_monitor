@@ -1,29 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../core/theme/app_theme_colors.dart';
 import '../core/widgets/app_menu.dart';
 
 /// Giao diện Material 3 dùng màu xanh thống nhất với màn hình chi tiết thiết bị.
 class AppTheme {
-  static const _seed = Color(0xFF1677FF);
-
   static ThemeData get light {
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: _seed,
+      seedColor: AppThemeColors.light.primary,
       brightness: Brightness.light,
     );
-    return _buildTheme(colorScheme, Brightness.light);
+    return _buildTheme(colorScheme, AppThemeColors.light);
   }
 
   static ThemeData get dark {
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF3B82F6),
+      seedColor: AppThemeColors.dark.primaryStrong,
       brightness: Brightness.dark,
     );
-    return _buildTheme(colorScheme, Brightness.dark);
+    return _buildTheme(colorScheme, AppThemeColors.dark);
   }
 
-  static ThemeData _buildTheme(ColorScheme colorScheme, Brightness brightness) {
+  static ThemeData _buildTheme(
+    ColorScheme colorScheme,
+    AppThemeColors appColors,
+  ) {
+    final brightness = colorScheme.brightness;
     final textTheme = GoogleFonts.interTextTheme(
       brightness == Brightness.light
           ? ThemeData.light().textTheme
@@ -33,25 +36,19 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
+      extensions: [appColors],
       textTheme: textTheme,
-      scaffoldBackgroundColor: brightness == Brightness.light
-          ? const Color(0xFFF4F6F8)
-          : const Color(0xFF121212),
+      scaffoldBackgroundColor: appColors.background,
       cardTheme: CardThemeData(
         elevation: 1,
         margin: EdgeInsets.zero,
-        shadowColor: Colors.black.withValues(
+        shadowColor: appColors.shadow.withValues(
           alpha: brightness == Brightness.light ? 0.08 : 0.22,
         ),
-        surfaceTintColor: Colors.transparent,
+        surfaceTintColor: AppPalette.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: const BorderRadius.all(Radius.circular(8)),
-          side: BorderSide(
-            color: brightness == Brightness.light
-                ? const Color(0xFFE2E8F0)
-                : colorScheme.outlineVariant.withValues(alpha: 0.5),
-            width: 1,
-          ),
+          side: BorderSide(color: appColors.border, width: 1),
         ),
       ),
       appBarTheme: AppBarTheme(
@@ -59,7 +56,7 @@ class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 1,
         backgroundColor: colorScheme.surface,
-        surfaceTintColor: Colors.transparent,
+        surfaceTintColor: AppPalette.transparent,
         titleTextStyle: textTheme.titleMedium?.copyWith(
           fontWeight: FontWeight.w600,
           color: colorScheme.onSurface,
@@ -67,28 +64,22 @@ class AppTheme {
         iconTheme: IconThemeData(color: colorScheme.onSurfaceVariant),
       ),
       dividerTheme: DividerThemeData(
-        color: brightness == Brightness.light
-            ? const Color(0xFFE2E8F0)
-            : colorScheme.outlineVariant.withValues(alpha: 0.4),
+        color: appColors.divider,
         thickness: 1,
         space: 1,
       ),
       // Popup dùng chung bề mặt, viền và độ nổi với hệ thống card hiện tại.
-      // PopupMenuButton vẫn tự xử lý focus, bàn phím và vị trí trong viewport.
+      // PopupMenuButton tự xử lý focus, bàn phím và vị trí trong viewport.
       popupMenuTheme: PopupMenuThemeData(
         color: colorScheme.surfaceContainerLow,
-        surfaceTintColor: Colors.transparent,
+        surfaceTintColor: AppPalette.transparent,
         elevation: 4,
-        shadowColor: Colors.black.withValues(
+        shadowColor: appColors.shadow.withValues(
           alpha: brightness == Brightness.light ? 0.12 : 0.28,
         ),
         shape: RoundedRectangleBorder(
           borderRadius: AppMenuStyle.borderRadius,
-          side: BorderSide(
-            color: brightness == Brightness.light
-                ? const Color(0xFFE2E8F0)
-                : colorScheme.outlineVariant.withValues(alpha: 0.55),
-          ),
+          side: BorderSide(color: appColors.border),
         ),
         menuPadding: AppMenuStyle.popupPadding,
         position: PopupMenuPosition.under,
