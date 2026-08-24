@@ -240,6 +240,14 @@ void main() {
     );
 
     expect(find.byKey(const Key('edit-current-account')), findsNothing);
+    expect(find.byKey(const Key('account-profile-summary')), findsOneWidget);
+    expect(find.byKey(const Key('account-username-detail')), findsOneWidget);
+    expect(find.byKey(const Key('account-email-detail')), findsOneWidget);
+    expect(find.byKey(const Key('account-role-detail')), findsOneWidget);
+    expect(find.byKey(const Key('account-security-panel')), findsOneWidget);
+    expect(find.text('Thông tin tài khoản'), findsOneWidget);
+    expect(find.text('Bảo mật & phiên đăng nhập'), findsOneWidget);
+    expect(find.text('Thành viên'), findsWidgets);
     expect(find.byKey(const Key('open-change-password')), findsOneWidget);
     expect(find.byKey(const Key('logout-from-settings')), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -296,6 +304,16 @@ void main() {
       );
       final saveButton = find.byKey(const Key('save-system-settings'));
 
+      expect(find.byKey(const Key('offline-setting-panel')), findsOneWidget);
+      expect(find.byKey(const Key('movement-setting-panel')), findsOneWidget);
+      expect(
+        find.byKey(const Key('journey-gap-setting-panel')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('tracking-save-panel')), findsOneWidget);
+      expect(find.text('Áp dụng ngay sau khi lưu'), findsOneWidget);
+      expect(find.text('Cấu hình đã đồng bộ'), findsOneWidget);
+
       await tester.enterText(
         find.byKey(const Key('offline-timeout-field')),
         '29',
@@ -303,6 +321,7 @@ void main() {
       await tester.tap(saveButton);
       await tester.pump();
       expect(find.text('Từ 30 đến 86400.'), findsOneWidget);
+      expect(find.text('Có thay đổi chưa lưu'), findsOneWidget);
       expect(harness.repository.systemUpdateCount, 0);
 
       await tester.enterText(
@@ -315,10 +334,12 @@ void main() {
       await tester.pump();
       expect(harness.repository.systemUpdateCount, 1);
       expect(tester.widget<FilledButton>(saveButton).onPressed, isNull);
+      expect(find.text('Đang áp dụng cấu hình...'), findsOneWidget);
 
       harness.repository.pendingSystemUpdate!.complete();
       await tester.pumpAndSettle();
       expect(find.text('Đã lưu cấu hình theo dõi thiết bị.'), findsOneWidget);
+      expect(find.text('Cấu hình đã đồng bộ'), findsOneWidget);
       expect(harness.repository.systemSettings.offlineTimeoutSeconds, 600);
 
       harness.repository.systemUpdateError = DioException(
@@ -335,7 +356,9 @@ void main() {
       await tester.tap(saveButton);
       await tester.pumpAndSettle();
       expect(find.text('Không thể lưu cấu hình theo dõi.'), findsOneWidget);
+      expect(find.text('Có thay đổi chưa lưu'), findsOneWidget);
       expect(harness.repository.systemUpdateCount, 2);
+      expect(tester.takeException(), isNull);
     },
   );
 
@@ -629,6 +652,28 @@ void main() {
     }
   });
 
+  testWidgets('redesigned account and tracking layouts support dark theme', (
+    tester,
+  ) async {
+    for (final section in const [
+      SettingsSection.account,
+      SettingsSection.tracking,
+    ]) {
+      await _pumpSettings(
+        tester,
+        role: 'ADMIN',
+        size: const Size(390, 844),
+        section: section,
+        theme: 'dark',
+      );
+      expect(
+        Theme.of(tester.element(find.byType(SettingsPage))).brightness,
+        Brightness.dark,
+      );
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   testWidgets('settings layout has no overflow on mobile and desktop', (
     tester,
   ) async {
@@ -668,6 +713,7 @@ Future<_SettingsHarness> _pumpSettings(
   required String role,
   required Size size,
   SettingsSection? section = SettingsSection.overview,
+  String theme = 'system',
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -677,6 +723,7 @@ Future<_SettingsHarness> _pumpSettings(
   });
 
   final repository = _FakeSettingsRepository();
+  repository._userSettings = UserSettingsModel(theme: theme);
   final settingsCubit = SettingsCubit(repository);
   final authCubit = _StaticAuthCubit(
     UserModel(

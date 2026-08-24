@@ -873,44 +873,218 @@ class _AccountSettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _SettingsCard(
-      title: 'Tài khoản',
-      icon: Icons.manage_accounts_outlined,
-      // Nút không được tạo cho tài khoản thành viên; backend vẫn kiểm tra
-      // require_admin khi API cập nhật được gọi.
-      trailing: hasAdminAccess && user != null
-          ? TextButton.icon(
-              key: const Key('edit-current-account'),
-              onPressed: operationInProgress
-                  ? null
-                  : () => _editCurrentAccount(context),
-              icon: const Icon(Icons.edit_outlined, size: 18),
-              label: const Text('Sửa'),
-            )
-          : null,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+    final roleLabel = user == null
+        ? 'Không xác định'
+        : user!.isAdmin
+        ? 'Quản trị viên'
+        : 'Thành viên';
+
+    return Column(
+      key: const Key('account-settings-content'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _SettingsCard(
+          title: 'Thông tin tài khoản',
+          icon: Icons.manage_accounts_outlined,
+          // Nút không được tạo cho tài khoản thành viên; backend vẫn kiểm tra
+          // require_admin khi API cập nhật được gọi.
+          trailing: hasAdminAccess && user != null
+              ? TextButton.icon(
+                  key: const Key('edit-current-account'),
+                  onPressed: operationInProgress
+                      ? null
+                      : () => _editCurrentAccount(context),
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  label: const Text('Sửa'),
+                )
+              : null,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _AccountIdentitySummary(user: user, roleLabel: roleLabel),
+              const SizedBox(height: 14),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final columns = constraints.maxWidth >= 680
+                      ? 3
+                      : constraints.maxWidth >= 460
+                      ? 2
+                      : 1;
+                  final spacing = 12.0 * (columns - 1);
+                  final itemWidth = (constraints.maxWidth - spacing) / columns;
+                  final fields = [
+                    _AccountDetailTile(
+                      key: const Key('account-username-detail'),
+                      icon: Icons.alternate_email_rounded,
+                      label: 'Tên đăng nhập',
+                      value: user?.username ?? '—',
+                    ),
+                    _AccountDetailTile(
+                      key: const Key('account-email-detail'),
+                      icon: Icons.mail_outline_rounded,
+                      label: 'Email',
+                      value: user?.email?.trim().isNotEmpty == true
+                          ? user!.email!
+                          : 'Chưa thiết lập',
+                    ),
+                    _AccountDetailTile(
+                      key: const Key('account-role-detail'),
+                      icon: Icons.verified_user_outlined,
+                      label: 'Quyền truy cập',
+                      value: roleLabel,
+                    ),
+                  ];
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      for (final field in fields)
+                        SizedBox(width: itemWidth, child: field),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _SettingsCard(
+          title: 'Bảo mật & phiên đăng nhập',
+          icon: Icons.shield_outlined,
+          child: Material(
+            key: const Key('account-security-panel'),
+            color: Theme.of(context).colorScheme.surfaceContainerLow,
+            shape: RoundedRectangleBorder(
+              borderRadius: const BorderRadius.all(Radius.circular(12)),
+              side: BorderSide(
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                _AccountSecurityAction(
+                  icon: Icons.password_rounded,
+                  title: 'Mật khẩu',
+                  description:
+                      'Đổi mật khẩu và đăng nhập lại để bảo vệ tài khoản trên các thiết bị.',
+                  action: OutlinedButton.icon(
+                    key: const Key('open-change-password'),
+                    onPressed: () => _showChangePasswordDialog(context),
+                    icon: const Icon(Icons.password_rounded, size: 18),
+                    label: const Text('Đổi mật khẩu'),
+                  ),
+                ),
+                const Divider(height: 1, indent: 64),
+                _AccountSecurityAction(
+                  icon: Icons.logout_rounded,
+                  title: 'Phiên hiện tại',
+                  description:
+                      'Kết thúc phiên làm việc an toàn trên thiết bị đang sử dụng.',
+                  action: FilledButton.tonalIcon(
+                    key: const Key('logout-from-settings'),
+                    onPressed: () => context.read<AuthCubit>().logout(),
+                    icon: const Icon(Icons.logout_rounded, size: 18),
+                    label: const Text('Đăng xuất'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AccountIdentitySummary extends StatelessWidget {
+  const _AccountIdentitySummary({required this.user, required this.roleLabel});
+
+  final UserModel? user;
+  final String roleLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final displayName = user?.fullName.trim().isNotEmpty == true
+        ? user!.fullName.trim()
+        : user?.username ?? 'Tài khoản';
+    final username = user?.username.trim() ?? '';
+    final initial = displayName.trim().characters.isEmpty
+        ? '?'
+        : displayName.trim().characters.first.toUpperCase();
+
+    return Container(
+      key: const Key('account-profile-summary'),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            colors.primaryContainer.withValues(alpha: 0.62),
+            colors.primaryContainer.withValues(alpha: 0.24),
+          ],
+        ),
+        border: Border.all(color: colors.primary.withValues(alpha: 0.18)),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
         children: [
-          _AccountField(label: 'Họ tên', value: user?.fullName ?? '—'),
-          _AccountField(label: 'Username', value: user?.username ?? '—'),
-          _AccountField(label: 'Email', value: user?.email ?? 'Chưa thiết lập'),
-          _AccountField(
-            label: 'Vai trò',
-            value: user?.isAdmin == true ? 'Quản trị viên' : 'Người dùng',
+          CircleAvatar(
+            radius: 28,
+            backgroundColor: colors.primary,
+            foregroundColor: colors.onPrimary,
+            child: Text(
+              initial,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: colors.onPrimary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            key: const Key('open-change-password'),
-            onPressed: () => _showChangePasswordDialog(context),
-            icon: const Icon(Icons.password_rounded),
-            label: const Text('Đổi mật khẩu'),
-          ),
-          const SizedBox(height: 10),
-          FilledButton.tonalIcon(
-            key: const Key('logout-from-settings'),
-            onPressed: () => context.read<AuthCubit>().logout(),
-            icon: const Icon(Icons.logout_rounded),
-            label: const Text('Đăng xuất'),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (username.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    '@$username',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colors.surface.withValues(alpha: 0.78),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    roleLabel,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: colors.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -918,37 +1092,138 @@ class _AccountSettingsCard extends StatelessWidget {
   }
 }
 
-class _AccountField extends StatelessWidget {
-  const _AccountField({required this.label, required this.value});
+class _AccountDetailTile extends StatelessWidget {
+  const _AccountDetailTile({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
 
+  final IconData icon;
   final String label;
   final String value;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 88),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLowest,
+        border: Border.all(color: colors.outlineVariant),
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 92,
-            child: Text(
-              label,
-              style: TextStyle(color: Theme.of(context).colorScheme.outline),
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: colors.secondaryContainer.withValues(alpha: 0.72),
+              borderRadius: BorderRadius.circular(10),
             ),
+            child: Icon(icon, size: 19, color: colors.onSecondaryContainer),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 11),
           Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 2,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ],
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AccountSecurityAction extends StatelessWidget {
+  const _AccountSecurityAction({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.action,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+  final Widget action;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final information = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 40,
+          height: 40,
+          child: Icon(icon, size: 22, color: colors.primary),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                description,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 560;
+        return Padding(
+          padding: const EdgeInsets.all(14),
+          child: compact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [information, const SizedBox(height: 12), action],
+                )
+              : Row(
+                  children: [
+                    Expanded(child: information),
+                    const SizedBox(width: 18),
+                    action,
+                  ],
+                ),
+        );
+      },
     );
   }
 }
