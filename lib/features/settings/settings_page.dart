@@ -460,62 +460,232 @@ class _PersonalSettingsCard extends StatelessWidget {
         icon: Icons.straighten_rounded,
       ),
     ];
-    final colors = Theme.of(context).colorScheme;
+    final selectors = <Widget>[
+      _PersonalSettingSelector<String>(
+        key: const Key('theme-setting'),
+        title: 'Giao diện',
+        icon: Icons.palette_outlined,
+        value: state.userSettings.theme,
+        options: themeOptions,
+        enabled: !state.personalSaving,
+        onSelected: cubit.updateTheme,
+      ),
+      _PersonalSettingSelector<AppMapType>(
+        key: const Key('map-type-setting'),
+        title: 'Loại bản đồ',
+        icon: Icons.map_outlined,
+        value: state.userSettings.mapType,
+        options: mapOptions,
+        enabled: !state.personalSaving,
+        onSelected: cubit.updateMapType,
+      ),
+      _PersonalSettingSelector<SpeedUnit>(
+        key: const Key('speed-unit-setting'),
+        title: 'Đơn vị tốc độ',
+        icon: Icons.speed_rounded,
+        value: state.userSettings.speedUnit,
+        options: speedOptions,
+        enabled: !state.personalSaving,
+        onSelected: cubit.updateSpeedUnit,
+      ),
+    ];
 
-    return _SettingsCard(
-      title: 'Cá nhân',
-      icon: Icons.tune_rounded,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Material(
-            color: colors.surfaceContainerLow,
-            shape: RoundedRectangleBorder(
-              borderRadius: const BorderRadius.all(Radius.circular(12)),
-              side: BorderSide(color: colors.outlineVariant),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
+    return Column(
+      key: const Key('personal-settings-content'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _PersonalSettingsSummary(saving: state.personalSaving),
+        const SizedBox(height: 16),
+        _SettingsCard(
+          title: 'Tùy chọn hiển thị',
+          icon: Icons.dashboard_customize_outlined,
+          child: LayoutBuilder(
+            key: const Key('personal-settings-grid'),
+            builder: (context, constraints) {
+              if (constraints.maxWidth < 680) {
+                return Column(
+                  children: [
+                    for (var index = 0; index < selectors.length; index++) ...[
+                      SizedBox(width: double.infinity, child: selectors[index]),
+                      if (index != selectors.length - 1)
+                        const SizedBox(height: 12),
+                    ],
+                  ],
+                );
+              }
+
+              return IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var index = 0; index < selectors.length; index++) ...[
+                      Expanded(child: selectors[index]),
+                      if (index != selectors.length - 1)
+                        const SizedBox(width: 12),
+                    ],
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PersonalSettingsSummary extends StatelessWidget {
+  const _PersonalSettingsSummary({required this.saving});
+
+  final bool saving;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    Widget introduction() => Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: colors.primary,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(
+            Icons.auto_awesome_outlined,
+            color: colors.onPrimary,
+            size: 24,
+          ),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Trải nghiệm theo cách bạn làm việc',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: colors.onSurface,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                'Đồng bộ chủ đề, cách hiển thị bản đồ và đơn vị tốc độ cho tài khoản này.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    return DecoratedBox(
+      key: const Key('personal-settings-summary'),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            colors.primaryContainer.withValues(alpha: 0.78),
+            colors.surfaceContainerLow,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final status = _PersonalSaveStatus(saving: saving);
+            if (constraints.maxWidth < 520) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  introduction(),
+                  const SizedBox(height: 16),
+                  Align(alignment: Alignment.centerLeft, child: status),
+                  if (saving) ...[
+                    const SizedBox(height: 14),
+                    const LinearProgressIndicator(
+                      minHeight: 3,
+                      borderRadius: BorderRadius.all(Radius.circular(999)),
+                    ),
+                  ],
+                ],
+              );
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _PersonalSettingSelector<String>(
-                  key: const Key('theme-setting'),
-                  title: 'Giao diện',
-                  icon: Icons.palette_outlined,
-                  value: state.userSettings.theme,
-                  options: themeOptions,
-                  enabled: !state.personalSaving,
-                  onSelected: cubit.updateTheme,
+                Row(
+                  children: [
+                    Expanded(child: introduction()),
+                    const SizedBox(width: 24),
+                    status,
+                  ],
                 ),
-                const _PersonalSettingDivider(),
-                _PersonalSettingSelector<AppMapType>(
-                  key: const Key('map-type-setting'),
-                  title: 'Loại bản đồ',
-                  icon: Icons.map_outlined,
-                  value: state.userSettings.mapType,
-                  options: mapOptions,
-                  enabled: !state.personalSaving,
-                  onSelected: cubit.updateMapType,
-                ),
-                const _PersonalSettingDivider(),
-                _PersonalSettingSelector<SpeedUnit>(
-                  key: const Key('speed-unit-setting'),
-                  title: 'Đơn vị tốc độ',
-                  icon: Icons.speed_rounded,
-                  value: state.userSettings.speedUnit,
-                  options: speedOptions,
-                  enabled: !state.personalSaving,
-                  onSelected: cubit.updateSpeedUnit,
-                ),
+                if (saving) ...[
+                  const SizedBox(height: 14),
+                  const LinearProgressIndicator(
+                    minHeight: 3,
+                    borderRadius: BorderRadius.all(Radius.circular(999)),
+                  ),
+                ],
               ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _PersonalSaveStatus extends StatelessWidget {
+  const _PersonalSaveStatus({required this.saving});
+
+  final bool saving;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final foreground = saving ? colors.primary : colors.onSurfaceVariant;
+    return Container(
+      key: const Key('personal-save-status'),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+      decoration: BoxDecoration(
+        color: saving
+            ? colors.primaryContainer
+            : colors.surface.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            saving ? Icons.sync_rounded : Icons.cloud_done_outlined,
+            size: 17,
+            color: foreground,
+          ),
+          const SizedBox(width: 7),
+          Text(
+            saving ? 'Đang lưu thay đổi' : 'Đã đồng bộ',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: foreground,
+              fontWeight: FontWeight.w700,
             ),
           ),
-          if (state.personalSaving) ...[
-            const SizedBox(height: 12),
-            const LinearProgressIndicator(
-              minHeight: 2,
-              borderRadius: BorderRadius.all(Radius.circular(999)),
-            ),
-          ],
         ],
       ),
     );
@@ -536,8 +706,8 @@ class _PersonalSettingOption<T> {
   final IconData icon;
 }
 
-/// Dòng lựa chọn giữ bố cục gọn như danh sách cài đặt, đồng thời dùng popup
-/// Material để bảo toàn điều hướng bàn phím, focus và semantics.
+/// Thẻ lựa chọn vẫn dùng popup Material để bảo toàn điều hướng bàn phím,
+/// focus, semantics và hành vi lưu hiện có.
 class _PersonalSettingSelector<T> extends StatelessWidget {
   const _PersonalSettingSelector({
     super.key,
@@ -588,77 +758,77 @@ class _PersonalSettingSelector<T> extends StatelessWidget {
           .toList(growable: false),
       child: Opacity(
         opacity: enabled ? 1 : 0.55,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: colors.primaryContainer.withValues(alpha: 0.72),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, size: 20, color: colors.onPrimaryContainer),
-              ),
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        child: Material(
+          color: colors.surfaceContainerLow,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(color: colors.outlineVariant),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
                   children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colors.onSurface,
-                        fontWeight: FontWeight.w700,
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: colors.primaryContainer.withValues(alpha: 0.78),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        icon,
+                        size: 20,
+                        color: colors.onPrimaryContainer,
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '${selected.label} · ${selected.description}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
+                    const SizedBox(width: 11),
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: colors.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.expand_more_rounded,
+                      color: colors.onSurfaceVariant,
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(width: 10),
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: colors.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(8),
+                const SizedBox(height: 18),
+                Text(
+                  selected.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: colors.onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-                child: Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  size: 20,
-                  color: colors.onSurfaceVariant,
+                const SizedBox(height: 5),
+                Text(
+                  selected.description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    height: 1.35,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
-    );
-  }
-}
-
-class _PersonalSettingDivider extends StatelessWidget {
-  const _PersonalSettingDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return Divider(
-      height: 1,
-      indent: 67,
-      color: Theme.of(context).colorScheme.outlineVariant,
     );
   }
 }
@@ -678,114 +848,86 @@ class _SoftwareInformationCardState extends State<_SoftwareInformationCard> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 26, 20, 20),
-        child: Column(
+    return FutureBuilder<PackageInfo>(
+      future: _packageInfo,
+      builder: (context, snapshot) {
+        final packageInfo = snapshot.data;
+        final version = _metadataValue(
+          packageInfo?.version,
+          snapshot.connectionState,
+        );
+        final entries = <_SoftwareInfoEntry>[
+          const _SoftwareInfoEntry(
+            keyName: 'software-name-tile',
+            icon: Icons.apps_rounded,
+            label: 'Tên phần mềm',
+            value: 'V Monitor',
+          ),
+          _SoftwareInfoEntry(
+            keyName: 'software-version-tile',
+            valueKey: const Key('software-version-value'),
+            icon: Icons.new_releases_outlined,
+            label: 'Phiên bản',
+            value: version,
+          ),
+          _SoftwareInfoEntry(
+            keyName: 'software-build-tile',
+            valueKey: const Key('software-build-value'),
+            icon: Icons.build_circle_outlined,
+            label: 'Bản dựng',
+            value: _metadataValue(
+              packageInfo?.buildNumber,
+              snapshot.connectionState,
+            ),
+          ),
+          _SoftwareInfoEntry(
+            keyName: 'software-package-tile',
+            valueKey: const Key('software-package-value'),
+            icon: Icons.fingerprint_rounded,
+            label: 'Mã ứng dụng',
+            value: _metadataValue(
+              packageInfo?.packageName,
+              snapshot.connectionState,
+            ),
+          ),
+        ];
+
+        return Column(
+          key: const Key('software-information-content'),
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Center(
-              child: Container(
-                key: const Key('software-app-icon'),
-                width: 88,
-                height: 88,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: colors.outlineVariant),
-                  boxShadow: [
-                    BoxShadow(
-                      color: colors.primary.withValues(alpha: 0.12),
-                      blurRadius: 18,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
+            _SoftwareBrandPanel(version: version),
+            const SizedBox(height: 16),
+            KeyedSubtree(
+              key: const Key('software-release-panel'),
+              child: _SettingsCard(
+                title: 'Thông tin phát hành',
+                icon: Icons.info_outline_rounded,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    const spacing = 12.0;
+                    final columns = constraints.maxWidth >= 600 ? 2 : 1;
+                    final tileWidth =
+                        (constraints.maxWidth - spacing * (columns - 1)) /
+                        columns;
+                    return Wrap(
+                      spacing: spacing,
+                      runSpacing: spacing,
+                      children: [
+                        for (final entry in entries)
+                          SizedBox(
+                            width: tileWidth,
+                            child: _SoftwareInfoTile(entry: entry),
+                          ),
+                      ],
+                    );
+                  },
                 ),
-                clipBehavior: Clip.antiAlias,
-                // Ảnh thương hiệu có khoảng trắng bao quanh; phóng trong vùng
-                // cắt giúp biểu tượng rõ ràng mà không sửa file ảnh gốc.
-                child: Transform.scale(
-                  scale: 1.85,
-                  child: Image.asset(
-                    'assets/branding/v_monitor_logo.png',
-                    fit: BoxFit.cover,
-                    filterQuality: FilterQuality.high,
-                    semanticLabel: 'Biểu tượng V Monitor',
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              'V Monitor',
-              textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              'Phần mềm giám sát thiết bị nội bộ',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: colors.onSurfaceVariant),
-            ),
-            const SizedBox(height: 24),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: colors.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: FutureBuilder<PackageInfo>(
-                future: _packageInfo,
-                builder: (context, snapshot) {
-                  final packageInfo = snapshot.data;
-                  return Column(
-                    children: [
-                      const _SoftwareInfoRow(
-                        icon: Icons.apps_rounded,
-                        label: 'Tên phần mềm',
-                        value: 'V Monitor',
-                      ),
-                      const Divider(height: 1, indent: 56),
-                      _SoftwareInfoRow(
-                        valueKey: const Key('software-version-value'),
-                        icon: Icons.new_releases_outlined,
-                        label: 'Phiên bản',
-                        value: _metadataValue(
-                          packageInfo?.version,
-                          snapshot.connectionState,
-                        ),
-                      ),
-                      const Divider(height: 1, indent: 56),
-                      _SoftwareInfoRow(
-                        valueKey: const Key('software-build-value'),
-                        icon: Icons.build_circle_outlined,
-                        label: 'Bản dựng',
-                        value: _metadataValue(
-                          packageInfo?.buildNumber,
-                          snapshot.connectionState,
-                        ),
-                      ),
-                      const Divider(height: 1, indent: 56),
-                      _SoftwareInfoRow(
-                        valueKey: const Key('software-package-value'),
-                        icon: Icons.fingerprint_rounded,
-                        label: 'Mã ứng dụng',
-                        value: _metadataValue(
-                          packageInfo?.packageName,
-                          snapshot.connectionState,
-                        ),
-                      ),
-                    ],
-                  );
-                },
               ),
             ),
           ],
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -796,45 +938,257 @@ class _SoftwareInformationCardState extends State<_SoftwareInformationCard> {
   }
 }
 
-class _SoftwareInfoRow extends StatelessWidget {
-  const _SoftwareInfoRow({
+class _SoftwareBrandPanel extends StatelessWidget {
+  const _SoftwareBrandPanel({required this.version});
+
+  final String version;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final logo = Container(
+      key: const Key('software-app-icon'),
+      width: 88,
+      height: 88,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: colors.outlineVariant),
+        boxShadow: [
+          BoxShadow(
+            color: colors.primary.withValues(alpha: 0.14),
+            blurRadius: 20,
+            offset: const Offset(0, 7),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      // Ảnh thương hiệu có khoảng trắng bao quanh; phóng trong vùng cắt giúp
+      // biểu tượng rõ ràng mà không sửa file ảnh gốc.
+      child: Transform.scale(
+        scale: 1.85,
+        child: Image.asset(
+          'assets/branding/v_monitor_logo.png',
+          fit: BoxFit.cover,
+          filterQuality: FilterQuality.high,
+          semanticLabel: 'Biểu tượng V Monitor',
+        ),
+      ),
+    );
+
+    Widget description({required TextAlign textAlign}) => Column(
+      crossAxisAlignment: textAlign == TextAlign.center
+          ? CrossAxisAlignment.center
+          : CrossAxisAlignment.start,
+      children: [
+        Text(
+          'V Monitor',
+          textAlign: textAlign,
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w800,
+            color: colors.onSurface,
+          ),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          'Phần mềm giám sát thiết bị nội bộ',
+          textAlign: textAlign,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colors.onSurfaceVariant,
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 14),
+        Wrap(
+          alignment: textAlign == TextAlign.center
+              ? WrapAlignment.center
+              : WrapAlignment.start,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _SoftwareBadge(
+              icon: Icons.verified_outlined,
+              label: 'Phiên bản $version',
+              emphasized: true,
+            ),
+            const _SoftwareBadge(
+              icon: Icons.shield_outlined,
+              label: 'Hệ thống nội bộ',
+            ),
+          ],
+        ),
+      ],
+    );
+
+    return DecoratedBox(
+      key: const Key('software-brand-panel'),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            colors.primaryContainer.withValues(alpha: 0.74),
+            colors.surfaceContainerLow,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(22),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth < 560) {
+              return Column(
+                children: [
+                  logo,
+                  const SizedBox(height: 18),
+                  description(textAlign: TextAlign.center),
+                ],
+              );
+            }
+            return Row(
+              children: [
+                logo,
+                const SizedBox(width: 22),
+                Expanded(child: description(textAlign: TextAlign.start)),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _SoftwareBadge extends StatelessWidget {
+  const _SoftwareBadge({
+    required this.icon,
+    required this.label,
+    this.emphasized = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool emphasized;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final foreground = emphasized ? colors.primary : colors.onSurfaceVariant;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: emphasized
+            ? colors.primaryContainer
+            : colors.surface.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: foreground),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: foreground,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SoftwareInfoEntry {
+  const _SoftwareInfoEntry({
+    required this.keyName,
     this.valueKey,
     required this.icon,
     required this.label,
     required this.value,
   });
 
+  final String keyName;
   final Key? valueKey;
   final IconData icon;
   final String label;
   final String value;
+}
+
+class _SoftwareInfoTile extends StatelessWidget {
+  const _SoftwareInfoTile({required this.entry});
+
+  final _SoftwareInfoEntry entry;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          Icon(icon, size: 22, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(width: 18),
-          Expanded(
-            child: Text(label, style: Theme.of(context).textTheme.bodyLarge),
-          ),
-          const SizedBox(width: 12),
-          Flexible(
-            child: Text(
-              value,
-              key: valueKey,
-              textAlign: TextAlign.end,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Material(
+      key: Key(entry.keyName),
+      color: colors.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: colors.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: colors.primaryContainer.withValues(alpha: 0.76),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                entry.icon,
+                size: 20,
+                color: colors.onPrimaryContainer,
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entry.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: colors.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    entry.value,
+                    key: entry.valueKey,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colors.onSurface,
+                      fontWeight: FontWeight.w700,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,6 +1,6 @@
 /// Quản lý các nhà cung cấp nguồn bản đồ (Tile Providers) cho toàn bộ hệ thống v_monitor.
 enum AppMapType {
-  /// Bản đồ đường phố tiêu chuẩn (OpenStreetMap) - màu sắc sắc nét, rõ ràng
+  /// Bản đồ đường phố tiêu chuẩn
   standard,
 
   /// Bản đồ vệ tinh chi tiết cao (Google Hybrid Satellite kèm nhãn địa danh/đường bộ)
@@ -8,9 +8,11 @@ enum AppMapType {
 }
 
 class MapTileProviders {
-  /// URL OpenStreetMap đường phố chuẩn
+  /// URL bản đồ đường phố. Dùng cùng hạ tầng tile đang hoạt động với lớp vệ
+  /// tinh để tránh toàn bộ nền bản đồ bị trắng khi máy khách không phân giải
+  /// được miền tile.openstreetmap.org.
   static const String streetUrl =
-      'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+      'https://mt1.google.com/vt?lyrs=m&x={x}&y={y}&z={z}';
 
   /// URL Bản đồ vệ tinh Google Hybrid (kèm đường và tên địa danh)
   static const String satelliteUrl =

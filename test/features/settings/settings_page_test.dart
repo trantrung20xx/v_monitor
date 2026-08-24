@@ -131,7 +131,17 @@ void main() {
       section: SettingsSection.about,
     );
 
+    expect(
+      find.byKey(const Key('software-information-content')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('software-brand-panel')), findsOneWidget);
+    expect(find.byKey(const Key('software-release-panel')), findsOneWidget);
     expect(find.byKey(const Key('software-app-icon')), findsOneWidget);
+    expect(find.byKey(const Key('software-name-tile')), findsOneWidget);
+    expect(find.byKey(const Key('software-version-tile')), findsOneWidget);
+    expect(find.byKey(const Key('software-build-tile')), findsOneWidget);
+    expect(find.byKey(const Key('software-package-tile')), findsOneWidget);
     expect(
       find.image(const AssetImage('assets/branding/v_monitor_logo.png')),
       findsOneWidget,
@@ -203,18 +213,45 @@ void main() {
       expect(find.byTooltip('Chọn Loại bản đồ'), findsOneWidget);
       expect(find.byTooltip('Chọn Đơn vị tốc độ'), findsOneWidget);
       expect(
-        find.text('Theo hệ thống · Tự động theo thiết bị'),
+        find.byKey(const Key('personal-settings-content')),
         findsOneWidget,
       );
+      expect(
+        find.byKey(const Key('personal-settings-summary')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('personal-settings-grid')), findsOneWidget);
+      expect(find.byKey(const Key('personal-save-status')), findsOneWidget);
+      expect(find.text('Đã đồng bộ'), findsOneWidget);
+      expect(find.text('Theo hệ thống'), findsOneWidget);
+      expect(find.text('Tự động theo thiết bị'), findsOneWidget);
 
+      harness.repository.pendingUserUpdate = Completer<void>();
       await tester.tap(find.byKey(const Key('map-type-setting')));
       await tester.pumpAndSettle();
       expect(find.byIcon(Icons.check_rounded), findsOneWidget);
       await tester.tap(find.text('Vệ tinh').last);
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('Đang lưu thay đổi'), findsOneWidget);
+      expect(
+        tester
+            .widget<PopupMenuButton<AppMapType>>(
+              find.descendant(
+                of: find.byKey(const Key('map-type-setting')),
+                matching: find.byType(PopupMenuButton<AppMapType>),
+              ),
+            )
+            .enabled,
+        isFalse,
+      );
+      harness.repository.pendingUserUpdate!.complete();
       await tester.pumpAndSettle();
 
       expect(harness.repository.userSettings.mapType, AppMapType.satellite);
-      expect(find.text('Vệ tinh · Ảnh thực địa kèm nhãn'), findsOneWidget);
+      expect(find.text('Đã đồng bộ'), findsOneWidget);
+      expect(find.text('Vệ tinh'), findsOneWidget);
+      expect(find.text('Ảnh thực địa kèm nhãn'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('speed-unit-setting')));
       await tester.pumpAndSettle();
@@ -223,7 +260,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(harness.repository.userSettings.speedUnit, SpeedUnit.mps);
-      expect(find.text('m/s · Mét mỗi giây'), findsOneWidget);
+      expect(find.text('m/s'), findsOneWidget);
+      expect(find.text('Mét mỗi giây'), findsOneWidget);
       expect(harness.repository.userUpdateCount, 2);
       expect(tester.takeException(), isNull);
     },
@@ -652,11 +690,11 @@ void main() {
     }
   });
 
-  testWidgets('redesigned account and tracking layouts support dark theme', (
-    tester,
-  ) async {
+  testWidgets('redesigned settings layouts support dark theme', (tester) async {
     for (final section in const [
+      SettingsSection.personal,
       SettingsSection.account,
+      SettingsSection.about,
       SettingsSection.tracking,
     ]) {
       await _pumpSettings(
@@ -674,6 +712,35 @@ void main() {
     }
   });
 
+  testWidgets(
+    'personal and software layouts adapt to narrow and wide screens',
+    (tester) async {
+      for (final size in const [
+        Size(320, 700),
+        Size(390, 844),
+        Size(840, 900),
+        Size(1440, 900),
+      ]) {
+        for (final section in const [
+          SettingsSection.personal,
+          SettingsSection.about,
+        ]) {
+          await _pumpSettings(
+            tester,
+            role: 'USER',
+            size: size,
+            section: section,
+          );
+          expect(
+            tester.takeException(),
+            isNull,
+            reason: '$section must fit ${size.width}x${size.height}',
+          );
+        }
+      }
+    },
+  );
+
   testWidgets('settings layout has no overflow on mobile and desktop', (
     tester,
   ) async {
@@ -686,7 +753,11 @@ void main() {
           section: section,
         );
         expect(find.text(_expectedTitle(section)), findsWidgets);
-        expect(tester.takeException(), isNull);
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: '$section must fit ${size.width}x${size.height}',
+        );
       }
     }
   });
@@ -829,6 +900,7 @@ class _FakeSettingsRepository extends SettingsRepository {
   int userUpdateCount = 0;
   int systemUpdateCount = 0;
   int loadUsersCount = 0;
+  Completer<void>? pendingUserUpdate;
   Completer<void>? pendingSystemUpdate;
   Object? systemUpdateError;
   String? lastUpdatedUserId;
@@ -866,6 +938,11 @@ class _FakeSettingsRepository extends SettingsRepository {
     Map<String, dynamic> changes,
   ) async {
     userUpdateCount++;
+    final pending = pendingUserUpdate;
+    if (pending != null) {
+      await pending.future;
+      pendingUserUpdate = null;
+    }
     final preferences = changes['preferences'];
     _userSettings = _userSettings.copyWith(
       theme: changes['theme']?.toString(),
