@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 
 from app.core.config import settings
@@ -10,9 +10,26 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
+class GeocodingUnavailableError(RuntimeError):
+    pass
+
+
 class GeocodingService:
-    def __init__(self):
+    def __init__(
+        self,
+        *,
+        retry_attempts: int | None = None,
+        retry_delay_seconds: float | None = None,
+    ):
         self._cache: dict[str, dict[str, str | None]] = {}
+        self._pending: dict[str, asyncio.Task[dict[str, str | None]]] = {}
+        self._provider_request_lock = asyncio.Lock()
+        self._retry_attempts = retry_attempts or settings.geocoding_retry_attempts
+        self._retry_delay_seconds = (
+            settings.geocoding_retry_delay_seconds
+            if retry_delay_seconds is None
+            else retry_delay_seconds
+        )
 
     async def reverse(self, latitude: float, longitude: float) -> dict[str, str | None]:
         cache_key = f"{latitude:.5f},{longitude:.5f}"
@@ -20,58 +37,152 @@ class GeocodingService:
         if cached is not None:
             return cached
 
-        try:
-            payload = await asyncio.to_thread(
-                self._fetch_reverse_geocode,
-                latitude,
-                longitude,
+        pending = self._pending.get(cache_key)
+        if pending is None:
+            pending = asyncio.create_task(
+                self._resolve_uncached(cache_key, latitude, longitude)
             )
-        except (HTTPError, URLError, TimeoutError, OSError) as exc:
-            logger.warning("Reverse geocoding failed: %s", exc)
-            payload = {}
-        except Exception as exc:
-            logger.exception("Unexpected reverse geocoding error: %s", exc)
-            payload = {}
+            self._pending[cache_key] = pending
 
-        address = self._format_address(payload.get("address"))
-        display_name = self._clean_text(payload.get("display_name"))
-        result = {
+        try:
+            return await asyncio.shield(pending)
+        finally:
+            if pending.done() and self._pending.get(cache_key) is pending:
+                self._pending.pop(cache_key, None)
+
+    async def _resolve_uncached(
+        self,
+        cache_key: str,
+        latitude: float,
+        longitude: float,
+    ) -> dict[str, str | None]:
+        last_error: Exception | None = None
+        for attempt in range(1, self._retry_attempts + 1):
+            try:
+                async with self._provider_request_lock:
+                    provider, payload = await asyncio.to_thread(
+                        self._fetch_reverse_geocode,
+                        latitude,
+                        longitude,
+                    )
+                result = self._build_result(provider, payload)
+                if result["formatted_address"] or result["display_name"]:
+                    self._cache[cache_key] = result
+                return result
+            except (HTTPError, URLError, TimeoutError, OSError, ValueError) as exc:
+                last_error = exc
+                logger.warning(
+                    "Reverse geocoding attempt %s/%s failed: %s",
+                    attempt,
+                    self._retry_attempts,
+                    exc,
+                )
+            except Exception as exc:
+                last_error = exc
+                logger.exception("Unexpected reverse geocoding error: %s", exc)
+
+            if attempt < self._retry_attempts and self._retry_delay_seconds > 0:
+                await asyncio.sleep(self._retry_delay_seconds)
+
+        raise GeocodingUnavailableError(
+            "Reverse geocoding provider is temporarily unavailable"
+        ) from last_error
+
+    def _build_result(
+        self,
+        provider: str,
+        payload: dict,
+    ) -> dict[str, str | None]:
+        normalized = (
+            self._normalize_photon_payload(payload)
+            if provider == "photon"
+            else payload
+        )
+
+        address = self._format_address(normalized.get("address"))
+        display_name = self._clean_text(normalized.get("display_name"))
+        return {
             "formatted_address": address or display_name,
             "display_name": display_name,
+            "provider": provider,
         }
-        self._cache[cache_key] = result
-        return result
 
     def _fetch_reverse_geocode(
         self,
         latitude: float,
         longitude: float,
-    ) -> dict:
+    ) -> tuple[str, dict]:
+        provider = self._provider_name()
         base_url = settings.geocoding_base_url.rstrip("/")
-        query = urlencode(
-            {
-                "format": "jsonv2",
-                "lat": f"{latitude:.7f}",
-                "lon": f"{longitude:.7f}",
-                "addressdetails": 1,
-                "accept-language": "vi,en",
-                "zoom": 18,
-            }
-        )
-        request = Request(
-            f"{base_url}/reverse?{query}",
-            headers={
-                "Accept": "application/json",
-                "User-Agent": settings.geocoding_user_agent,
-            },
-        )
+        if provider == "photon":
+            query = urlencode(
+                {
+                    "lat": f"{latitude:.7f}",
+                    "lon": f"{longitude:.7f}",
+                    "limit": 1,
+                }
+            )
+        else:
+            query = urlencode(
+                {
+                    "format": "jsonv2",
+                    "lat": f"{latitude:.7f}",
+                    "lon": f"{longitude:.7f}",
+                    "addressdetails": 1,
+                    "accept-language": "vi,en",
+                    "zoom": 18,
+                }
+            )
+        headers = {
+            "Accept": "application/json",
+            "User-Agent": settings.geocoding_user_agent,
+        }
+        if provider == "nominatim":
+            headers["Accept-Language"] = "vi,en;q=0.8"
+        request = Request(f"{base_url}/reverse?{query}", headers=headers)
         with urlopen(  # noqa: S310 - base URL is controlled by backend settings.
             request,
             timeout=settings.geocoding_timeout_seconds,
         ) as response:
             raw = response.read().decode("utf-8")
         parsed = json.loads(raw)
-        return parsed if isinstance(parsed, dict) else {}
+        if not isinstance(parsed, dict):
+            raise ValueError("Reverse geocoding provider returned invalid JSON")
+        return provider, parsed
+
+    def _provider_name(self) -> str:
+        configured = settings.geocoding_provider
+        if configured != "auto":
+            return configured
+
+        hostname = (urlparse(settings.geocoding_base_url).hostname or "").lower()
+        return "photon" if "photon" in hostname else "nominatim"
+
+    def _normalize_photon_payload(self, payload: dict) -> dict:
+        features = payload.get("features")
+        if not isinstance(features, list) or not features:
+            return {}
+
+        first_feature = features[0]
+        if not isinstance(first_feature, dict):
+            return {}
+        properties = first_feature.get("properties")
+        if not isinstance(properties, dict):
+            return {}
+
+        address = {
+            "amenity": properties.get("name"),
+            "house_number": properties.get("housenumber"),
+            "road": properties.get("street"),
+            "neighbourhood": properties.get("locality"),
+            "city_district": properties.get("district"),
+            "county": properties.get("county"),
+            "city": properties.get("city"),
+            "state": properties.get("state"),
+            "country": properties.get("country"),
+        }
+        display_name = self._format_address(address)
+        return {"address": address, "display_name": display_name}
 
     def _format_address(self, address: object) -> str | None:
         if not isinstance(address, dict):

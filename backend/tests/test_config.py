@@ -70,14 +70,27 @@ class SettingsTest(unittest.TestCase):
         settings = Settings(
             _env_file=None,
             database_url="postgresql+asyncpg://user:pass@db.local:5432/app",
+            geocoding_provider="PHOTON",
             geocoding_base_url="https://geo.example.test",
             geocoding_user_agent="v_monitor/test",
             geocoding_timeout_seconds=3,
+            geocoding_retry_attempts=3,
+            geocoding_retry_delay_seconds=0.25,
         )
 
+        self.assertEqual(settings.geocoding_provider, "photon")
         self.assertEqual(settings.geocoding_base_url, "https://geo.example.test")
         self.assertEqual(settings.geocoding_user_agent, "v_monitor/test")
         self.assertEqual(settings.geocoding_timeout_seconds, 3)
+        self.assertEqual(settings.geocoding_retry_attempts, 3)
+        self.assertEqual(settings.geocoding_retry_delay_seconds, 0.25)
+
+        with self.assertRaises(Exception):
+            Settings(
+                _env_file=None,
+                database_url="postgresql+asyncpg://user:pass@db.local:5432/app",
+                geocoding_provider="unsupported",
+            )
 
     def test_normalizes_api_prefix_and_cors_origins(self):
         settings = Settings(

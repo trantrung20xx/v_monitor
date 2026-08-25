@@ -7,9 +7,12 @@ import '../../../core/theme/app_theme_colors.dart';
 import '../../../core/utils/device_formatters.dart';
 import '../../../data/models/device_model.dart';
 import '../../../data/models/mqtt_device_sighting_model.dart';
+import '../../../domain/entities/device_status_resolver.dart';
 import '../settings_cubit.dart';
 
 enum _DevicePermissionFilter { all, enabled, disabled }
+
+enum _DeviceViewMode { compact, detailed }
 
 IconData _deviceTypeIcon(String type) => switch (type) {
   'UAV_CONTROLLER' => Icons.flight_rounded,
@@ -41,6 +44,7 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
 
   final _searchController = TextEditingController();
   _DevicePermissionFilter _permissionFilter = _DevicePermissionFilter.all;
+  _DeviceViewMode _viewMode = _DeviceViewMode.compact;
   late final TabController _tabController;
   int _selectedTabIndex = 0;
   int _registeredVisible = _pageSize;
@@ -120,9 +124,9 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('Tạm khóa thiết bị?'),
+          title: const Text('Tạm ngừng nhận dữ liệu?'),
           content: Text(
-            'Hệ thống sẽ ngừng nhận telemetry từ ${device.deviceCode}. '
+            'Hệ thống sẽ ngừng tiếp nhận dữ liệu từ ${device.deviceCode}. '
             'Dữ liệu và lịch sử hiện có vẫn được giữ nguyên.',
           ),
           actions: [
@@ -132,7 +136,7 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Tạm khóa'),
+              child: const Text('Tạm ngừng'),
             ),
           ],
         ),
@@ -150,8 +154,8 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
         SnackBar(
           content: Text(
             enabled
-                ? 'Đã cho phép tiếp nhận telemetry từ ${device.deviceCode}.'
-                : 'Đã tạm khóa ${device.deviceCode}.',
+                ? 'Đã bật nhận dữ liệu từ ${device.deviceCode}.'
+                : 'Đã tạm ngừng nhận dữ liệu từ ${device.deviceCode}.',
           ),
         ),
       );
@@ -172,7 +176,7 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
             key: Key('registered-device-empty'),
             icon: Icons.devices_other_outlined,
             title: 'Không có thiết bị phù hợp',
-            description: 'Thử đổi từ khóa hoặc bộ lọc quyền nhận dữ liệu.',
+            description: 'Thử đổi từ khóa hoặc bộ lọc trạng thái nhận dữ liệu.',
           )
         : Column(
             children: [
@@ -182,6 +186,7 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
                     'registered-device-${visibleDevices[index].deviceCode}',
                   ),
                   device: visibleDevices[index],
+                  detailed: _viewMode == _DeviceViewMode.detailed,
                   operationInProgress: widget.operationInProgress,
                   onEdit: () =>
                       _openDeviceDialog(device: visibleDevices[index]),
@@ -211,9 +216,9 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
         ? const _DeviceEmptyState(
             key: Key('mqtt-sighting-empty'),
             icon: Icons.verified_outlined,
-            title: 'Không có thiết bị chờ xử lý',
+            title: 'Không có thiết bị chờ xác nhận',
             description:
-                'Mã lạ sẽ xuất hiện sau khi backend nhận JSON trên topic MQTT đúng định dạng.',
+                'Thiết bị mới sẽ xuất hiện khi hệ thống nhận được tín hiệu hợp lệ.',
           )
         : Column(
             children: [
@@ -223,6 +228,7 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
                     'mqtt-sighting-${visibleSightings[index].deviceCode}',
                   ),
                   sighting: visibleSightings[index],
+                  detailed: _viewMode == _DeviceViewMode.detailed,
                   operationInProgress: widget.operationInProgress,
                   onRegister: () =>
                       _openDeviceDialog(sighting: visibleSightings[index]),
@@ -265,6 +271,7 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
             enabledCount: enabledCount,
             disabledCount: widget.devices.length - enabledCount,
             showPermissionFilter: _selectedTabIndex == 0,
+            pendingMode: _selectedTabIndex == 1,
             onSearchChanged: (_) => setState(_resetVisibleCounts),
             onPermissionChanged: (value) {
               setState(() {
@@ -274,18 +281,20 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
             },
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         _DeviceTabbedContent(
           controller: _tabController,
           selectedIndex: _selectedTabIndex,
           registeredCount: filteredDevices.length,
           pendingCount: filteredSightings.length,
+          viewMode: _viewMode,
           registeredContent: registeredContent,
           pendingContent: pendingContent,
           onSelected: (index) {
             if (_selectedTabIndex == index) return;
             setState(() => _selectedTabIndex = index);
           },
+          onViewModeChanged: (value) => setState(() => _viewMode = value),
         ),
       ],
     );
@@ -322,29 +331,32 @@ class _DeviceManagementHeader extends StatelessWidget {
         children: [
           if (loading) const LinearProgressIndicator(minHeight: 2),
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final useCompactMetrics = constraints.maxWidth < 620;
+                final useCompactMetrics = constraints.maxWidth < 600;
                 final metricItems = [
                   _DeviceMetric(
                     compact: useCompactMetrics,
                     icon: Icons.inventory_2_outlined,
-                    label: 'Đã đăng ký',
+                    label: 'Đã thêm',
+                    tooltip: 'Thiết bị đã thêm vào hệ thống',
                     value: registeredCount,
                     color: appColors.primary,
                   ),
                   _DeviceMetric(
                     compact: useCompactMetrics,
                     icon: Icons.sensors_rounded,
-                    label: 'Được phép',
+                    label: 'Đang bật',
+                    tooltip: 'Thiết bị được phép nhận dữ liệu',
                     value: enabledCount,
                     color: appColors.successStrong,
                   ),
                   _DeviceMetric(
                     compact: useCompactMetrics,
                     icon: Icons.radar_rounded,
-                    label: 'Chờ xử lý',
+                    label: 'Chờ xác nhận',
+                    tooltip: 'Thiết bị mới đang chờ xác nhận',
                     value: pendingCount,
                     color: appColors.warningStrong,
                   ),
@@ -363,42 +375,51 @@ class _DeviceManagementHeader extends StatelessWidget {
                               ) ...[
                                 Expanded(child: metricItems[index]),
                                 if (index != metricItems.length - 1)
-                                  const SizedBox(width: 6),
+                                  const SizedBox(width: 2),
                               ],
                             ],
                           ),
                         )
                       : Wrap(spacing: 8, runSpacing: 8, children: metricItems),
                 );
-                final addButton = FilledButton.icon(
-                  key: const Key('add-device-button'),
-                  onPressed: operationInProgress ? null : onAdd,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(0, 42),
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                  ),
-                  icon: const Icon(Icons.add_rounded, size: 19),
-                  label: const Text('Thêm thiết bị'),
-                );
+                final addButton = useCompactMetrics
+                    ? Tooltip(
+                        message: 'Thêm thiết bị',
+                        child: IconButton.filled(
+                          key: const Key('add-device-button'),
+                          onPressed: operationInProgress ? null : onAdd,
+                          style: IconButton.styleFrom(
+                            minimumSize: const Size.square(40),
+                            maximumSize: const Size.square(40),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          icon: const Icon(Icons.add_rounded, size: 19),
+                        ),
+                      )
+                    : FilledButton.icon(
+                        key: const Key('add-device-button'),
+                        onPressed: operationInProgress ? null : onAdd,
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size(0, 40),
+                          padding: const EdgeInsets.symmetric(horizontal: 13),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: const Text('Thêm thiết bị'),
+                      );
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (constraints.maxWidth >= 500)
-                      Row(
-                        children: [
-                          Expanded(child: metrics),
-                          const SizedBox(width: 12),
-                          addButton,
-                        ],
-                      )
-                    else ...[
-                      metrics,
-                      const SizedBox(height: 10),
-                      Align(alignment: Alignment.centerLeft, child: addButton),
-                    ],
-                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(child: metrics),
+                        const SizedBox(width: 8),
+                        addButton,
+                      ],
+                    ),
+                    const SizedBox(height: 8),
                     Divider(height: 1, color: appColors.divider),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     controls,
                   ],
                 );
@@ -416,6 +437,7 @@ class _DeviceMetric extends StatelessWidget {
     this.compact = false,
     required this.icon,
     required this.label,
+    required this.tooltip,
     required this.value,
     required this.color,
   });
@@ -423,6 +445,7 @@ class _DeviceMetric extends StatelessWidget {
   final bool compact;
   final IconData icon;
   final String label;
+  final String tooltip;
   final int value;
   final Color color;
 
@@ -430,74 +453,74 @@ class _DeviceMetric extends StatelessWidget {
   Widget build(BuildContext context) {
     final appColors = context.appColors;
     if (compact) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
+      return Tooltip(
+        message: '$tooltip: $value',
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 14, color: color),
+                  const SizedBox(width: 3),
+                  Text(
+                    value.toString(),
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                label,
+                maxLines: 2,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: appColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                  height: 1.05,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return Tooltip(
+      message: tooltip,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
         decoration: BoxDecoration(
           color: appColors.surfaceSubtle,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(9),
           border: Border.all(color: appColors.borderSoft),
         ),
-        child: Column(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 15, color: color),
-                const SizedBox(width: 4),
-                Text(
-                  value.toString(),
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
+            Icon(icon, size: 15, color: color),
+            const SizedBox(width: 5),
+            Text(
+              value.toString(),
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(width: 4),
             Text(
               label,
-              maxLines: 2,
-              textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: appColors.textSecondary,
                 fontWeight: FontWeight.w600,
-                height: 1.15,
               ),
             ),
           ],
         ),
-      );
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-      decoration: BoxDecoration(
-        color: appColors.surfaceSubtle,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: appColors.borderSoft),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 6),
-          Text(
-            value.toString(),
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: appColors.textSecondary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -511,6 +534,7 @@ class _DeviceFilterBar extends StatelessWidget {
     required this.enabledCount,
     required this.disabledCount,
     required this.showPermissionFilter,
+    required this.pendingMode,
     required this.onSearchChanged,
     required this.onPermissionChanged,
   });
@@ -521,6 +545,7 @@ class _DeviceFilterBar extends StatelessWidget {
   final int enabledCount;
   final int disabledCount;
   final bool showPermissionFilter;
+  final bool pendingMode;
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<_DevicePermissionFilter> onPermissionChanged;
 
@@ -528,9 +553,11 @@ class _DeviceFilterBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final search = Semantics(
       textField: true,
-      label: 'Tìm kiếm thiết bị',
+      label: pendingMode
+          ? 'Tìm thiết bị đang chờ xác nhận'
+          : 'Tìm thiết bị đã thêm',
       child: SizedBox(
-        height: 44,
+        height: 40,
         child: TextField(
           key: const Key('device-search-field'),
           controller: controller,
@@ -538,15 +565,17 @@ class _DeviceFilterBar extends StatelessWidget {
           textInputAction: TextInputAction.search,
           decoration: InputDecoration(
             isDense: true,
-            hintText: 'Tìm mã, tên, serial hoặc topic MQTT',
-            prefixIcon: const Icon(Icons.search_rounded, size: 20),
+            hintText: pendingMode
+                ? 'Tìm theo mã hoặc kênh dữ liệu'
+                : 'Tìm theo mã, tên hoặc số sê-ri',
+            prefixIcon: const Icon(Icons.search_rounded, size: 19),
             prefixIconConstraints: const BoxConstraints(
-              minWidth: 42,
-              minHeight: 42,
+              minWidth: 38,
+              minHeight: 38,
             ),
             suffixIconConstraints: const BoxConstraints(
-              minWidth: 42,
-              minHeight: 42,
+              minWidth: 38,
+              minHeight: 38,
             ),
             suffixIcon: controller.text.isEmpty
                 ? null
@@ -558,10 +587,10 @@ class _DeviceFilterBar extends StatelessWidget {
                       onSearchChanged('');
                     },
                     style: IconButton.styleFrom(
-                      minimumSize: const Size.square(40),
-                      maximumSize: const Size.square(40),
+                      minimumSize: const Size.square(38),
+                      maximumSize: const Size.square(38),
                     ),
-                    icon: const Icon(Icons.close_rounded, size: 19),
+                    icon: const Icon(Icons.close_rounded, size: 18),
                   ),
           ),
         ),
@@ -569,26 +598,22 @@ class _DeviceFilterBar extends StatelessWidget {
     );
     if (!showPermissionFilter) return search;
 
-    final filter = _DevicePermissionFilterMenu(
-      value: permissionFilter,
-      totalCount: totalCount,
-      enabledCount: enabledCount,
-      disabledCount: disabledCount,
-      onChanged: onPermissionChanged,
-    );
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < 640) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [search, const SizedBox(height: 10), filter],
-          );
-        }
+        final compactFilter = constraints.maxWidth < 520;
+        final filter = _DevicePermissionFilterMenu(
+          value: permissionFilter,
+          totalCount: totalCount,
+          enabledCount: enabledCount,
+          disabledCount: disabledCount,
+          compact: compactFilter,
+          onChanged: onPermissionChanged,
+        );
         return Row(
           children: [
             Expanded(flex: 5, child: search),
-            const SizedBox(width: 12),
-            Expanded(flex: 4, child: filter),
+            const SizedBox(width: 8),
+            if (compactFilter) filter else Expanded(flex: 4, child: filter),
           ],
         );
       },
@@ -602,6 +627,7 @@ class _DevicePermissionFilterMenu extends StatelessWidget {
     required this.totalCount,
     required this.enabledCount,
     required this.disabledCount,
+    required this.compact,
     required this.onChanged,
   });
 
@@ -609,22 +635,24 @@ class _DevicePermissionFilterMenu extends StatelessWidget {
   final int totalCount;
   final int enabledCount;
   final int disabledCount;
+  final bool compact;
   final ValueChanged<_DevicePermissionFilter> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final appColors = context.appColors;
     final selectedLabel = switch (value) {
-      _DevicePermissionFilter.all => 'Tất cả thiết bị ($totalCount)',
-      _DevicePermissionFilter.enabled => 'Được phép ($enabledCount)',
-      _DevicePermissionFilter.disabled => 'Tạm khóa telemetry ($disabledCount)',
+      _DevicePermissionFilter.all => 'Tất cả ($totalCount)',
+      _DevicePermissionFilter.enabled => 'Đang bật ($enabledCount)',
+      _DevicePermissionFilter.disabled => 'Tạm ngừng ($disabledCount)',
     };
 
     return SizedBox(
-      height: 44,
+      width: compact ? 40 : null,
+      height: 40,
       child: PopupMenuButton<_DevicePermissionFilter>(
         key: const Key('device-permission-filter'),
-        tooltip: 'Lọc thiết bị đã đăng ký theo quyền nhận dữ liệu',
+        tooltip: 'Lọc trạng thái nhận dữ liệu: $selectedLabel',
         padding: EdgeInsets.zero,
         style: const ButtonStyle(
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -636,23 +664,26 @@ class _DevicePermissionFilterMenu extends StatelessWidget {
             key: const Key('device-filter-all'),
             value: _DevicePermissionFilter.all,
             checked: value == _DevicePermissionFilter.all,
-            child: Text('Tất cả thiết bị ($totalCount)'),
+            child: Text('Tất cả ($totalCount)'),
           ),
           CheckedPopupMenuItem(
             key: const Key('device-filter-enabled'),
             value: _DevicePermissionFilter.enabled,
             checked: value == _DevicePermissionFilter.enabled,
-            child: Text('Được phép nhận dữ liệu ($enabledCount)'),
+            child: Text('Đang bật nhận dữ liệu ($enabledCount)'),
           ),
           CheckedPopupMenuItem(
             key: const Key('device-filter-disabled'),
             value: _DevicePermissionFilter.disabled,
             checked: value == _DevicePermissionFilter.disabled,
-            child: Text('Tạm khóa telemetry ($disabledCount)'),
+            child: Text('Tạm ngừng nhận dữ liệu ($disabledCount)'),
           ),
         ],
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 8 : 11,
+            vertical: 7,
+          ),
           decoration: BoxDecoration(
             color: appColors.surface,
             borderRadius: BorderRadius.circular(10),
@@ -663,37 +694,40 @@ class _DevicePermissionFilterMenu extends StatelessWidget {
             ),
           ),
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 Icons.filter_alt_outlined,
-                size: 20,
+                size: 19,
                 color: value == _DevicePermissionFilter.all
                     ? appColors.textSecondary
                     : appColors.primary,
               ),
-              const SizedBox(width: 9),
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      selectedLabel,
-                      maxLines: 1,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: appColors.textPrimary,
-                        fontWeight: FontWeight.w600,
+              if (!compact) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        selectedLabel,
+                        maxLines: 1,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: appColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.expand_more_rounded,
-                size: 20,
-                color: appColors.textSecondary,
-              ),
+                const SizedBox(width: 6),
+                Icon(
+                  Icons.expand_more_rounded,
+                  size: 19,
+                  color: appColors.textSecondary,
+                ),
+              ],
             ],
           ),
         ),
@@ -708,18 +742,22 @@ class _DeviceTabbedContent extends StatelessWidget {
     required this.selectedIndex,
     required this.registeredCount,
     required this.pendingCount,
+    required this.viewMode,
     required this.registeredContent,
     required this.pendingContent,
     required this.onSelected,
+    required this.onViewModeChanged,
   });
 
   final TabController controller;
   final int selectedIndex;
   final int registeredCount;
   final int pendingCount;
+  final _DeviceViewMode viewMode;
   final Widget registeredContent;
   final Widget pendingContent;
   final ValueChanged<int> onSelected;
+  final ValueChanged<_DeviceViewMode> onViewModeChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -737,71 +775,67 @@ class _DeviceTabbedContent extends StatelessWidget {
             ),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final compact = constraints.maxWidth < 560;
-                return TabBar(
-                  controller: controller,
-                  onTap: onSelected,
-                  indicatorColor: appColors.primary,
-                  indicatorSize: TabBarIndicatorSize.label,
-                  indicatorWeight: 3,
-                  dividerColor: AppPalette.transparent,
-                  labelColor: appColors.primary,
-                  unselectedLabelColor: appColors.textSecondary,
-                  labelStyle: Theme.of(
-                    context,
-                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-                  unselectedLabelStyle: Theme.of(
-                    context,
-                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
-                  tabs: [
-                    Tab(
-                      key: const Key('registered-devices-tab'),
-                      height: 58,
-                      child: Text(
-                        '${compact ? 'Đã đăng ký' : 'Thiết bị đã đăng ký'} ($registeredCount)',
-                        maxLines: 1,
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                    Tab(
-                      key: const Key('pending-devices-tab'),
-                      height: 58,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Flexible(
-                            child: Text(
-                              compact ? 'MQTT chờ' : 'MQTT chờ đăng ký',
-                              maxLines: 1,
-                              textAlign: TextAlign.center,
-                            ),
+                final compactTabs = constraints.maxWidth < 430;
+                return SizedBox(
+                  height: 44,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TabBar(
+                          controller: controller,
+                          onTap: onSelected,
+                          indicatorColor: appColors.primary,
+                          indicatorSize: TabBarIndicatorSize.label,
+                          indicatorWeight: 2,
+                          dividerColor: AppPalette.transparent,
+                          labelPadding: const EdgeInsets.symmetric(
+                            horizontal: 4,
                           ),
-                          const SizedBox(width: 7),
-                          Container(
-                            key: const Key('pending-devices-tab-badge'),
-                            constraints: const BoxConstraints(minWidth: 22),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 3,
+                          labelColor: appColors.primary,
+                          unselectedLabelColor: appColors.textSecondary,
+                          labelStyle: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                          unselectedLabelStyle: Theme.of(context)
+                              .textTheme
+                              .labelMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                          tabs: [
+                            Tab(
+                              key: const Key('registered-devices-tab'),
+                              height: 44,
+                              child: _DeviceTabLabel(
+                                label: 'Đã thêm',
+                                count: registeredCount,
+                              ),
                             ),
-                            decoration: BoxDecoration(
-                              color: appColors.primarySoft,
-                              borderRadius: BorderRadius.circular(999),
+                            Tab(
+                              key: const Key('pending-devices-tab'),
+                              height: 44,
+                              child: _DeviceTabLabel(
+                                label: compactTabs ? 'Chờ' : 'Chờ xác nhận',
+                                count: pendingCount,
+                                badgeKey: const Key(
+                                  'pending-devices-tab-badge',
+                                ),
+                              ),
                             ),
-                            child: Text(
-                              pendingCount.toString(),
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.labelSmall
-                                  ?.copyWith(
-                                    color: appColors.primary,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                      SizedBox(
+                        height: 24,
+                        child: VerticalDivider(
+                          width: 1,
+                          color: appColors.borderSoft,
+                        ),
+                      ),
+                      _DeviceViewModeMenu(
+                        value: viewMode,
+                        compact: constraints.maxWidth < 620,
+                        onChanged: onViewModeChanged,
+                      ),
+                    ],
+                  ),
                 );
               },
             ),
@@ -812,10 +846,136 @@ class _DeviceTabbedContent extends StatelessWidget {
                   ? 'registered-devices-pane'
                   : 'pending-devices-pane',
             ),
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(10),
             child: selectedIndex == 0 ? registeredContent : pendingContent,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _DeviceTabLabel extends StatelessWidget {
+  const _DeviceTabLabel({
+    required this.label,
+    required this.count,
+    this.badgeKey,
+  });
+
+  final String label;
+  final int count;
+  final Key? badgeKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = context.appColors;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.fade)),
+        const SizedBox(width: 5),
+        Container(
+          key: badgeKey,
+          constraints: const BoxConstraints(minWidth: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+          decoration: BoxDecoration(
+            color: appColors.primarySoft,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            count.toString(),
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: appColors.primary,
+              fontWeight: FontWeight.w800,
+              height: 1.1,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DeviceViewModeMenu extends StatelessWidget {
+  const _DeviceViewModeMenu({
+    required this.value,
+    required this.compact,
+    required this.onChanged,
+  });
+
+  final _DeviceViewMode value;
+  final bool compact;
+  final ValueChanged<_DeviceViewMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = context.appColors;
+    final isCompact = value == _DeviceViewMode.compact;
+    final label = isCompact ? 'Gọn' : 'Chi tiết';
+    final icon = isCompact
+        ? Icons.view_agenda_outlined
+        : Icons.view_day_outlined;
+    return PopupMenuButton<_DeviceViewMode>(
+      key: const Key('device-view-mode-menu'),
+      tooltip: 'Kiểu hiển thị: $label',
+      padding: EdgeInsets.zero,
+      initialValue: value,
+      onSelected: onChanged,
+      itemBuilder: (context) => [
+        CheckedPopupMenuItem(
+          key: const Key('device-view-mode-compact'),
+          value: _DeviceViewMode.compact,
+          checked: isCompact,
+          child: const ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.view_agenda_outlined),
+            title: Text('Gọn'),
+            subtitle: Text('Chỉ hiện thông tin cần thiết'),
+          ),
+        ),
+        CheckedPopupMenuItem(
+          key: const Key('device-view-mode-detailed'),
+          value: _DeviceViewMode.detailed,
+          checked: !isCompact,
+          child: const ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.view_day_outlined),
+            title: Text('Chi tiết'),
+            subtitle: Text('Hiện đầy đủ thông tin thiết bị'),
+          ),
+        ),
+      ],
+      child: Container(
+        height: 44,
+        constraints: BoxConstraints(minWidth: compact ? 76 : 108),
+        padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 12),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 18, color: appColors.textSecondary),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: appColors.textSecondary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            if (!compact) ...[
+              const SizedBox(width: 2),
+              Icon(
+                Icons.expand_more_rounded,
+                size: 17,
+                color: appColors.textMuted,
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -825,12 +985,14 @@ class _RegisteredDeviceTile extends StatelessWidget {
   const _RegisteredDeviceTile({
     super.key,
     required this.device,
+    required this.detailed,
     required this.operationInProgress,
     required this.onEdit,
     required this.onEnabledChanged,
   });
 
   final DeviceModel device;
+  final bool detailed;
   final bool operationInProgress;
   final VoidCallback onEdit;
   final ValueChanged<bool> onEnabledChanged;
@@ -838,151 +1000,257 @@ class _RegisteredDeviceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appColors = context.appColors;
-    final permissionColor = device.isEnabled
-        ? appColors.successStrong
-        : appColors.dangerStrong;
-    final details = Column(
+    final status = DeviceStatusResolver.resolve(
+      isOnline: device.isOnline,
+      lastSeenAt: device.lastSeenAt,
+      latestMeasuredAt: device.latestMeasuredAt,
+      currentSpeedMps: device.currentSpeedMps,
+      baseStatus: device.status,
+    );
+    final statusColor = status.activity == ActivityStatus.inactive
+        ? appColors.offline
+        : status.connectivity == ConnectivityStatus.offline
+        ? appColors.offline
+        : status.freshness == DataFreshnessStatus.stale
+        ? appColors.dangerStrong
+        : status.movement == MovementStatus.moving
+        ? appColors.primary
+        : status.movement == MovementStatus.stopped
+        ? appColors.warningStrong
+        : appColors.successStrong;
+    final displayName = DeviceFormatters.displayName(device);
+    final showDeviceCode =
+        displayName.trim().toLowerCase() !=
+        device.deviceCode.trim().toLowerCase();
+    final identity = Row(
+      key: Key('device-identity-${device.deviceCode}'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _DeviceAvatar(
-              icon: _deviceTypeIcon(device.type),
-              foreground: appColors.primary,
-              background: appColors.primarySoft,
-            ),
-            const SizedBox(width: 11),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    device.name,
-                    softWrap: true,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: appColors.textPrimary,
-                      fontWeight: FontWeight.w800,
-                      height: 1.3,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    device.deviceCode,
-                    softWrap: true,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: appColors.textSecondary,
-                      fontFamily: 'monospace',
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+        _DeviceAvatar(
+          icon: _deviceTypeIcon(device.type),
+          foreground: appColors.primary,
+          background: appColors.primarySoft,
+          compact: !detailed,
         ),
-        const SizedBox(height: 11),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            _CompactLabel(
-              icon: Icons.category_outlined,
-              label: DeviceFormatters.deviceTypeLabel(device.type),
-            ),
-            _CompactLabel(
-              icon: device.isOnline
-                  ? Icons.wifi_rounded
-                  : Icons.wifi_off_rounded,
-              label: device.isOnline ? 'Trực tuyến' : 'Ngoại tuyến',
-              foreground: device.isOnline
-                  ? appColors.successStrong
-                  : appColors.offline,
-              background: device.isOnline
-                  ? appColors.successSoft
-                  : appColors.surfaceMuted,
-            ),
-            if (device.lastSeenAt != null)
-              _CompactLabel(
-                icon: Icons.schedule_rounded,
-                label:
-                    'Nhận dữ liệu ${DeviceFormatters.relativeTime(device.lastSeenAt)}',
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                displayName,
+                softWrap: true,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: appColors.textPrimary,
+                  fontWeight: FontWeight.w800,
+                  height: 1.25,
+                ),
               ),
-          ],
+              if (detailed && showDeviceCode) ...[
+                const SizedBox(height: 2),
+                Text(
+                  device.deviceCode,
+                  softWrap: true,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: appColors.textSecondary,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
+                  ),
+                ),
+              ],
+              if (!detailed) ...[
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (showDeviceCode)
+                      Text(
+                        device.deviceCode,
+                        softWrap: true,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: appColors.textSecondary,
+                          fontFamily: 'monospace',
+                          fontWeight: FontWeight.w600,
+                          height: 1.2,
+                        ),
+                      ),
+                    _InlineDeviceMetadata(
+                      key: Key('device-connectivity-${device.deviceCode}'),
+                      icon: DeviceFormatters.statusIcon(status),
+                      label: status.label,
+                      color: statusColor,
+                    ),
+                    if (device.lastSeenAt != null)
+                      _InlineDeviceMetadata(
+                        icon: Icons.schedule_rounded,
+                        label:
+                            'Dữ liệu ${DeviceFormatters.relativeTime(device.lastSeenAt)}',
+                        color: appColors.textMuted,
+                      ),
+                  ],
+                ),
+              ],
+            ],
+          ),
         ),
       ],
     );
-    Widget buildActions({required bool showPermissionLabel}) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (showPermissionLabel) ...[
-            Text(
-              device.isEnabled ? 'Quyền nhận: Bật' : 'Quyền nhận: Tắt',
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: permissionColor,
-                fontWeight: FontWeight.w700,
+    final statusLabels = Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        if (detailed)
+          _CompactLabel(
+            icon: Icons.category_outlined,
+            label: DeviceFormatters.deviceTypeLabel(device.type),
+          ),
+        _CompactLabel(
+          icon: DeviceFormatters.statusIcon(status),
+          label: status.label,
+          foreground: statusColor,
+          background: statusColor.withValues(alpha: 0.1),
+        ),
+        if (device.lastSeenAt != null)
+          _CompactLabel(
+            icon: Icons.schedule_rounded,
+            label:
+                '${detailed ? 'Nhận dữ liệu' : 'Dữ liệu'} ${DeviceFormatters.relativeTime(device.lastSeenAt)}',
+          ),
+      ],
+    );
+    final editButton = IconButton.filledTonal(
+      key: Key('edit-device-${device.deviceCode}'),
+      tooltip: 'Chỉnh sửa ${device.deviceCode}',
+      onPressed: operationInProgress ? null : onEdit,
+      style: IconButton.styleFrom(
+        minimumSize: const Size.square(36),
+        maximumSize: const Size.square(36),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        foregroundColor: appColors.primary,
+        backgroundColor: appColors.primarySoft,
+      ),
+      icon: const Icon(Icons.edit_outlined, size: 18),
+    );
+    Widget permissionControl({required bool showLabel}) {
+      return Container(
+        key: Key('device-permission-control-${device.deviceCode}'),
+        padding: EdgeInsets.only(
+          left: showLabel ? 9 : 3,
+          right: 3,
+          top: 2,
+          bottom: 2,
+        ),
+        decoration: BoxDecoration(
+          color: appColors.surfaceMuted,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: appColors.borderSoft),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (showLabel) ...[
+              Text(
+                'Nhận dữ liệu',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: appColors.textSecondary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 4),
+            ],
+            Tooltip(
+              message: device.isEnabled
+                  ? 'Được phép nhận dữ liệu · Nhấn để tạm ngừng'
+                  : 'Đang tạm ngừng nhận dữ liệu · Nhấn để bật lại',
+              child: Switch.adaptive(
+                key: Key('device-enabled-${device.deviceCode}'),
+                value: device.isEnabled,
+                activeTrackColor: appColors.successStrong,
+                inactiveTrackColor: appColors.border,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                padding: EdgeInsets.zero,
+                onChanged: operationInProgress ? null : onEnabledChanged,
               ),
             ),
-            const SizedBox(width: 8),
           ],
-          _PermissionBadge(enabled: device.isEnabled),
-          const SizedBox(width: 6),
-          Tooltip(
-            message: device.isEnabled
-                ? 'Tạm khóa quyền nhận telemetry'
-                : 'Cho phép nhận telemetry',
-            child: Switch.adaptive(
-              key: Key('device-enabled-${device.deviceCode}'),
-              value: device.isEnabled,
-              onChanged: operationInProgress ? null : onEnabledChanged,
-            ),
-          ),
-          IconButton.filledTonal(
-            key: Key('edit-device-${device.deviceCode}'),
-            tooltip: 'Chỉnh sửa ${device.deviceCode}',
-            onPressed: operationInProgress ? null : onEdit,
-            visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.edit_outlined),
-          ),
-        ],
+        ),
       );
     }
+
+    final detailedInformation = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [identity, const SizedBox(height: 10), statusLabels],
+    );
 
     return Container(
       decoration: BoxDecoration(
         color: appColors.surfaceSubtle,
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: appColors.borderSoft),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
+          if (!detailed && constraints.maxWidth >= 700) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              child: Row(
+                children: [
+                  Expanded(child: identity),
+                  const SizedBox(width: 12),
+                  permissionControl(showLabel: constraints.maxWidth >= 900),
+                  const SizedBox(width: 5),
+                  editButton,
+                ],
+              ),
+            );
+          }
+          if (!detailed) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 9, 8, 7),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: identity),
+                      const SizedBox(width: 8),
+                      editButton,
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 0, 7, 7),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: permissionControl(
+                      showLabel: constraints.maxWidth >= 390,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }
           if (constraints.maxWidth < 620) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Padding(padding: const EdgeInsets.all(14), child: details),
+                Padding(
+                  padding: const EdgeInsets.all(13),
+                  child: detailedInformation,
+                ),
                 Divider(height: 1, color: appColors.divider),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 7, 9, 7),
+                  padding: const EdgeInsets.fromLTRB(13, 5, 8, 5),
                   child: Row(
                     children: [
-                      Expanded(
-                        child: Text(
-                          device.isEnabled
-                              ? 'Quyền nhận: Bật'
-                              : 'Quyền nhận: Tắt',
-                          softWrap: true,
-                          style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(
-                                color: permissionColor,
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      buildActions(showPermissionLabel: false),
+                      Expanded(child: permissionControl(showLabel: true)),
+                      const SizedBox(width: 6),
+                      editButton,
                     ],
                   ),
                 ),
@@ -990,16 +1258,60 @@ class _RegisteredDeviceTile extends StatelessWidget {
             );
           }
           return Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(13),
             child: Row(
               children: [
-                Expanded(child: details),
+                Expanded(child: detailedInformation),
                 const SizedBox(width: 12),
-                buildActions(showPermissionLabel: true),
+                permissionControl(showLabel: true),
+                const SizedBox(width: 5),
+                editButton,
               ],
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _InlineDeviceMetadata extends StatelessWidget {
+  const _InlineDeviceMetadata({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 320),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(icon, size: 14, color: color),
+          ),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              label,
+              softWrap: true,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w600,
+                height: 1.2,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1010,22 +1322,24 @@ class _DeviceAvatar extends StatelessWidget {
     required this.icon,
     required this.foreground,
     required this.background,
+    this.compact = false,
   });
 
   final IconData icon;
   final Color foreground;
   final Color background;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 40,
-      height: 40,
+      width: compact ? 36 : 40,
+      height: compact ? 36 : 40,
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Icon(icon, size: 21, color: foreground),
+      child: Icon(icon, size: compact ? 19 : 21, color: foreground),
     );
   }
 }
@@ -1034,82 +1348,90 @@ class _MqttSightingTile extends StatelessWidget {
   const _MqttSightingTile({
     super.key,
     required this.sighting,
+    required this.detailed,
     required this.operationInProgress,
     required this.onRegister,
   });
 
   final MqttDeviceSightingModel sighting;
+  final bool detailed;
   final bool operationInProgress;
   final VoidCallback onRegister;
 
   @override
   Widget build(BuildContext context) {
     final appColors = context.appColors;
-    final information = Column(
+    final identity = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _DeviceAvatar(
-              icon: Icons.radar_rounded,
-              foreground: appColors.warningStrong,
-              background: appColors.warningSoft,
-            ),
-            const SizedBox(width: 11),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    sighting.deviceCode,
-                    softWrap: true,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: appColors.textPrimary,
-                      fontWeight: FontWeight.w800,
-                      height: 1.3,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: appColors.warningSoft,
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                        color: appColors.warningStrong.withValues(alpha: 0.2),
-                      ),
-                    ),
-                    child: Text(
-                      'Chưa được cấp quyền nhận dữ liệu',
-                      softWrap: true,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: appColors.warningStrong,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+        _DeviceAvatar(
+          icon: Icons.radar_rounded,
+          foreground: appColors.warningStrong,
+          background: appColors.warningSoft,
+          compact: !detailed,
         ),
-        const SizedBox(height: 11),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                sighting.deviceCode,
+                softWrap: true,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: appColors.textPrimary,
+                  fontWeight: FontWeight.w800,
+                  height: 1.25,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                detailed ? 'Chưa được thêm vào hệ thống' : 'Chờ xác nhận',
+                softWrap: true,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: appColors.warningStrong,
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+    final compactMetadata = Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _CompactLabel(
+          icon: Icons.mark_email_unread_outlined,
+          label: '${sighting.messageCount} tín hiệu',
+        ),
+        _CompactLabel(
+          icon: Icons.schedule_rounded,
+          label:
+              'Gần nhất ${DeviceFormatters.relativeTime(sighting.lastSeenAt)}',
+        ),
+      ],
+    );
+    final detailedInformation = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        identity,
+        const SizedBox(height: 10),
         Wrap(
-          spacing: 8,
-          runSpacing: 8,
+          spacing: 6,
+          runSpacing: 6,
           children: [
             _CompactLabel(
               icon: Icons.mark_email_unread_outlined,
-              label: '${sighting.messageCount} gói đã ghi nhận',
+              label: '${sighting.messageCount} tín hiệu đã nhận',
             ),
             _CompactLabel(
               icon: Icons.history_rounded,
               label:
-                  'Phát hiện ${DeviceFormatters.relativeTime(sighting.firstSeenAt)}',
+                  'Lần đầu ${DeviceFormatters.relativeTime(sighting.firstSeenAt)}',
             ),
             _CompactLabel(
               icon: Icons.schedule_rounded,
@@ -1118,10 +1440,10 @@ class _MqttSightingTile extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 11),
+        const SizedBox(height: 10),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
             color: appColors.surfaceMuted,
             borderRadius: BorderRadius.circular(10),
@@ -1131,7 +1453,7 @@ class _MqttSightingTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'TOPIC GẦN NHẤT',
+                'KÊNH NHẬN DỮ LIỆU GẦN NHẤT',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: appColors.textMuted,
                   fontWeight: FontWeight.w700,
@@ -1157,8 +1479,13 @@ class _MqttSightingTile extends StatelessWidget {
     final action = FilledButton.tonalIcon(
       key: Key('register-device-${sighting.deviceCode}'),
       onPressed: operationInProgress ? null : onRegister,
-      icon: const Icon(Icons.add_task_rounded),
-      label: const Text('Kiểm tra và đăng ký'),
+      style: FilledButton.styleFrom(
+        minimumSize: const Size(0, 38),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      icon: const Icon(Icons.add_task_rounded, size: 18),
+      label: const Text('Xem và thêm'),
     );
 
     return Container(
@@ -1171,20 +1498,62 @@ class _MqttSightingTile extends StatelessWidget {
       child: Stack(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(17, 14, 14, 14),
+            padding: EdgeInsets.fromLTRB(
+              15,
+              detailed ? 13 : 9,
+              detailed ? 13 : 9,
+              detailed ? 13 : 9,
+            ),
             child: LayoutBuilder(
               builder: (context, constraints) {
+                if (!detailed && constraints.maxWidth >= 700) {
+                  return Row(
+                    children: [
+                      Expanded(flex: 4, child: identity),
+                      const SizedBox(width: 12),
+                      Expanded(flex: 3, child: compactMetadata),
+                      const SizedBox(width: 10),
+                      action,
+                    ],
+                  );
+                }
+                if (!detailed) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      identity,
+                      const SizedBox(height: 7),
+                      if (constraints.maxWidth < 480) ...[
+                        compactMetadata,
+                        const SizedBox(height: 7),
+                        Align(alignment: Alignment.centerRight, child: action),
+                      ] else
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Expanded(child: compactMetadata),
+                            const SizedBox(width: 8),
+                            action,
+                          ],
+                        ),
+                    ],
+                  );
+                }
                 if (constraints.maxWidth < 560) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [information, const SizedBox(height: 12), action],
+                    children: [
+                      detailedInformation,
+                      const SizedBox(height: 10),
+                      action,
+                    ],
                   );
                 }
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: information),
-                    const SizedBox(width: 14),
+                    Expanded(child: detailedInformation),
+                    const SizedBox(width: 12),
                     action,
                   ],
                 );
@@ -1249,33 +1618,6 @@ class _CompactLabel extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _PermissionBadge extends StatelessWidget {
-  const _PermissionBadge({required this.enabled});
-
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context) {
-    final appColors = context.appColors;
-    final color = enabled ? appColors.successStrong : appColors.dangerStrong;
-    return Tooltip(
-      message: enabled ? 'Được phép nhận telemetry' : 'Đang tạm khóa telemetry',
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Icon(
-          enabled ? Icons.check_rounded : Icons.block_rounded,
-          size: 16,
-          color: color,
-        ),
       ),
     );
   }
@@ -1565,7 +1907,7 @@ class _DeviceEditorDialogState extends State<_DeviceEditorDialog> {
                     onChanged: _saving
                         ? null
                         : (value) => setState(() => _isEnabled = value),
-                    title: const Text('Cho phép nhận telemetry'),
+                    title: const Text('Cho phép nhận dữ liệu'),
                     subtitle: const Text(
                       'Có thể thay đổi sau mà không làm mất dữ liệu lịch sử.',
                     ),

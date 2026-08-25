@@ -18,12 +18,32 @@ void main() {
     expect(apiClient.lastQuery?['latitude'], 21.147);
     expect(apiClient.lastQuery?['longitude'], 105.8048);
   });
+
+  test('GeocodingRepository retries after an address lookup failure', () async {
+    final apiClient = _FakeApiClient()
+      ..formattedAddress = null
+      ..displayName = null;
+    final repository = GeocodingRepository(
+      apiClient,
+      failureRetryDelay: Duration.zero,
+    );
+
+    final failedAddress = await repository.reverseAddress(21.0285, 105.8126);
+    apiClient.formattedAddress = '31 Nguyễn Chí Thanh, Hà Nội';
+    final recoveredAddress = await repository.reverseAddress(21.0285, 105.8126);
+
+    expect(failedAddress, isNull);
+    expect(recoveredAddress, '31 Nguyễn Chí Thanh, Hà Nội');
+    expect(apiClient.requestCount, 2);
+  });
 }
 
 class _FakeApiClient extends ApiClient {
   String? lastPath;
   Map<String, dynamic>? lastQuery;
   int requestCount = 0;
+  String? formattedAddress = 'So 1 Trang Tien, Hoan Kiem, Ha Noi';
+  String? displayName = 'Longer display name';
 
   @override
   Future<Response> get(
@@ -39,8 +59,8 @@ class _FakeApiClient extends ApiClient {
       data: {
         'latitude': 21.147,
         'longitude': 105.8048,
-        'formatted_address': 'So 1 Trang Tien, Hoan Kiem, Ha Noi',
-        'display_name': 'Longer display name',
+        'formatted_address': formattedAddress,
+        'display_name': displayName,
         'provider': 'test',
       },
     );

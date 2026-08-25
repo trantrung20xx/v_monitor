@@ -4,27 +4,49 @@ import '../../core/network/api_client.dart';
 import '../models/reverse_geocode_model.dart';
 
 class GeocodingRepository {
-  GeocodingRepository(this._apiClient);
+  GeocodingRepository(
+    this._apiClient, {
+    this.failureRetryDelay = const Duration(seconds: 15),
+  });
 
   final ApiClient _apiClient;
-  final Map<String, String?> _addressCache = {};
+  final Duration failureRetryDelay;
+  final Map<String, String> _addressCache = {};
+  final Map<String, DateTime> _failedAt = {};
   final Map<String, Future<String?>> _pendingRequests = {};
 
   Future<String?> reverseAddress(double latitude, double longitude) {
     final key =
         '${latitude.toStringAsFixed(5)},${longitude.toStringAsFixed(5)}';
-    if (_addressCache.containsKey(key)) {
-      return Future.value(_addressCache[key]);
+    final cachedAddress = _addressCache[key];
+    if (cachedAddress != null) {
+      return Future.value(cachedAddress);
+    }
+
+    final failedAt = _failedAt[key];
+    if (failedAt != null) {
+      if (DateTime.now().difference(failedAt) < failureRetryDelay) {
+        return Future.value(null);
+      }
+      _failedAt.remove(key);
     }
 
     final pending = _pendingRequests[key];
     if (pending != null) return pending;
 
-    final request = _fetchAddress(latitude, longitude).then((address) {
-      _addressCache[key] = address;
-      _pendingRequests.remove(key);
-      return address;
-    });
+    final request = _fetchAddress(latitude, longitude)
+        .then((address) {
+          if (address == null) {
+            _failedAt[key] = DateTime.now();
+          } else {
+            _addressCache[key] = address;
+            _failedAt.remove(key);
+          }
+          return address;
+        })
+        .whenComplete(() {
+          _pendingRequests.remove(key);
+        });
     _pendingRequests[key] = request;
     return request;
   }

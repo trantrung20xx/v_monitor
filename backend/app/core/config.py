@@ -28,9 +28,12 @@ class Settings(BaseSettings):
     mqtt_worker_count: int = Field(default=8, ge=1, le=64)
     mqtt_queue_size: int = Field(default=20000, ge=100, le=1000000)
 
-    geocoding_base_url: str = "https://nominatim.openstreetmap.org"
+    geocoding_provider: str = "auto"
+    geocoding_base_url: str = "https://photon.komoot.io"
     geocoding_user_agent: str = "v_monitor/1.0 local-development"
-    geocoding_timeout_seconds: int = 8
+    geocoding_timeout_seconds: int = Field(default=8, ge=1, le=30)
+    geocoding_retry_attempts: int = Field(default=2, ge=1, le=3)
+    geocoding_retry_delay_seconds: float = Field(default=0.5, ge=0, le=5)
 
     # Cấu hình truy vấn lịch sử theo dõi.
     default_timezone: str = "UTC"                         # Múi giờ hiển thị
@@ -77,6 +80,16 @@ class Settings(BaseSettings):
             raise ValueError("MQTT_TOPIC_PREFIX không hợp lệ")
         if "+" in normalized or "#" in normalized:
             raise ValueError("MQTT_TOPIC_PREFIX không được chứa ký tự đại diện")
+        return normalized
+
+    @field_validator("geocoding_provider")
+    @classmethod
+    def _normalize_geocoding_provider(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in {"auto", "nominatim", "photon"}:
+            raise ValueError(
+                "GEOCODING_PROVIDER phải là auto, nominatim hoặc photon"
+            )
         return normalized
 
     @field_validator("database_url")
