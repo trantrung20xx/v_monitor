@@ -3,8 +3,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from app.core.config import settings
+from app.core.database import AsyncSessionLocal
 from app.services.mqtt_service import mqtt_service
 from app.services.presence_service import presence_service
 
@@ -47,4 +49,22 @@ app.include_router(api_router, prefix=settings.api_prefix)
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok"}
+    database_status = "connected"
+    try:
+        async with AsyncSessionLocal() as db:
+            await db.execute(text("SELECT 1"))
+    except Exception:
+        database_status = "unavailable"
+        logger.exception("Health check không thể kết nối cơ sở dữ liệu")
+
+    mqtt_status = mqtt_service.health_snapshot()
+    healthy = (
+        database_status == "connected"
+        and mqtt_status["connected"]
+        and mqtt_status["subscribed"]
+    )
+    return {
+        "status": "ok" if healthy else "degraded",
+        "database": database_status,
+        "mqtt": mqtt_status,
+    }

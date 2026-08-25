@@ -13,9 +13,18 @@ import '../auth/change_password_dialog.dart';
 import 'settings_cubit.dart';
 import 'settings_state.dart';
 import 'widgets/tracking_settings_card.dart';
+import 'widgets/device_management_card.dart';
 import 'widgets/user_management_card.dart';
 
-enum SettingsSection { overview, personal, account, about, tracking, users }
+enum SettingsSection {
+  overview,
+  personal,
+  account,
+  about,
+  tracking,
+  devices,
+  users,
+}
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key, this.section});
@@ -30,6 +39,7 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   bool _usersRequested = false;
+  bool _devicesRequested = false;
 
   SettingsSection get _requestedSection =>
       widget.section ?? SettingsSection.overview;
@@ -47,6 +57,12 @@ class _SettingsPageState extends State<SettingsPage> {
       _usersRequested = true;
       settingsCubit.loadUsers();
     }
+    if (!_devicesRequested &&
+        _requestedSection == SettingsSection.devices &&
+        context.read<AuthCubit>().state.hasAdminAccess) {
+      _devicesRequested = true;
+      settingsCubit.loadDeviceManagement();
+    }
   }
 
   @override
@@ -54,10 +70,16 @@ class _SettingsPageState extends State<SettingsPage> {
     super.didUpdateWidget(oldWidget);
     if ((oldWidget.section ?? SettingsSection.overview) != _requestedSection) {
       _usersRequested = false;
+      _devicesRequested = false;
       if (_requestedSection == SettingsSection.users &&
           context.read<AuthCubit>().state.hasAdminAccess) {
         _usersRequested = true;
         context.read<SettingsCubit>().loadUsers();
+      }
+      if (_requestedSection == SettingsSection.devices &&
+          context.read<AuthCubit>().state.hasAdminAccess) {
+        _devicesRequested = true;
+        context.read<SettingsCubit>().loadDeviceManagement();
       }
     }
   }
@@ -68,6 +90,11 @@ class _SettingsPageState extends State<SettingsPage> {
         hasAdminAccess &&
         mounted) {
       await context.read<SettingsCubit>().loadUsers();
+    }
+    if (_requestedSection == SettingsSection.devices &&
+        hasAdminAccess &&
+        mounted) {
+      await context.read<SettingsCubit>().loadDeviceManagement();
     }
   }
 
@@ -122,7 +149,9 @@ class _SettingsPageState extends State<SettingsPage> {
 }
 
 bool _isAdminSection(SettingsSection section) =>
-    section == SettingsSection.tracking || section == SettingsSection.users;
+    section == SettingsSection.tracking ||
+    section == SettingsSection.devices ||
+    section == SettingsSection.users;
 
 String _sectionTitle(SettingsSection section) => switch (section) {
   SettingsSection.overview => 'Cài đặt',
@@ -130,6 +159,7 @@ String _sectionTitle(SettingsSection section) => switch (section) {
   SettingsSection.account => 'Tài khoản & bảo mật',
   SettingsSection.about => 'Thông tin phần mềm',
   SettingsSection.tracking => 'Theo dõi thiết bị',
+  SettingsSection.devices => 'Quản lý thiết bị',
   SettingsSection.users => 'Quản lý người dùng',
 };
 
@@ -153,7 +183,10 @@ class _SettingsSectionView extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final horizontalPadding = constraints.maxWidth >= 900 ? 32.0 : 16.0;
-        final maxWidth = section == SettingsSection.users ? 1120.0 : 840.0;
+        final maxWidth = switch (section) {
+          SettingsSection.users || SettingsSection.devices => 1120.0,
+          _ => 840.0,
+        };
         return RefreshIndicator(
           onRefresh: onRefresh,
           child: ListView(
@@ -203,6 +236,12 @@ class _SettingsSectionView extends StatelessWidget {
     SettingsSection.tracking => TrackingSettingsCard(
       settings: state.systemSettings,
       saving: state.systemSaving,
+    ),
+    SettingsSection.devices => DeviceManagementCard(
+      devices: state.devices,
+      sightings: state.mqttDeviceSightings,
+      loading: state.devicesLoading,
+      operationInProgress: state.deviceOperationInProgress,
     ),
     SettingsSection.users => UserManagementCard(
       users: state.users,
@@ -257,6 +296,13 @@ class _SettingsOverview extends StatelessWidget {
                 title: 'Theo dõi thiết bị',
                 description: 'Ngưỡng ngoại tuyến, chuyển động và hành trình',
                 icon: Icons.sensors_rounded,
+              ),
+              _SettingsDestination(
+                keyName: 'settings-section-devices',
+                routeName: 'settings-devices',
+                title: 'Quản lý thiết bị',
+                description: 'Đăng ký, chỉnh sửa và cấp quyền nhận dữ liệu',
+                icon: Icons.developer_board_outlined,
               ),
               _SettingsDestination(
                 keyName: 'settings-section-users',

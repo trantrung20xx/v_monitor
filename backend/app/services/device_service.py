@@ -2,14 +2,15 @@ from datetime import datetime, timezone
 from typing import List, Optional
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import delete, exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.device import Device
 from app.models.audit_log import AuditLog
 from app.models.device_latest_state import DeviceLatestState
-from app.schemas.device import DeviceCreate
+from app.models.mqtt_device_sighting import MqttDeviceSighting
+from app.schemas.device import DeviceCreate, DeviceUpdate
 
 
 class DeviceService:
@@ -53,6 +54,7 @@ class DeviceService:
             "model": device.model,
             "firmware_version": device.firmware_version,
             "status": device.status,
+            "is_enabled": device.is_enabled,
             "metadata_json": device.metadata_json,
             "created_at": device.created_at.isoformat() if device.created_at else None,
             "updated_at": device.updated_at.isoformat() if device.updated_at else None,
@@ -89,6 +91,13 @@ class DeviceService:
         db.add(device)
         await db.flush()
 
+        # Mã vừa được quản trị viên đăng ký không còn nằm trong danh sách chờ.
+        await db.execute(
+            delete(MqttDeviceSighting).where(
+                MqttDeviceSighting.device_code == device.device_code
+            )
+        )
+
         # Tạo trạng thái rỗng trong cùng giao dịch để không có thiết bị dở dang.
         latest_state = DeviceLatestState(device_id=device.id)
         db.add(latest_state)
@@ -103,6 +112,7 @@ class DeviceService:
                     "device_code": device.device_code,
                     "name": device.name,
                     "device_type": device.device_type.value,
+                    "is_enabled": device.is_enabled,
                 },
             )
         )
@@ -111,3 +121,90 @@ class DeviceService:
 
         device.latest_state = latest_state
         return DeviceService._format_device(device)
+
+    @staticmethod
+    async def update_device(
+        db: AsyncSession,
+        device_id: uuid.UUID,
+        device_in: DeviceUpdate,
+        *,
+        actor_user_id: uuid.UUID | None = None,
+    ) -> Optional[dict]:
+        result = await db.execute(
+            select(Device)
+            .options(selectinload(Device.latest_state))
+            .where(Device.id == device_id)
+            .with_for_update()
+        )
+        device = result.scalar_one_or_none()
+        if device is None:
+            return None
+
+        changes = device_in.model_dump(exclude_unset=True)
+        old_value = {
+            "device_code": device.device_code,
+            "name": device.name,
+            "device_type": device.device_type.value,
+            "serial_number": device.serial_number,
+            "manufacturer": device.manufacturer,
+            "model": device.model,
+            "firmware_version": device.firmware_version,
+            "is_enabled": device.is_enabled,
+        }
+        for field_name, value in changes.items():
+            setattr(device, field_name, value)
+
+        # Ngắt trạng thái online ngay khi quản trị viên khóa nhận telemetry.
+        if changes.get("is_enabled") is False and device.latest_state is not None:
+            device.latest_state.is_online = False
+
+        if "device_code" in changes:
+            await db.execute(
+                delete(MqttDeviceSighting).where(
+                    MqttDeviceSighting.device_code == device.device_code
+                )
+            )
+
+        db.add(
+            AuditLog(
+                actor_user_id=actor_user_id,
+                action="DEVICE_UPDATED",
+                entity_type="device",
+                entity_id=device.id,
+                occurred_at=datetime.now(timezone.utc),
+                old_value=old_value,
+                new_value={
+                    "device_code": device.device_code,
+                    "name": device.name,
+                    "device_type": device.device_type.value,
+                    "serial_number": device.serial_number,
+                    "manufacturer": device.manufacturer,
+                    "model": device.model,
+                    "firmware_version": device.firmware_version,
+                    "is_enabled": device.is_enabled,
+                },
+            )
+        )
+        await db.commit()
+        await db.refresh(device)
+        return DeviceService._format_device(device)
+
+    @staticmethod
+    async def get_mqtt_sightings(
+        db: AsyncSession,
+        *,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> list[MqttDeviceSighting]:
+        result = await db.execute(
+            select(MqttDeviceSighting)
+            .where(
+                ~exists().where(
+                    Device.device_code == MqttDeviceSighting.device_code
+                )
+            )
+            .order_by(MqttDeviceSighting.last_seen_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        return list(result.scalars().all())

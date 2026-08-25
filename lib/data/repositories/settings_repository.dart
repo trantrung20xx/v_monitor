@@ -2,6 +2,8 @@ import 'dart:async';
 
 import '../../core/network/api_client.dart';
 import '../../core/network/websocket_client.dart';
+import '../models/device_model.dart';
+import '../models/mqtt_device_sighting_model.dart';
 import '../models/system_settings_model.dart';
 import '../models/user_model.dart';
 import '../models/user_settings_model.dart';
@@ -98,6 +100,52 @@ class SettingsRepository {
     await _apiClient.post(
       '/users/$userId/reset-password',
       data: {'new_password': newPassword},
+    );
+  }
+
+  Future<List<DeviceModel>> loadManagedDevices() async {
+    final response = await _apiClient.get(
+      '/devices/',
+      queryParameters: const {'limit': 5000},
+    );
+    final data = response.data as List<dynamic>;
+    return data
+        .map(
+          (item) =>
+              DeviceModel.fromJson(Map<String, dynamic>.from(item as Map)),
+        )
+        .toList();
+  }
+
+  Future<List<MqttDeviceSightingModel>> loadMqttDeviceSightings() async {
+    final response = await _apiClient.get(
+      '/devices/mqtt-sightings',
+      queryParameters: const {'limit': 5000},
+    );
+    final data = response.data as List<dynamic>;
+    return data
+        .map(
+          (item) => MqttDeviceSightingModel.fromJson(
+            Map<String, dynamic>.from(item as Map),
+          ),
+        )
+        .toList();
+  }
+
+  Future<DeviceModel> createDevice(Map<String, dynamic> data) async {
+    final response = await _apiClient.post('/devices/', data: data);
+    return DeviceModel.fromJson(
+      Map<String, dynamic>.from(response.data as Map),
+    );
+  }
+
+  Future<DeviceModel> updateDevice(
+    String deviceId,
+    Map<String, dynamic> data,
+  ) async {
+    final response = await _apiClient.patch('/devices/$deviceId', data: data);
+    return DeviceModel.fromJson(
+      Map<String, dynamic>.from(response.data as Map),
     );
   }
 

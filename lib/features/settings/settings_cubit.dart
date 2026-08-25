@@ -5,6 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/config/map_tile_providers.dart';
 import '../../core/utils/device_formatters.dart';
+import '../../data/models/device_model.dart';
+import '../../data/models/mqtt_device_sighting_model.dart';
 import '../../data/models/system_settings_model.dart';
 import '../../data/models/user_settings_model.dart';
 import '../../data/repositories/settings_repository.dart';
@@ -32,6 +34,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   StreamSubscription<UserSettingsModel>? _userSettingsSubscription;
   StreamSubscription<SystemSettingsModel>? _systemSettingsSubscription;
   bool _initializing = false;
+  bool _refreshingMqttSightings = false;
 
   Future<void> initialize() async {
     if (_initializing) return;
@@ -174,6 +177,85 @@ class SettingsCubit extends Cubit<SettingsState> {
     return _runUserOperation(
       () => _repository.resetUserPassword(userId, newPassword),
     );
+  }
+
+  Future<void> loadDeviceManagement() async {
+    if (state.devicesLoading) return;
+    emit(state.copyWith(devicesLoading: true, clearMessage: true));
+    try {
+      final results = await Future.wait([
+        _repository.loadManagedDevices(),
+        _repository.loadMqttDeviceSightings(),
+      ]);
+      emit(
+        state.copyWith(
+          devices: results[0] as List<DeviceModel>,
+          mqttDeviceSightings: results[1] as List<MqttDeviceSightingModel>,
+          devicesLoading: false,
+          clearMessage: true,
+        ),
+      );
+    } catch (error) {
+      emit(
+        state.copyWith(
+          devicesLoading: false,
+          message: _errorMessage(
+            error,
+            'Không thể tải danh sách quản lý thiết bị.',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> refreshMqttDeviceSightings() async {
+    if (_refreshingMqttSightings || state.deviceOperationInProgress) return;
+    _refreshingMqttSightings = true;
+    try {
+      final sightings = await _repository.loadMqttDeviceSightings();
+      if (!isClosed) emit(state.copyWith(mqttDeviceSightings: sightings));
+    } catch (_) {
+      // Làm mới nền không che nội dung hiện có hoặc lặp thông báo lỗi mạng.
+    } finally {
+      _refreshingMqttSightings = false;
+    }
+  }
+
+  Future<String?> createDevice(Map<String, dynamic> data) {
+    return _runDeviceOperation(() => _repository.createDevice(data));
+  }
+
+  Future<String?> updateDevice(String deviceId, Map<String, dynamic> data) {
+    return _runDeviceOperation(() => _repository.updateDevice(deviceId, data));
+  }
+
+  Future<String?> _runDeviceOperation(
+    Future<dynamic> Function() operation,
+  ) async {
+    if (state.deviceOperationInProgress) {
+      return 'Một thao tác thiết bị khác đang được thực hiện.';
+    }
+    emit(state.copyWith(deviceOperationInProgress: true, clearMessage: true));
+    try {
+      await operation();
+      final results = await Future.wait([
+        _repository.loadManagedDevices(),
+        _repository.loadMqttDeviceSightings(),
+      ]);
+      emit(
+        state.copyWith(
+          devices: results[0] as List<DeviceModel>,
+          mqttDeviceSightings: results[1] as List<MqttDeviceSightingModel>,
+          deviceOperationInProgress: false,
+          clearMessage: true,
+        ),
+      );
+      return null;
+    } catch (error) {
+      final message = _errorMessage(error, 'Không thể cập nhật thiết bị.');
+      emit(state.copyWith(deviceOperationInProgress: false, message: message));
+      return message;
+    }
   }
 
   Future<String?> _runUserOperation(

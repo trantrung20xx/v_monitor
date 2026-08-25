@@ -76,6 +76,14 @@ class AppRouter {
             ),
           ),
           GoRoute(
+            path: '/settings/devices',
+            name: 'settings-devices',
+            redirect: _redirectNonAdminSettings,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SettingsPage(section: SettingsSection.devices),
+            ),
+          ),
+          GoRoute(
             path: '/settings/users',
             name: 'settings-users',
             redirect: _redirectNonAdminSettings,

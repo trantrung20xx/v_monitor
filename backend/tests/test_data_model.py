@@ -24,10 +24,24 @@ class DataModelTest(unittest.TestCase):
                 "device_latest_state",
                 "devices",
                 "location_samples",
+                "mqtt_device_sightings",
                 "system_settings",
                 "telemetry_messages",
                 "user_accounts",
                 "user_settings",
+            },
+        )
+
+    def test_device_management_fields_are_registered(self):
+        self.assertIn("is_enabled", Base.metadata.tables["devices"].columns)
+        self.assertEqual(
+            set(Base.metadata.tables["mqtt_device_sightings"].columns.keys()),
+            {
+                "device_code",
+                "first_seen_at",
+                "last_seen_at",
+                "message_count",
+                "last_topic",
             },
         )
 

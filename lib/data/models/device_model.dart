@@ -4,6 +4,7 @@ class DeviceModel {
   final String name;
   final String type;
   final String status;
+  final bool isEnabled;
   final String? serialNumber;
   final String? manufacturer;
   final String? model;
@@ -29,6 +30,7 @@ class DeviceModel {
     required this.name,
     required this.type,
     required this.status,
+    this.isEnabled = true,
     this.serialNumber,
     this.manufacturer,
     this.model,
@@ -73,6 +75,7 @@ class DeviceModel {
       name: json['name'] ?? '',
       type: json['device_type'] ?? 'OTHER',
       status: json['status'] ?? 'UNKNOWN',
+      isEnabled: json['is_enabled'] ?? true,
       serialNumber: _stringOrNull(json['serial_number']),
       manufacturer: _stringOrNull(json['manufacturer']),
       model: _stringOrNull(json['model']),

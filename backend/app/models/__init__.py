@@ -7,3 +7,4 @@ from app.models.telemetry_message import TelemetryMessage
 from app.models.audit_log import AuditLog
 from app.models.user_account import UserAccount, UserSetting
 from app.models.system_setting import SystemSetting
+from app.models.mqtt_device_sighting import MqttDeviceSighting

@@ -2,6 +2,7 @@ import json
 import os
 import time
 import random
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 import paho.mqtt.client as mqtt
@@ -47,7 +48,9 @@ PORT = int(os.getenv("MQTT_PORT", "1883"))
 USE_TLS = os.getenv("MQTT_USE_TLS", "false").lower() == "true"
 USERNAME = os.getenv("MQTT_USERNAME") or None
 PASSWORD = os.getenv("MQTT_PASSWORD") or None
-TOPIC = os.getenv("MQTT_TOPIC", "v_monitor/telemetry/UAV-100")
+DEVICE_CODE = os.getenv("DEVICE_CODE", "UAV-100")
+TOPIC_PREFIX = os.getenv("MQTT_TOPIC_PREFIX", "v_monitor/telemetry").strip("/")
+TOPIC = os.getenv("MQTT_TOPIC", f"{TOPIC_PREFIX}/{DEVICE_CODE}")
 COUNT = int(os.getenv("MQTT_COUNT", "5"))
 INTERVAL_SECONDS = float(os.getenv("MQTT_INTERVAL_SECONDS", "1"))
 
@@ -70,6 +73,7 @@ def on_connect(client, userdata, flags, reason_code, properties=None):
         lng += random.uniform(-0.0001, 0.0001)
         
         payload = {
+            "message_id": str(uuid.uuid4()),
             "latitude": lat,
             "longitude": lng,
             "altitude_m": random.uniform(10, 50),

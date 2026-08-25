@@ -17,6 +17,7 @@ class DeviceBase(BaseSchema):
     model: Optional[str] = Field(default=None, max_length=100)
     firmware_version: Optional[str] = Field(default=None, max_length=50)
     status: DeviceStatus = DeviceStatus.UNKNOWN
+    is_enabled: bool = True
     metadata_json: Optional[Dict] = None
 
     @field_validator("device_code", "name")
@@ -30,6 +31,28 @@ class DeviceBase(BaseSchema):
 
 class DeviceCreate(DeviceBase):
     pass
+
+
+class DeviceUpdate(BaseSchema):
+    device_code: Optional[str] = Field(default=None, min_length=1, max_length=50)
+    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    device_type: Optional[DeviceType] = None
+    serial_number: Optional[str] = Field(default=None, max_length=100)
+    manufacturer: Optional[str] = Field(default=None, max_length=100)
+    model: Optional[str] = Field(default=None, max_length=100)
+    firmware_version: Optional[str] = Field(default=None, max_length=50)
+    is_enabled: Optional[bool] = None
+    metadata_json: Optional[Dict] = None
+
+    @field_validator("device_code", "name")
+    @classmethod
+    def _strip_optional_required_text(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Giá trị không được chỉ chứa khoảng trắng")
+        return normalized
 
 
 class DeviceResponse(DeviceBase):
@@ -60,3 +83,11 @@ class DeviceLatestStateResponse(BaseSchema):
     current_speed_mps: Optional[float] = None
     current_heading_deg: Optional[float] = None
     battery_pct: Optional[int] = None
+
+
+class MqttDeviceSightingResponse(BaseSchema):
+    device_code: str
+    first_seen_at: datetime
+    last_seen_at: datetime
+    message_count: int
+    last_topic: str

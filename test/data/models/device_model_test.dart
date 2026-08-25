@@ -26,4 +26,25 @@ void main() {
 
     expect(device.batteryPct, isNull);
   });
+
+  test('is_enabled defaults to true and parses an explicit lock', () {
+    final defaultDevice = DeviceModel.fromJson({
+      'id': 'device-3',
+      'device_code': 'CAR-003',
+      'name': 'Xe mặc định',
+      'device_type': 'VEHICLE',
+      'status': 'UNKNOWN',
+    });
+    final disabledDevice = DeviceModel.fromJson({
+      'id': 'device-4',
+      'device_code': 'CAR-004',
+      'name': 'Xe tạm khóa',
+      'device_type': 'VEHICLE',
+      'status': 'UNKNOWN',
+      'is_enabled': false,
+    });
+
+    expect(defaultDevice.isEnabled, isTrue);
+    expect(disabledDevice.isEnabled, isFalse);
+  });
 }

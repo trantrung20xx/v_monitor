@@ -10,6 +10,8 @@ import 'package:v_monitor/core/auth/auth_token_store.dart';
 import 'package:v_monitor/core/config/map_tile_providers.dart';
 import 'package:v_monitor/core/network/api_client.dart';
 import 'package:v_monitor/core/network/websocket_client.dart';
+import 'package:v_monitor/data/models/device_model.dart';
+import 'package:v_monitor/data/models/mqtt_device_sighting_model.dart';
 import 'package:v_monitor/data/models/system_settings_model.dart';
 import 'package:v_monitor/data/models/user_model.dart';
 import 'package:v_monitor/data/models/user_settings_model.dart';
@@ -50,6 +52,7 @@ void main() {
     expect(find.byKey(const Key('settings-section-about')), findsOneWidget);
     expect(find.text('Quản trị'), findsNothing);
     expect(find.byKey(const Key('settings-section-tracking')), findsNothing);
+    expect(find.byKey(const Key('settings-section-devices')), findsNothing);
     expect(find.byKey(const Key('settings-section-users')), findsNothing);
     expect(harness.repository.loadUsersCount, 0);
     expect(tester.takeException(), isNull);
@@ -69,6 +72,7 @@ void main() {
     expect(find.byKey(const Key('settings-section-about')), findsOneWidget);
     expect(find.text('Quản trị'), findsOneWidget);
     expect(find.byKey(const Key('settings-section-tracking')), findsOneWidget);
+    expect(find.byKey(const Key('settings-section-devices')), findsOneWidget);
     expect(find.byKey(const Key('settings-section-users')), findsOneWidget);
     expect(find.byKey(const Key('managed-user-user-2')), findsNothing);
     expect(
@@ -662,6 +666,88 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('ADMIN device management separates registered and discovered', (
+    tester,
+  ) async {
+    final harness = await _pumpSettings(
+      tester,
+      role: 'ADMIN',
+      size: const Size(1280, 900),
+      section: SettingsSection.devices,
+    );
+
+    expect(find.byKey(const Key('device-management-content')), findsOneWidget);
+    expect(find.byKey(const Key('registered-device-CAR-01')), findsOneWidget);
+    expect(find.byKey(const Key('mqtt-sighting-UAV-100')), findsOneWidget);
+    expect(harness.repository.loadManagedDevicesCount, 1);
+    expect(harness.repository.loadMqttSightingsCount, 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('ADMIN can register a discovered MQTT device', (tester) async {
+    final harness = await _pumpSettings(
+      tester,
+      role: 'ADMIN',
+      size: const Size(1280, 900),
+      section: SettingsSection.devices,
+    );
+
+    await tester.ensureVisible(
+      find.byKey(const Key('register-device-UAV-100')),
+    );
+    await tester.tap(find.byKey(const Key('register-device-UAV-100')));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<TextFormField>(find.byKey(const Key('device-code-field')))
+          .controller
+          ?.text,
+      'UAV-100',
+    );
+
+    await tester.tap(find.byKey(const Key('save-device-button')));
+    await tester.pumpAndSettle();
+
+    expect(harness.repository.lastDeviceCreate?['device_code'], 'UAV-100');
+    expect(find.byKey(const Key('registered-device-UAV-100')), findsOneWidget);
+    expect(find.byKey(const Key('mqtt-sighting-UAV-100')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('ADMIN can edit and temporarily disable a device', (
+    tester,
+  ) async {
+    final harness = await _pumpSettings(
+      tester,
+      role: 'ADMIN',
+      size: const Size(1280, 900),
+      section: SettingsSection.devices,
+    );
+
+    await tester.ensureVisible(find.byKey(const Key('edit-device-CAR-01')));
+    await tester.tap(find.byKey(const Key('edit-device-CAR-01')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('device-name-field')),
+      'Xe tuần tra trung tâm',
+    );
+    await tester.tap(find.byKey(const Key('save-device-button')));
+    await tester.pumpAndSettle();
+    expect(harness.repository.lastUpdatedDeviceId, 'device-1');
+    expect(
+      harness.repository.lastDeviceUpdate?['name'],
+      'Xe tuần tra trung tâm',
+    );
+
+    await tester.ensureVisible(find.byKey(const Key('device-enabled-CAR-01')));
+    await tester.tap(find.byKey(const Key('device-enabled-CAR-01')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Tạm khóa'));
+    await tester.pumpAndSettle();
+    expect(harness.repository.lastDeviceUpdate?['is_enabled'], isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('subpages do not render redundant introduction blocks', (
     tester,
   ) async {
@@ -674,6 +760,8 @@ void main() {
           'Xem thông tin nhận diện và phiên bản phần mềm đang sử dụng.',
       SettingsSection.tracking:
           'Thiết lập các ngưỡng dùng chung cho hoạt động giám sát thiết bị.',
+      SettingsSection.devices:
+          'Đăng ký, chỉnh sửa và kiểm soát quyền nhận dữ liệu thiết bị.',
       SettingsSection.users:
           'Quản lý tài khoản nội bộ và phạm vi quyền truy cập.',
     };
@@ -696,6 +784,7 @@ void main() {
       SettingsSection.account,
       SettingsSection.about,
       SettingsSection.tracking,
+      SettingsSection.devices,
     ]) {
       await _pumpSettings(
         tester,
@@ -769,6 +858,7 @@ String _expectedTitle(SettingsSection section) => switch (section) {
   SettingsSection.account => 'Tài khoản & bảo mật',
   SettingsSection.about => 'Thông tin phần mềm',
   SettingsSection.tracking => 'Theo dõi thiết bị',
+  SettingsSection.devices => 'Quản lý thiết bị',
   SettingsSection.users => 'Quản lý người dùng',
 };
 
@@ -896,15 +986,41 @@ class _FakeSettingsRepository extends SettingsRepository {
       isActive: false,
     ),
   ];
+  final List<DeviceModel> _devices = [
+    DeviceModel(
+      id: 'device-1',
+      deviceCode: 'CAR-01',
+      name: 'Xe tuần tra 01',
+      type: 'VEHICLE',
+      status: 'ONLINE',
+      isEnabled: true,
+      isOnline: true,
+      lastSeenAt: DateTime.now().subtract(const Duration(minutes: 1)),
+    ),
+  ];
+  final List<MqttDeviceSightingModel> _sightings = [
+    MqttDeviceSightingModel(
+      deviceCode: 'UAV-100',
+      firstSeenAt: DateTime.now().subtract(const Duration(minutes: 5)),
+      lastSeenAt: DateTime.now().subtract(const Duration(seconds: 10)),
+      messageCount: 3,
+      lastTopic: 'v_monitor/telemetry/UAV-100',
+    ),
+  ];
 
   int userUpdateCount = 0;
   int systemUpdateCount = 0;
   int loadUsersCount = 0;
+  int loadManagedDevicesCount = 0;
+  int loadMqttSightingsCount = 0;
   Completer<void>? pendingUserUpdate;
   Completer<void>? pendingSystemUpdate;
   Object? systemUpdateError;
   String? lastUpdatedUserId;
   Map<String, dynamic>? lastUserUpdate;
+  Map<String, dynamic>? lastDeviceCreate;
+  String? lastUpdatedDeviceId;
+  Map<String, dynamic>? lastDeviceUpdate;
   String? lastResetUserId;
   String? lastResetPassword;
 
@@ -1025,6 +1141,69 @@ class _FakeSettingsRepository extends SettingsRepository {
   Future<void> resetUserPassword(String userId, String newPassword) async {
     lastResetUserId = userId;
     lastResetPassword = newPassword;
+  }
+
+  @override
+  Future<List<DeviceModel>> loadManagedDevices() async {
+    loadManagedDevicesCount++;
+    return List.unmodifiable(_devices);
+  }
+
+  @override
+  Future<List<MqttDeviceSightingModel>> loadMqttDeviceSightings() async {
+    loadMqttSightingsCount++;
+    return List.unmodifiable(_sightings);
+  }
+
+  @override
+  Future<DeviceModel> createDevice(Map<String, dynamic> data) async {
+    lastDeviceCreate = data;
+    final device = DeviceModel(
+      id: 'created-device',
+      deviceCode: data['device_code'].toString(),
+      name: data['name'].toString(),
+      type: data['device_type'].toString(),
+      status: 'UNKNOWN',
+      isEnabled: data['is_enabled'] != false,
+    );
+    _devices.add(device);
+    _sightings.removeWhere(
+      (sighting) => sighting.deviceCode == device.deviceCode,
+    );
+    return device;
+  }
+
+  @override
+  Future<DeviceModel> updateDevice(
+    String deviceId,
+    Map<String, dynamic> data,
+  ) async {
+    lastUpdatedDeviceId = deviceId;
+    lastDeviceUpdate = data;
+    final index = _devices.indexWhere((device) => device.id == deviceId);
+    final old = _devices[index];
+    final updated = DeviceModel(
+      id: old.id,
+      deviceCode: data['device_code']?.toString() ?? old.deviceCode,
+      name: data['name']?.toString() ?? old.name,
+      type: data['device_type']?.toString() ?? old.type,
+      status: old.status,
+      isEnabled: data['is_enabled'] as bool? ?? old.isEnabled,
+      serialNumber: data.containsKey('serial_number')
+          ? data['serial_number']?.toString()
+          : old.serialNumber,
+      manufacturer: data.containsKey('manufacturer')
+          ? data['manufacturer']?.toString()
+          : old.manufacturer,
+      model: data.containsKey('model') ? data['model']?.toString() : old.model,
+      firmwareVersion: data.containsKey('firmware_version')
+          ? data['firmware_version']?.toString()
+          : old.firmwareVersion,
+      isOnline: old.isOnline,
+      lastSeenAt: old.lastSeenAt,
+    );
+    _devices[index] = updated;
+    return updated;
   }
 
   @override

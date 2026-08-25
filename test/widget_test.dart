@@ -318,6 +318,35 @@ void main() {
     websocketClient.dispose();
   });
 
+  testWidgets('ADMIN can open the protected device settings URL', (
+    tester,
+  ) async {
+    AppRouter.router.go('/');
+    final apiClient = _FakeApiClient(role: 'ADMIN');
+    final websocketClient = _FakeWebsocketClient();
+    await tester.pumpWidget(
+      VMonitorApp(
+        apiClient: apiClient,
+        websocketClient: websocketClient,
+        authTokenStore: _MemoryTokenStore('saved-credential'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    AppRouter.router.go('/settings/devices');
+    await tester.pumpAndSettle();
+
+    expect(
+      AppRouter.router.routeInformationProvider.value.uri.path,
+      '/settings/devices',
+    );
+    expect(find.byKey(const Key('device-management-content')), findsOneWidget);
+    expect(apiClient.authMeCount, 1);
+    expect(tester.takeException(), isNull);
+
+    websocketClient.dispose();
+  });
+
   testWidgets('app shows login when no credential has been saved', (
     tester,
   ) async {

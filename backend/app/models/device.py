@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import CheckConstraint, Enum, String
+from sqlalchemy import Boolean, CheckConstraint, Enum, String, true
 from sqlalchemy.dialects.postgresql import JSONB
 from app.domain.enums import DeviceStatus, DeviceType
 from app.models.base import Base, UUIDMixin, TimestampMixin
@@ -31,6 +31,14 @@ class Device(Base, UUIDMixin, TimestampMixin):
 
     # Trạng thái hiện tại của thiết bị
     status: Mapped[DeviceStatus] = mapped_column(Enum(DeviceStatus), default=DeviceStatus.UNKNOWN)
+
+    # Quyền nhận và xử lý telemetry, tách biệt với trạng thái online/offline.
+    is_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        server_default=true(),
+        nullable=False,
+    )
 
     # Thông tin mở rộng của thiết bị dưới dạng JSON
     metadata_json: Mapped[dict] = mapped_column(JSONB, nullable=True)

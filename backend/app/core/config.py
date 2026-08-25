@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     mqtt_username: str | None = None
     mqtt_password: str | None = None
     mqtt_use_tls: bool = False
+    mqtt_topic_prefix: str = "v_monitor/telemetry"
     mqtt_worker_count: int = Field(default=8, ge=1, le=64)
     mqtt_queue_size: int = Field(default=20000, ge=100, le=1000000)
 
@@ -67,6 +68,16 @@ class Settings(BaseSettings):
         if not value.startswith("/"):
             value = f"/{value}"
         return value.rstrip("/")
+
+    @field_validator("mqtt_topic_prefix")
+    @classmethod
+    def _normalize_mqtt_topic_prefix(cls, value: str) -> str:
+        normalized = value.strip().strip("/")
+        if not normalized or any(part == "" for part in normalized.split("/")):
+            raise ValueError("MQTT_TOPIC_PREFIX không hợp lệ")
+        if "+" in normalized or "#" in normalized:
+            raise ValueError("MQTT_TOPIC_PREFIX không được chứa ký tự đại diện")
+        return normalized
 
     @field_validator("database_url")
     @classmethod

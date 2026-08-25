@@ -34,6 +34,7 @@ class SettingsTest(unittest.TestCase):
             mqtt_use_tls=True,
             mqtt_username="sensor",
             mqtt_password="secret",
+            mqtt_topic_prefix="company/v-monitor/telemetry",
         )
 
         self.assertEqual(
@@ -45,6 +46,25 @@ class SettingsTest(unittest.TestCase):
         self.assertTrue(settings.mqtt_use_tls)
         self.assertEqual(settings.mqtt_username, "sensor")
         self.assertEqual(settings.mqtt_password, "secret")
+        self.assertEqual(
+            settings.mqtt_topic_prefix,
+            "company/v-monitor/telemetry",
+        )
+
+    def test_normalizes_and_validates_mqtt_topic_prefix(self):
+        settings = Settings(
+            _env_file=None,
+            database_url="postgresql+asyncpg://user:pass@localhost:5432/app",
+            mqtt_topic_prefix="/v_monitor/telemetry/",
+        )
+        self.assertEqual(settings.mqtt_topic_prefix, "v_monitor/telemetry")
+
+        with self.assertRaises(Exception):
+            Settings(
+                _env_file=None,
+                database_url="postgresql+asyncpg://user:pass@localhost:5432/app",
+                mqtt_topic_prefix="v_monitor/+",
+            )
 
     def test_loads_geocoding_settings(self):
         settings = Settings(

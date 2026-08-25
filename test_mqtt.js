@@ -1,4 +1,5 @@
 const mqtt = require("mqtt");
+const { randomUUID } = require("crypto");
 const fs = require("fs");
 const path = require("path");
 
@@ -10,7 +11,8 @@ const mqttUseTls = String(process.env.MQTT_USE_TLS || "false").toLowerCase() ===
 const mqttProtocol = mqttUseTls ? "mqtts" : "mqtt";
 const mqttUrl = `${mqttProtocol}://${mqttHost}:${mqttPort}`;
 const deviceCode = process.env.DEVICE_CODE || "UAV-100";
-const topic = process.env.MQTT_TOPIC || `v_monitor/telemetry/${deviceCode}`;
+const topicPrefix = (process.env.MQTT_TOPIC_PREFIX || "v_monitor/telemetry").replace(/^\/+|\/+$/g, "");
+const topic = process.env.MQTT_TOPIC || `${topicPrefix}/${deviceCode}`;
 const publishIntervalMs = Number.parseInt(process.env.MQTT_INTERVAL_MS || "2000", 10);
 const publishCount = Number.parseInt(process.env.MQTT_COUNT || "0", 10);
 
@@ -34,6 +36,7 @@ client.on("connect", () => {
 		lat += 0.00008;
 		lng += 0.0001;
 		const payload = {
+			message_id: randomUUID(),
 			latitude: lat,
 			longitude: lng,
 			altitude_m: 36.5,

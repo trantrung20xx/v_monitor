@@ -7,12 +7,14 @@ from typing import Optional
 import paho.mqtt.client as mqtt
 from pydantic import ValidationError
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 from app.domain.enums import ProcessingStatus
 from app.models.device import Device
+from app.models.mqtt_device_sighting import MqttDeviceSighting
 from app.models.telemetry_message import TelemetryMessage
 from app.schemas.device import DeviceResponse
 from app.schemas.tracking import LocationSampleCreate
@@ -48,6 +50,20 @@ def _parse_measured_at(raw_value, fallback: datetime) -> datetime:
     return value.astimezone(timezone.utc)
 
 
+def _device_code_from_topic(topic: str) -> Optional[str]:
+    prefix_parts = settings.mqtt_topic_prefix.split("/")
+    topic_parts = topic.split("/")
+    if (
+        len(topic_parts) != len(prefix_parts) + 1
+        or topic_parts[: len(prefix_parts)] != prefix_parts
+    ):
+        return None
+    device_code = topic_parts[-1]
+    if not device_code or device_code != device_code.strip() or len(device_code) > 50:
+        return None
+    return device_code
+
+
 class MQTTService:
     def __init__(self):
         self.client = _create_mqtt_client(client_id="v_monitor_backend")
@@ -58,6 +74,15 @@ class MQTTService:
         self.queue: Optional[asyncio.Queue[tuple[str, str, int]]] = None
         self.workers: list[asyncio.Task] = []
         self._started = False
+        self._connected = False
+        self._subscribed = False
+        self._received_count = 0
+        self._processed_count = 0
+        self._unknown_device_count = 0
+        self._disabled_device_count = 0
+        self._dropped_count = 0
+        self._last_received_at: Optional[datetime] = None
+        self._last_processed_at: Optional[datetime] = None
 
     def on_connect(self, client, userdata, flags, reason_code, properties=None):
         if hasattr(reason_code, "is_failure"):
@@ -68,9 +93,18 @@ class MQTTService:
             is_success = str(reason_code).lower() in {"0", "success"}
 
         if is_success:
+            self._connected = True
             logger.info("Đã kết nối thành công tới MQTT broker")
-            client.subscribe("v_monitor/telemetry/#", qos=1)
+            result, _ = client.subscribe(
+                f"{settings.mqtt_topic_prefix}/#",
+                qos=1,
+            )
+            self._subscribed = result == mqtt.MQTT_ERR_SUCCESS
+            if not self._subscribed:
+                logger.error("Không thể đăng ký topic MQTT, mã lỗi: %s", result)
         else:
+            self._connected = False
+            self._subscribed = False
             logger.error("Kết nối MQTT thất bại, mã lỗi: %s", reason_code)
 
     def _enqueue_message(self, topic: str, payload: str, qos: int) -> None:
@@ -79,6 +113,7 @@ class MQTTService:
         try:
             self.queue.put_nowait((topic, payload, qos))
         except asyncio.QueueFull:
+            self._dropped_count += 1
             # Hàng đợi hữu hạn bảo vệ bộ nhớ khi lưu lượng vượt quá khả năng xử lý.
             logger.error(
                 "Hàng đợi MQTT đã đầy (%s bản tin), bỏ bản tin trên topic %s",
@@ -87,6 +122,8 @@ class MQTTService:
             )
 
     def on_message(self, client, userdata, msg):
+        self._received_count += 1
+        self._last_received_at = datetime.now(timezone.utc)
         try:
             payload = msg.payload.decode("utf-8")
         except UnicodeDecodeError:
@@ -101,6 +138,8 @@ class MQTTService:
             )
 
     def on_disconnect(self, client, userdata, flags, reason_code=None, properties=None):
+        self._connected = False
+        self._subscribed = False
         logger.info("Đã ngắt kết nối khỏi MQTT broker")
 
     async def _worker(self, worker_index: int) -> None:
@@ -132,19 +171,48 @@ class MQTTService:
             logger.warning("Bỏ qua bản tin MQTT vì payload không phải object")
             return
 
-        parts = topic.split("/")
-        if len(parts) < 3 or not parts[2]:
-            logger.warning("Bỏ qua bản tin MQTT vì topic không có mã thiết bị")
+        device_code = _device_code_from_topic(topic)
+        if device_code is None:
+            logger.warning("Bỏ qua bản tin MQTT vì topic không đúng định dạng")
             return
-        device_code = parts[2]
 
         async with AsyncSessionLocal() as db:
             device_result = await db.execute(
-                select(Device.id).where(Device.device_code == device_code)
+                select(Device.id, Device.is_enabled).where(
+                    Device.device_code == device_code
+                )
             )
-            device_id = device_result.scalar_one_or_none()
-            if device_id is None:
-                logger.warning("Không tìm thấy thiết bị MQTT '%s'", device_code)
+            device_row = device_result.one_or_none()
+            if device_row is None:
+                now = datetime.now(timezone.utc)
+                statement = insert(MqttDeviceSighting).values(
+                    device_code=device_code,
+                    first_seen_at=now,
+                    last_seen_at=now,
+                    message_count=1,
+                    last_topic=topic[:255],
+                )
+                statement = statement.on_conflict_do_update(
+                    index_elements=[MqttDeviceSighting.device_code],
+                    set_={
+                        "last_seen_at": now,
+                        "message_count": MqttDeviceSighting.message_count + 1,
+                        "last_topic": topic[:255],
+                    },
+                )
+                await db.execute(statement)
+                await db.commit()
+                self._unknown_device_count += 1
+                logger.warning(
+                    "Thiết bị MQTT '%s' chưa được đăng ký; đã ghi nhận vào danh sách chờ",
+                    device_code,
+                )
+                return
+
+            device_id, is_enabled = device_row
+            if not is_enabled:
+                self._disabled_device_count += 1
+                logger.info("Bỏ qua telemetry của thiết bị đang tạm khóa '%s'", device_code)
                 return
 
             received_at = datetime.now(timezone.utc)
@@ -191,6 +259,8 @@ class MQTTService:
                 telemetry.processing_status = ProcessingStatus.SKIPPED
                 telemetry.processed_at = datetime.now(timezone.utc)
                 await db.commit()
+                self._processed_count += 1
+                self._last_processed_at = telemetry.processed_at
                 return
 
             try:
@@ -206,8 +276,6 @@ class MQTTService:
                     accuracy_m=data.get("accuracy_m"),
                     satellite_count=data.get("satellite_count"),
                     source="mqtt",
-                    # Payload MQTT dùng battery_pct cho pin của chính thiết bị;
-                    # tên trường không phụ thuộc thiết bị là ô tô hay tay điều khiển UAV.
                     battery_pct=data.get("battery_pct"),
                 )
                 telemetry.measured_at = measured_at
@@ -263,6 +331,28 @@ class MQTTService:
                         },
                     }
                 )
+            self._processed_count += 1
+            self._last_processed_at = datetime.now(timezone.utc)
+
+    def health_snapshot(self) -> dict:
+        return {
+            "connected": self._connected,
+            "subscribed": self._subscribed,
+            "topic": f"{settings.mqtt_topic_prefix}/#",
+            "queue_size": self.queue.qsize() if self.queue is not None else 0,
+            "queue_capacity": settings.mqtt_queue_size,
+            "received_count": self._received_count,
+            "processed_count": self._processed_count,
+            "unknown_device_count": self._unknown_device_count,
+            "disabled_device_count": self._disabled_device_count,
+            "dropped_count": self._dropped_count,
+            "last_message_received_at": self._last_received_at.isoformat()
+            if self._last_received_at
+            else None,
+            "last_message_processed_at": self._last_processed_at.isoformat()
+            if self._last_processed_at
+            else None,
+        }
 
     async def start(self) -> None:
         if self._started:
@@ -313,6 +403,8 @@ class MQTTService:
         self.workers.clear()
         self.queue = None
         self._started = False
+        self._connected = False
+        self._subscribed = False
 
 
 mqtt_service = MQTTService()
