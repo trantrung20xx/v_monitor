@@ -8,11 +8,15 @@ typedef UnauthorizedHandler = Future<void> Function();
 
 class ApiClient {
   final Dio _dio;
+  final int _getRetryCount;
+  final Duration _retryDelay;
   String? _accessToken;
   UnauthorizedHandler? _unauthorizedHandler;
 
-  ApiClient({Dio? dio})
-    : _dio =
+  ApiClient({Dio? dio, int? getRetryCount, Duration? retryDelay})
+    : _getRetryCount = getRetryCount ?? AppConfig.httpGetRetryCount,
+      _retryDelay = retryDelay ?? AppConfig.httpRetryDelay,
+      _dio =
           dio ??
           Dio(
             BaseOptions(
@@ -59,11 +63,8 @@ class ApiClient {
     _unauthorizedHandler = handler;
   }
 
-  Future<Response> get(
-    String path, {
-    Map<String, dynamic>? queryParameters,
-  }) async {
-    return _dio.get(path, queryParameters: queryParameters);
+  Future<Response> get(String path, {Map<String, dynamic>? queryParameters}) {
+    return _getWithRetry(path, queryParameters: queryParameters);
   }
 
   Future<Response> post(String path, {dynamic data}) async {
@@ -72,5 +73,54 @@ class ApiClient {
 
   Future<Response> patch(String path, {dynamic data}) async {
     return _dio.patch(path, data: data);
+  }
+
+  Future<Response> _getWithRetry(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+  }) async {
+    var retryIndex = 0;
+    while (true) {
+      try {
+        return await _dio.get(path, queryParameters: queryParameters);
+      } on DioException catch (error) {
+        if (retryIndex >= _getRetryCount || !_canRetryGet(error)) {
+          rethrow;
+        }
+
+        // Khoảng chờ tăng theo cấp số nhân để một đợt mất mạng hoặc lỗi 503
+        // không khiến nhiều thiết bị đồng thời gửi lại request liên tục.
+        final exponent = retryIndex > 10 ? 10 : retryIndex;
+        final multiplier = 1 << exponent;
+        retryIndex++;
+        final delay = Duration(
+          milliseconds: _retryDelay.inMilliseconds * multiplier,
+        );
+        if (delay > Duration.zero) await Future<void>.delayed(delay);
+      }
+    }
+  }
+
+  bool _canRetryGet(DioException error) {
+    switch (error.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+      case DioExceptionType.transformTimeout:
+      case DioExceptionType.connectionError:
+        return true;
+      case DioExceptionType.badResponse:
+        return const {
+          408,
+          429,
+          502,
+          503,
+          504,
+        }.contains(error.response?.statusCode);
+      case DioExceptionType.badCertificate:
+      case DioExceptionType.cancel:
+      case DioExceptionType.unknown:
+        return false;
+    }
   }
 }

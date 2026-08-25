@@ -13,7 +13,11 @@ os.environ.setdefault("JWT_SECRET", "x" * 48)
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.core.config import Settings  # noqa: E402
-from app.services.mqtt_service import MQTTService, _device_code_from_topic  # noqa: E402
+from app.services.mqtt_service import (  # noqa: E402
+    MQTTService,
+    _device_code_from_topic,
+    _mqtt_client_id,
+)
 
 
 class MqttTopicTest(unittest.TestCase):
@@ -46,6 +50,16 @@ class MqttTopicTest(unittest.TestCase):
         self.assertTrue(snapshot["subscribed"])
         self.assertEqual(client.topic, "company/telemetry/#")
         self.assertEqual(client.qos, 1)
+
+    def test_generates_a_unique_client_id_when_not_configured(self):
+        with (
+            mock.patch("app.services.mqtt_service.settings", self.settings),
+            mock.patch("app.services.mqtt_service.socket.gethostname", return_value="node 01"),
+            mock.patch("app.services.mqtt_service.os.getpid", return_value=42),
+        ):
+            client_id = _mqtt_client_id()
+
+        self.assertEqual(client_id, "v_monitor_backend_node-01_42")
 
 
 class _FakeSubscribeClient:

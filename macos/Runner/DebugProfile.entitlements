@@ -8,5 +8,8 @@
 	<true/>
 	<key>com.apple.security.network.server</key>
 	<true/>
+	<!-- Cho phép ứng dụng sandbox kết nối REST API và WebSocket ra bên ngoài. -->
+	<key>com.apple.security.network.client</key>
+	<true/>
 </dict>
 </plist>

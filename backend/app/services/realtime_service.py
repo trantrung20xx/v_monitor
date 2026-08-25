@@ -1,4 +1,8 @@
+import asyncio
+
 from fastapi import WebSocket
+
+from app.core.config import settings
 
 
 class RealtimeService:
@@ -16,15 +20,28 @@ class RealtimeService:
             self.active_connections.remove(websocket)
 
     async def broadcast_telemetry(self, message: dict):
-        stale_connections: list[WebSocket] = []
-        for connection in list(self.active_connections):
-            try:
-                await connection.send_json(message)
-            except Exception:
-                stale_connections.append(connection)
+        connections = list(self.active_connections)
+        if not connections:
+            return
 
-        for connection in stale_connections:
-            self.disconnect(connection)
+        # Gửi đồng thời để một socket chậm không làm tăng độ trễ tuyến tính cho
+        # tất cả socket phía sau. Timeout giới hạn thời gian giữ worker MQTT.
+        delivered = await asyncio.gather(
+            *(self._send(connection, message) for connection in connections)
+        )
+        for connection, succeeded in zip(connections, delivered):
+            if not succeeded:
+                self.disconnect(connection)
+
+    async def _send(self, connection: WebSocket, message: dict) -> bool:
+        try:
+            await asyncio.wait_for(
+                connection.send_json(message),
+                timeout=settings.realtime_send_timeout_seconds,
+            )
+            return True
+        except Exception:
+            return False
 
 
 realtime_service = RealtimeService()

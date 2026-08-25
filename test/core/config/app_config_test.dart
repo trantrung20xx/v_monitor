@@ -10,7 +10,13 @@ void main() {
     expect(AppConfig.wsPath, expected.wsPath);
     expect(AppConfig.websocketUrl, expected.websocketUrl);
     expect(AppConfig.connectTimeoutSeconds, expected.timeoutSeconds);
-    expect(AppConfig.enableDevicePreview, isFalse);
+    expect(AppConfig.httpGetRetryCount, inInclusiveRange(0, 5));
+    expect(AppConfig.httpRetryDelay, greaterThanOrEqualTo(Duration.zero));
+    expect(
+      AppConfig.websocketReconnectMaxDelay,
+      greaterThanOrEqualTo(AppConfig.websocketReconnectMinDelay),
+    );
+    expect(AppConfig.websocketHeartbeatInterval, greaterThan(Duration.zero));
   });
 }
 

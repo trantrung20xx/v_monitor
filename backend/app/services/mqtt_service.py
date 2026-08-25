@@ -2,6 +2,8 @@ import asyncio
 from datetime import datetime, timezone
 import json
 import logging
+import os
+import socket
 from typing import Optional
 
 import paho.mqtt.client as mqtt
@@ -41,6 +43,22 @@ def _create_mqtt_client(client_id: str) -> mqtt.Client:
     return mqtt.Client(client_id=client_id)
 
 
+def _mqtt_client_id() -> str:
+    configured = settings.mqtt_client_id
+    if configured:
+        return configured
+
+    # Hostname phân biệt các máy hoặc container; PID phân biệt nhiều tiến trình
+    # backend trên cùng một máy. Client id duy nhất ngăn broker ngắt kết nối một
+    # instance khi instance khác đăng nhập bằng cùng định danh.
+    hostname = "".join(
+        character if character.isalnum() or character in {"-", "_"} else "-"
+        for character in socket.gethostname()
+    ).strip("-")
+    safe_hostname = hostname or "host"
+    return f"v_monitor_backend_{safe_hostname}_{os.getpid()}"[:128]
+
+
 def _parse_measured_at(raw_value, fallback: datetime) -> datetime:
     if raw_value is None:
         return fallback
@@ -66,7 +84,8 @@ def _device_code_from_topic(topic: str) -> Optional[str]:
 
 class MQTTService:
     def __init__(self):
-        self.client = _create_mqtt_client(client_id="v_monitor_backend")
+        self._client_id = _mqtt_client_id()
+        self.client = _create_mqtt_client(client_id=self._client_id)
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
         self.client.on_disconnect = self.on_disconnect
@@ -339,6 +358,7 @@ class MQTTService:
             "connected": self._connected,
             "subscribed": self._subscribed,
             "topic": f"{settings.mqtt_topic_prefix}/#",
+            "client_id": self._client_id,
             "queue_size": self.queue.qsize() if self.queue is not None else 0,
             "queue_capacity": settings.mqtt_queue_size,
             "received_count": self._received_count,
@@ -371,9 +391,28 @@ class MQTTService:
                 )
             if settings.mqtt_use_tls:
                 self.client.tls_set()
-            self.client.connect_async(settings.mqtt_host, port=settings.mqtt_port)
-            self.client.loop_start()
+            self.client.reconnect_delay_set(
+                min_delay=settings.mqtt_reconnect_min_delay_seconds,
+                max_delay=settings.mqtt_reconnect_max_delay_seconds,
+            )
+            if hasattr(self.client, "connect_timeout"):
+                self.client.connect_timeout = settings.mqtt_connect_timeout_seconds
+            self.client.connect_async(
+                settings.mqtt_host,
+                port=settings.mqtt_port,
+                keepalive=settings.mqtt_keepalive_seconds,
+            )
+            loop_result = self.client.loop_start()
+            if loop_result not in {None, mqtt.MQTT_ERR_SUCCESS}:
+                raise RuntimeError(
+                    f"Không thể khởi động network loop MQTT, mã lỗi {loop_result}"
+                )
         except Exception:
+            try:
+                self.client.disconnect()
+                self.client.loop_stop()
+            except Exception:
+                logger.exception("Không thể dọn MQTT client sau lỗi khởi động")
             for worker in self.workers:
                 worker.cancel()
             await asyncio.gather(*self.workers, return_exceptions=True)
@@ -390,8 +429,10 @@ class MQTTService:
     async def stop(self) -> None:
         if not self._started:
             return
-        self.client.loop_stop()
+        # Ngắt broker trước rồi mới dừng network loop để gói DISCONNECT có cơ
+        # hội được gửi, tránh broker giữ phiên cũ cho tới khi hết keepalive.
         self.client.disconnect()
+        self.client.loop_stop()
         if self.queue is not None:
             try:
                 await asyncio.wait_for(self.queue.join(), timeout=10)

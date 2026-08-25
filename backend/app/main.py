@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from app.core.config import settings
-from app.core.database import AsyncSessionLocal
+from app.core.database import AsyncSessionLocal, engine
 from app.services.mqtt_service import mqtt_service
 from app.services.presence_service import presence_service
 
@@ -16,15 +16,28 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Hai dịch vụ nền độc lập: nhận telemetry và phát hiện thiết bị mất kết nối.
-    await presence_service.start()
     try:
-        await mqtt_service.start()
-    except Exception:
-        logger.exception("Không thể khởi động MQTT; API vẫn tiếp tục phục vụ")
-    yield
-    await mqtt_service.stop()
-    await presence_service.stop()
+        # Presence và MQTT là dịch vụ nền độc lập. MQTT mất kết nối không được
+        # làm API dừng; trạng thái thật được phản ánh tại `/health` để vận hành
+        # có thể phân biệt lỗi broker với lỗi HTTP hoặc PostgreSQL.
+        await presence_service.start()
+        try:
+            await mqtt_service.start()
+        except Exception:
+            logger.exception("Không thể khởi động MQTT; API vẫn tiếp tục phục vụ")
+        yield
+    finally:
+        # Mỗi tài nguyên được dọn riêng để lỗi khi dừng một dịch vụ không ngăn
+        # việc đóng dịch vụ còn lại và pool PostgreSQL.
+        try:
+            await mqtt_service.stop()
+        except Exception:
+            logger.exception("Không thể dừng MQTT sạch sẽ")
+        try:
+            await presence_service.stop()
+        except Exception:
+            logger.exception("Không thể dừng bộ giám sát trạng thái thiết bị")
+        await engine.dispose()
 
 
 app = FastAPI(

@@ -4,5 +4,8 @@
 <dict>
 	<key>com.apple.security.app-sandbox</key>
 	<true/>
+	<!-- Cho phép bản release kết nối REST API và WebSocket ra bên ngoài. -->
+	<key>com.apple.security.network.client</key>
+	<true/>
 </dict>
 </plist>

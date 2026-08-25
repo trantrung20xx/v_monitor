@@ -11,7 +11,9 @@ class GeocodingRepository {
 
   final ApiClient _apiClient;
   final Duration failureRetryDelay;
-  final Map<String, String> _addressCache = {};
+  // Giữ kiểu nullable tương thích với instance được tạo trước hot reload.
+  // Giá trị null vẫn không được lưu nên tra cứu thất bại luôn có thể thử lại.
+  final Map<String, String?> _addressCache = {};
   final Map<String, DateTime> _failedAt = {};
   final Map<String, Future<String?>> _pendingRequests = {};
 

@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Bản release cần quyền Internet để gọi REST API, WebSocket và bản đồ. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="v_monitor"
         android:name="${applicationName}"

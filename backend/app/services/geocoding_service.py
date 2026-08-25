@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, urlparse
+from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from app.core.config import settings
@@ -112,7 +112,7 @@ class GeocodingService:
         latitude: float,
         longitude: float,
     ) -> tuple[str, dict]:
-        provider = self._provider_name()
+        provider = settings.geocoding_provider
         base_url = settings.geocoding_base_url.rstrip("/")
         if provider == "photon":
             query = urlencode(
@@ -149,14 +149,6 @@ class GeocodingService:
         if not isinstance(parsed, dict):
             raise ValueError("Reverse geocoding provider returned invalid JSON")
         return provider, parsed
-
-    def _provider_name(self) -> str:
-        configured = settings.geocoding_provider
-        if configured != "auto":
-            return configured
-
-        hostname = (urlparse(settings.geocoding_base_url).hostname or "").lower()
-        return "photon" if "photon" in hostname else "nominatim"
 
     def _normalize_photon_payload(self, payload: dict) -> dict:
         features = payload.get("features")

@@ -41,6 +41,31 @@ void main() {
     },
   );
 
+  test('ApiClient retries transient GET failures only', () async {
+    final adapter = _FlakyHttpClientAdapter(failureCount: 2);
+    final dio = Dio(BaseOptions(baseUrl: 'http://example.test'))
+      ..httpClientAdapter = adapter;
+    final client = ApiClient(
+      dio: dio,
+      getRetryCount: 2,
+      retryDelay: Duration.zero,
+    );
+
+    final response = await client.get('/devices');
+
+    expect(response.statusCode, 200);
+    expect(adapter.requestCount, 3);
+
+    adapter
+      ..requestCount = 0
+      ..remainingFailures = 1;
+    await expectLater(
+      client.post('/devices', data: const {}),
+      throwsA(isA<DioException>()),
+    );
+    expect(adapter.requestCount, 1);
+  });
+
   test('WebsocketClient uses AppConfig WebSocket URL', () {
     final client = WebsocketClient();
 
@@ -99,6 +124,44 @@ void main() {
     client.dispose();
     channel.closeFromServer();
   });
+
+  test(
+    'WebsocketClient keeps control frames out of business messages',
+    () async {
+      late _FakeWebSocketChannel channel;
+      final client = WebsocketClient(
+        connectionUri: Uri.parse('ws://example.test/ws'),
+        reconnectDelay: const Duration(milliseconds: 10),
+        heartbeatInterval: Duration.zero,
+        channelFactory: (_) {
+          channel = _FakeWebSocketChannel();
+          return channel;
+        },
+      );
+      final messages = <Map<String, dynamic>>[];
+      final subscription = client.messages.listen(messages.add);
+
+      client.connect();
+      channel
+        ..receiveFromServer('{"type":"AUTH_OK"}')
+        ..receiveFromServer('{"type":"PONG"}')
+        ..receiveFromServer(
+          '{"type":"DEVICE_UPDATE","device":{"id":"UAV-100"}}',
+        );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(messages, [
+        {
+          'type': 'DEVICE_UPDATE',
+          'device': {'id': 'UAV-100'},
+        },
+      ]);
+
+      await subscription.cancel();
+      client.dispose();
+      channel.closeFromServer();
+    },
+  );
 
   for (final closeCode in [4401, 4403]) {
     test(
@@ -162,6 +225,31 @@ class _RecordingHttpClientAdapter implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
+class _FlakyHttpClientAdapter implements HttpClientAdapter {
+  _FlakyHttpClientAdapter({required int failureCount})
+    : remainingFailures = failureCount;
+
+  int remainingFailures;
+  int requestCount = 0;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    requestCount++;
+    if (remainingFailures > 0) {
+      remainingFailures--;
+      return ResponseBody.fromString('{}', 503);
+    }
+    return ResponseBody.fromString('{}', 200);
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
 class _FakeWebSocketChannel extends StreamChannelMixin
     implements WebSocketChannel {
   final _incoming = StreamController<dynamic>();
@@ -187,6 +275,10 @@ class _FakeWebSocketChannel extends StreamChannelMixin
   Future<void> get ready => Future.value();
 
   List<String> get sentMessages => _sink.sentMessages;
+
+  void receiveFromServer(String message) {
+    _incoming.add(message);
+  }
 
   void closeFromServer([int? closeCode]) {
     _closeCode = closeCode;

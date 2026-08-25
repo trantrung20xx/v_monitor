@@ -1,29 +1,33 @@
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 from app.core.config import settings
 
-# Khởi tạo engine kết nối bất đồng bộ (async) tới PostgreSQL
-# Tối ưu hóa Connection Pooling (pool_size, max_overflow) để chịu tải cao
+# `pool_pre_ping` kiểm tra kết nối trước khi cấp cho request. Nếu PostgreSQL,
+# firewall hoặc dịch vụ cloud đã đóng một socket nhàn rỗi, SQLAlchemy loại bỏ
+# socket hỏng và mở kết nối mới thay vì để request đầu tiên nhận lỗi mạng.
+# Các giới hạn pool lấy từ `.env` để thay đổi theo tài nguyên máy mà không sửa code.
 engine = create_async_engine(
     settings.database_url,
-    echo=False, # Tắt in log SQL ra console để tăng hiệu năng production
-    future=True,
-    pool_size=20,          # Số kết nối tối đa luôn duy trì trong Pool
-    max_overflow=10,       # Số kết nối vượt mức có thể tạo thêm khi quá tải
-    pool_recycle=1800,     # Khởi tạo lại kết nối sau mỗi 30 phút để tránh lỗi timeout
+    echo=False,
+    pool_pre_ping=True,
+    pool_size=settings.database_pool_size,
+    max_overflow=settings.database_max_overflow,
+    pool_timeout=settings.database_pool_timeout_seconds,
+    pool_recycle=settings.database_pool_recycle_seconds,
+    connect_args={"timeout": settings.database_connect_timeout_seconds},
 )
 
-# Tạo bộ sinh ngữ cảnh giao dịch cho từng lần làm việc với cơ sở dữ liệu.
+# Mỗi request nhận một AsyncSession độc lập. `expire_on_commit=False` giữ dữ
+# liệu vừa ghi trong bộ nhớ để tránh truy vấn lại không cần thiết sau commit.
 AsyncSessionLocal = async_sessionmaker(
-    bind=engine, 
-    class_=AsyncSession, 
-    expire_on_commit=False # Không tự động làm hết hạn các đối tượng sau khi commit (giúp tiết kiệm truy vấn)
+    bind=engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
 )
 
-# Generator (hàm sinh) cung cấp Session cho từng Request của FastAPI
-# Đảm bảo Session luôn được đóng an toàn sau khi sử dụng xong
+
+# Context manager của SQLAlchemy tự đóng session ở cả nhánh thành công lẫn lỗi;
+# không gọi `close()` lần hai để vòng đời kết nối ngắn gọn và nhất quán.
 async def get_db():
     async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+        yield session
