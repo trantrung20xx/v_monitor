@@ -666,26 +666,56 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('ADMIN device management separates registered and discovered', (
-    tester,
-  ) async {
-    final harness = await _pumpSettings(
-      tester,
-      role: 'ADMIN',
-      size: const Size(1280, 900),
-      section: SettingsSection.devices,
-    );
+  testWidgets(
+    'ADMIN device management uses exclusive registered and MQTT tabs',
+    (tester) async {
+      final harness = await _pumpSettings(
+        tester,
+        role: 'ADMIN',
+        size: const Size(1280, 900),
+        section: SettingsSection.devices,
+      );
 
-    expect(find.byKey(const Key('device-management-content')), findsOneWidget);
-    expect(find.byKey(const Key('registered-device-CAR-01')), findsOneWidget);
-    expect(find.byKey(const Key('mqtt-sighting-UAV-100')), findsOneWidget);
-    expect(find.text('Trực tuyến'), findsOneWidget);
-    expect(find.byTooltip('Được phép nhận telemetry'), findsOneWidget);
-    expect(find.text('Chưa được cấp quyền nhận dữ liệu'), findsOneWidget);
-    expect(harness.repository.loadManagedDevicesCount, 1);
-    expect(harness.repository.loadMqttSightingsCount, 1);
-    expect(tester.takeException(), isNull);
-  });
+      expect(
+        find.byKey(const Key('device-management-content')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('device-management-tabs')), findsOneWidget);
+      expect(find.byKey(const Key('registered-devices-tab')), findsOneWidget);
+      expect(find.byKey(const Key('pending-devices-tab')), findsOneWidget);
+      expect(
+        find.byKey(const Key('pending-devices-tab-badge')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('registered-devices-pane')), findsOneWidget);
+      expect(find.byKey(const Key('pending-devices-pane')), findsNothing);
+      expect(find.byKey(const Key('registered-device-CAR-01')), findsOneWidget);
+      expect(find.byKey(const Key('mqtt-sighting-UAV-100')), findsNothing);
+      expect(find.text('Trực tuyến'), findsOneWidget);
+      expect(find.byTooltip('Được phép nhận telemetry'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('pending-devices-tab-badge')),
+          matching: find.text('1'),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.ensureVisible(find.byKey(const Key('pending-devices-tab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('pending-devices-tab')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('registered-devices-pane')), findsNothing);
+      expect(find.byKey(const Key('pending-devices-pane')), findsOneWidget);
+      expect(find.byKey(const Key('registered-device-CAR-01')), findsNothing);
+      expect(find.byKey(const Key('mqtt-sighting-UAV-100')), findsOneWidget);
+      expect(find.text('Chưa được cấp quyền nhận dữ liệu'), findsOneWidget);
+      expect(harness.repository.loadManagedDevicesCount, 1);
+      expect(harness.repository.loadMqttSightingsCount, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('ADMIN can register a discovered MQTT device', (tester) async {
     final harness = await _pumpSettings(
@@ -695,8 +725,11 @@ void main() {
       section: SettingsSection.devices,
     );
 
-    await tester.drag(find.byType(ListView).last, const Offset(0, -220));
+    await tester.tap(find.byKey(const Key('pending-devices-tab')));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const Key('register-device-UAV-100')),
+    );
     await tester.tap(find.byKey(const Key('register-device-UAV-100')));
     await tester.pumpAndSettle();
     expect(
@@ -711,8 +744,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(harness.repository.lastDeviceCreate?['device_code'], 'UAV-100');
-    expect(find.byKey(const Key('registered-device-UAV-100')), findsOneWidget);
     expect(find.byKey(const Key('mqtt-sighting-UAV-100')), findsNothing);
+    expect(find.byKey(const Key('mqtt-sighting-empty')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('registered-devices-tab')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('registered-device-UAV-100')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -727,8 +764,13 @@ void main() {
 
     for (final size in const [
       Size(320, 700),
-      Size(840, 900),
-      Size(1440, 900),
+      Size(390, 844),
+      Size(600, 900),
+      Size(800, 900),
+      Size(1024, 768),
+      Size(1366, 768),
+      Size(1600, 900),
+      Size(1920, 1080),
     ]) {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
@@ -759,19 +801,51 @@ void main() {
         },
       );
 
+      final maximumControlsHeight = size.width < 500
+          ? 310.0
+          : size.width < 800
+          ? 260.0
+          : size.width < 1024
+          ? 190.0
+          : 160.0;
+      expect(
+        tester
+            .getSize(find.byKey(const Key('device-management-controls')))
+            .height,
+        lessThanOrEqualTo(maximumControlsHeight),
+        reason: 'Controls must stay compact at ${size.width}x${size.height}',
+      );
+      expect(
+        tester.getSize(find.byKey(const Key('device-search-field'))).height,
+        44,
+      );
+      expect(
+        tester
+            .getSize(find.byKey(const Key('device-permission-filter')))
+            .height,
+        44,
+      );
+
       final nameFinder = find.descendant(
         of: find.byKey(Key('registered-device-$longCode')),
         matching: find.text(longName),
       );
-      final topicFinder = find.text(longTopic);
       expect(nameFinder, findsOneWidget);
-      expect(topicFinder, findsOneWidget);
       expect(find.text('Quyền nhận: Tắt'), findsOneWidget);
       expect(tester.widget<Text>(nameFinder).maxLines, isNull);
       expect(
         tester.widget<Text>(nameFinder).overflow,
         isNot(TextOverflow.ellipsis),
       );
+
+      await tester.ensureVisible(find.byKey(const Key('pending-devices-tab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('pending-devices-tab')));
+      await tester.pumpAndSettle();
+
+      final topicFinder = find.text(longTopic);
+      expect(find.byKey(Key('registered-device-$longCode')), findsNothing);
+      expect(topicFinder, findsOneWidget);
       expect(tester.widget<Text>(topicFinder).maxLines, isNull);
       expect(
         tester.widget<Text>(topicFinder).overflow,
@@ -803,19 +877,30 @@ void main() {
       await tester.tap(find.byKey(const Key('device-filter-disabled')));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('registered-device-empty')), findsOneWidget);
-      expect(find.byKey(const Key('mqtt-sighting-UAV-100')), findsOneWidget);
+      expect(find.byKey(const Key('mqtt-sighting-UAV-100')), findsNothing);
 
-      await tester.tap(find.byKey(const Key('device-permission-filter')));
+      await tester.tap(find.byKey(const Key('pending-devices-tab')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('device-filter-all')));
-      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('mqtt-sighting-UAV-100')), findsOneWidget);
+      expect(find.byKey(const Key('device-permission-filter')), findsNothing);
+
       await tester.enterText(
         find.byKey(const Key('device-search-field')),
         'UAV-100',
       );
       await tester.pump();
-      expect(find.byKey(const Key('registered-device-empty')), findsOneWidget);
       expect(find.byKey(const Key('mqtt-sighting-UAV-100')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('registered-devices-tab')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('registered-device-empty')), findsOneWidget);
+      expect(find.byKey(const Key('mqtt-sighting-UAV-100')), findsNothing);
+      expect(find.byKey(const Key('device-permission-filter')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('device-permission-filter')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('device-filter-all')));
+      await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const Key('clear-device-search')));
       await tester.pump();
@@ -823,6 +908,55 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('device management keeps refresh and add callbacks', (
+    tester,
+  ) async {
+    final harness = await _pumpSettings(
+      tester,
+      role: 'ADMIN',
+      size: const Size(1280, 900),
+      section: SettingsSection.devices,
+    );
+
+    expect(find.text('Quản lý thiết bị'), findsOneWidget);
+    expect(
+      tester
+          .getSize(find.byKey(const Key('device-management-controls')))
+          .height,
+      lessThanOrEqualTo(150),
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('device-compact-metrics'))).height,
+      lessThanOrEqualTo(36),
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('device-search-field'))).height,
+      44,
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('device-permission-filter'))).height,
+      44,
+    );
+
+    await tester.tap(find.byTooltip('Tải lại cài đặt'));
+    await tester.pumpAndSettle();
+    expect(harness.repository.loadManagedDevicesCount, 2);
+    expect(harness.repository.loadMqttSightingsCount, 2);
+
+    await tester.tap(find.byKey(const Key('add-device-button')));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.byKey(const Key('device-code-field')), findsOneWidget);
+    expect(
+      tester
+          .widget<TextFormField>(find.byKey(const Key('device-code-field')))
+          .controller
+          ?.text,
+      isEmpty,
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('device management refreshes registered status in background', (
     tester,
@@ -961,6 +1095,15 @@ void main() {
         Theme.of(tester.element(find.byType(SettingsPage))).brightness,
         Brightness.dark,
       );
+      if (section == SettingsSection.devices) {
+        await tester.ensureVisible(
+          find.byKey(const Key('pending-devices-tab')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('pending-devices-tab')));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('pending-devices-pane')), findsOneWidget);
+      }
       expect(tester.takeException(), isNull);
     }
   });
@@ -1006,6 +1149,15 @@ void main() {
           section: section,
         );
         expect(find.text(_expectedTitle(section)), findsWidgets);
+        if (section == SettingsSection.devices) {
+          await tester.ensureVisible(
+            find.byKey(const Key('pending-devices-tab')),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const Key('pending-devices-tab')));
+          await tester.pumpAndSettle();
+          expect(find.byKey(const Key('pending-devices-pane')), findsOneWidget);
+        }
         expect(
           tester.takeException(),
           isNull,

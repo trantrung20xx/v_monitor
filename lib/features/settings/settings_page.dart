@@ -184,7 +184,8 @@ class _SettingsSectionView extends StatelessWidget {
       builder: (context, constraints) {
         final horizontalPadding = constraints.maxWidth >= 900 ? 32.0 : 16.0;
         final maxWidth = switch (section) {
-          SettingsSection.users || SettingsSection.devices => 1120.0,
+          SettingsSection.devices => constraints.maxWidth,
+          SettingsSection.users => 1120.0,
           _ => 840.0,
         };
         return RefreshIndicator(
