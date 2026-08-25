@@ -34,7 +34,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   StreamSubscription<UserSettingsModel>? _userSettingsSubscription;
   StreamSubscription<SystemSettingsModel>? _systemSettingsSubscription;
   bool _initializing = false;
-  bool _refreshingMqttSightings = false;
+  bool _refreshingDeviceManagement = false;
 
   Future<void> initialize() async {
     if (_initializing) return;
@@ -208,16 +208,30 @@ class SettingsCubit extends Cubit<SettingsState> {
     }
   }
 
-  Future<void> refreshMqttDeviceSightings() async {
-    if (_refreshingMqttSightings || state.deviceOperationInProgress) return;
-    _refreshingMqttSightings = true;
+  Future<void> refreshDeviceManagement() async {
+    if (_refreshingDeviceManagement ||
+        state.devicesLoading ||
+        state.deviceOperationInProgress) {
+      return;
+    }
+    _refreshingDeviceManagement = true;
     try {
-      final sightings = await _repository.loadMqttDeviceSightings();
-      if (!isClosed) emit(state.copyWith(mqttDeviceSightings: sightings));
+      final results = await Future.wait([
+        _repository.loadManagedDevices(),
+        _repository.loadMqttDeviceSightings(),
+      ]);
+      if (!isClosed) {
+        emit(
+          state.copyWith(
+            devices: results[0] as List<DeviceModel>,
+            mqttDeviceSightings: results[1] as List<MqttDeviceSightingModel>,
+          ),
+        );
+      }
     } catch (_) {
       // Làm mới nền không che nội dung hiện có hoặc lặp thông báo lỗi mạng.
     } finally {
-      _refreshingMqttSightings = false;
+      _refreshingDeviceManagement = false;
     }
   }
 

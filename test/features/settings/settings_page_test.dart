@@ -679,6 +679,9 @@ void main() {
     expect(find.byKey(const Key('device-management-content')), findsOneWidget);
     expect(find.byKey(const Key('registered-device-CAR-01')), findsOneWidget);
     expect(find.byKey(const Key('mqtt-sighting-UAV-100')), findsOneWidget);
+    expect(find.text('Trực tuyến'), findsOneWidget);
+    expect(find.byTooltip('Được phép nhận telemetry'), findsOneWidget);
+    expect(find.text('Chưa được cấp quyền nhận dữ liệu'), findsOneWidget);
     expect(harness.repository.loadManagedDevicesCount, 1);
     expect(harness.repository.loadMqttSightingsCount, 1);
     expect(tester.takeException(), isNull);
@@ -692,9 +695,8 @@ void main() {
       section: SettingsSection.devices,
     );
 
-    await tester.ensureVisible(
-      find.byKey(const Key('register-device-UAV-100')),
-    );
+    await tester.drag(find.byType(ListView).last, const Offset(0, -220));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('register-device-UAV-100')));
     await tester.pumpAndSettle();
     expect(
@@ -711,6 +713,168 @@ void main() {
     expect(harness.repository.lastDeviceCreate?['device_code'], 'UAV-100');
     expect(find.byKey(const Key('registered-device-UAV-100')), findsOneWidget);
     expect(find.byKey(const Key('mqtt-sighting-UAV-100')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('device management keeps long data readable at every breakpoint', (
+    tester,
+  ) async {
+    const longCode = 'DEVICE-CONTROLLER-WAREHOUSE-NORTH-ENTRANCE-0001';
+    const longName =
+        'Thiết bị điều phối vận hành khu vực kho hàng phía Bắc và cổng kiểm soát trung tâm';
+    const longTopic =
+        'v_monitor/telemetry/factory/north-warehouse/entrance/controller-0001';
+
+    for (final size in const [
+      Size(320, 700),
+      Size(840, 900),
+      Size(1440, 900),
+    ]) {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await _pumpSettings(
+        tester,
+        role: 'ADMIN',
+        size: size,
+        section: SettingsSection.devices,
+        configureRepository: (repository) {
+          repository._devices[0] = DeviceModel(
+            id: 'device-long',
+            deviceCode: longCode,
+            name: longName,
+            type: 'UAV_CONTROLLER',
+            status: 'OFFLINE',
+            serialNumber: 'SERIAL-WAREHOUSE-NORTH-0001',
+            isEnabled: false,
+            isOnline: false,
+            lastSeenAt: DateTime.now().subtract(const Duration(minutes: 8)),
+          );
+          repository._sightings[0] = MqttDeviceSightingModel(
+            deviceCode: 'UNREGISTERED-CONTROLLER-NORTH-ENTRANCE-0002',
+            firstSeenAt: DateTime.now().subtract(const Duration(hours: 3)),
+            lastSeenAt: DateTime.now().subtract(const Duration(seconds: 15)),
+            messageCount: 1287,
+            lastTopic: longTopic,
+          );
+        },
+      );
+
+      final nameFinder = find.descendant(
+        of: find.byKey(Key('registered-device-$longCode')),
+        matching: find.text(longName),
+      );
+      final topicFinder = find.text(longTopic);
+      expect(nameFinder, findsOneWidget);
+      expect(topicFinder, findsOneWidget);
+      expect(find.text('Quyền nhận: Tắt'), findsOneWidget);
+      expect(tester.widget<Text>(nameFinder).maxLines, isNull);
+      expect(
+        tester.widget<Text>(nameFinder).overflow,
+        isNot(TextOverflow.ellipsis),
+      );
+      expect(tester.widget<Text>(topicFinder).maxLines, isNull);
+      expect(
+        tester.widget<Text>(topicFinder).overflow,
+        isNot(TextOverflow.ellipsis),
+      );
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'Long device data must fit ${size.width}x${size.height}',
+      );
+    }
+  });
+
+  testWidgets(
+    'device management search and permission filters stay independent',
+    (tester) async {
+      await _pumpSettings(
+        tester,
+        role: 'ADMIN',
+        size: const Size(1280, 900),
+        section: SettingsSection.devices,
+      );
+
+      expect(find.text('Tất cả thiết bị (1)'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('device-permission-filter')));
+      await tester.pumpAndSettle();
+      expect(find.text('Được phép nhận dữ liệu (1)'), findsOneWidget);
+      expect(find.text('Tạm khóa telemetry (0)'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('device-filter-disabled')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('registered-device-empty')), findsOneWidget);
+      expect(find.byKey(const Key('mqtt-sighting-UAV-100')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('device-permission-filter')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('device-filter-all')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('device-search-field')),
+        'UAV-100',
+      );
+      await tester.pump();
+      expect(find.byKey(const Key('registered-device-empty')), findsOneWidget);
+      expect(find.byKey(const Key('mqtt-sighting-UAV-100')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('clear-device-search')));
+      await tester.pump();
+      expect(find.byKey(const Key('registered-device-CAR-01')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('device management refreshes registered status in background', (
+    tester,
+  ) async {
+    final harness = await _pumpSettings(
+      tester,
+      role: 'ADMIN',
+      size: const Size(1280, 900),
+      section: SettingsSection.devices,
+    );
+
+    expect(find.text('Trực tuyến'), findsOneWidget);
+    harness.repository._devices[0] = DeviceModel(
+      id: 'device-1',
+      deviceCode: 'CAR-01',
+      name: 'Xe tuần tra 01',
+      type: 'VEHICLE',
+      status: 'OFFLINE',
+      isEnabled: true,
+      isOnline: false,
+      lastSeenAt: DateTime.now().subtract(const Duration(minutes: 6)),
+    );
+
+    await tester.pump(const Duration(seconds: 15));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Trực tuyến'), findsNothing);
+    expect(find.text('Ngoại tuyến'), findsOneWidget);
+    expect(harness.repository.loadManagedDevicesCount, 2);
+    expect(harness.repository.loadMqttSightingsCount, 2);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('device editor dialog fits a compact viewport', (tester) async {
+    await _pumpSettings(
+      tester,
+      role: 'ADMIN',
+      size: const Size(320, 700),
+      section: SettingsSection.devices,
+    );
+
+    await tester.drag(find.byType(ListView).last, const Offset(0, -520));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).last, const Offset(0, -260));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('edit-device-CAR-01')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.byKey(const Key('device-code-field')), findsOneWidget);
+    expect(find.byKey(const Key('device-name-field')), findsOneWidget);
+    expect(find.byKey(const Key('save-device-button')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -875,6 +1039,7 @@ Future<_SettingsHarness> _pumpSettings(
   required Size size,
   SettingsSection? section = SettingsSection.overview,
   String theme = 'system',
+  void Function(_FakeSettingsRepository repository)? configureRepository,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -884,6 +1049,7 @@ Future<_SettingsHarness> _pumpSettings(
   });
 
   final repository = _FakeSettingsRepository();
+  configureRepository?.call(repository);
   repository._userSettings = UserSettingsModel(theme: theme);
   final settingsCubit = SettingsCubit(repository);
   final authCubit = _StaticAuthCubit(

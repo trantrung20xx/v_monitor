@@ -8,7 +8,7 @@ from app.models.base import Base
 
 
 class MqttDeviceSighting(Base):
-    """Dấu vết tổng hợp của mã thiết bị MQTT chưa được đăng ký."""
+    """Dấu vết của các mã thiết bị MQTT chưa được đăng ký."""
 
     __tablename__ = "mqtt_device_sightings"
 
