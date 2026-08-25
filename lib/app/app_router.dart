@@ -125,6 +125,8 @@ class _AppShellState extends State<_AppShell> {
   int _selectedIndex = 0;
   bool _isMobileAccountMenuOpen = false;
 
+  int _accountDestinationIndex(bool hasAdminAccess) => hasAdminAccess ? 3 : 2;
+
   void _onPrimaryDestinationSelected(int index) {
     setState(() => _selectedIndex = index);
     switch (index) {
@@ -132,11 +134,16 @@ class _AppShellState extends State<_AppShell> {
         context.goNamed('dashboard');
       case 1:
         context.goNamed('map');
+      case 2:
+        context.goNamed('settings-devices');
     }
   }
 
   Future<void> _onMobileDestinationSelected(int index) async {
-    if (index == 2) {
+    final accountIndex = _accountDestinationIndex(
+      context.read<AuthCubit>().state.hasAdminAccess,
+    );
+    if (index == accountIndex) {
       if (_isMobileAccountMenuOpen) return;
       setState(() => _isMobileAccountMenuOpen = true);
       await _showMobileAccountMenu(context);
@@ -149,9 +156,14 @@ class _AppShellState extends State<_AppShell> {
   @override
   Widget build(BuildContext context) {
     // Xác định mục điều hướng hiện tại từ đường dẫn.
+    final hasAdminAccess = context.watch<AuthCubit>().state.hasAdminAccess;
+    final accountIndex = _accountDestinationIndex(hasAdminAccess);
     final location = GoRouterState.of(context).uri.toString();
-    final currentIndex = location.startsWith('/settings')
+    final currentIndex =
+        location.startsWith('/settings/devices') && hasAdminAccess
         ? 2
+        : location.startsWith('/settings')
+        ? accountIndex
         : location.startsWith('/map')
         ? 1
         : 0;
@@ -167,6 +179,7 @@ class _AppShellState extends State<_AppShell> {
           children: [
             _DesktopNavRail(
               selectedIndex: _selectedIndex,
+              showDeviceManagement: hasAdminAccess,
               onDestinationSelected: _onPrimaryDestinationSelected,
             ),
             Expanded(child: widget.child),
@@ -180,20 +193,27 @@ class _AppShellState extends State<_AppShell> {
     return Scaffold(
       body: widget.child,
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _isMobileAccountMenuOpen ? 2 : _selectedIndex,
+        selectedIndex: _isMobileAccountMenuOpen ? accountIndex : _selectedIndex,
         onDestinationSelected: _onMobileDestinationSelected,
-        destinations: const [
-          NavigationDestination(
+        destinations: [
+          const NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),
             selectedIcon: Icon(Icons.dashboard_rounded),
             label: 'Dashboard',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.map_outlined),
             selectedIcon: Icon(Icons.map_rounded),
             label: 'Bản đồ',
           ),
-          NavigationDestination(
+          if (hasAdminAccess)
+            const NavigationDestination(
+              key: Key('mobile-device-destination'),
+              icon: Icon(Icons.developer_board_outlined),
+              selectedIcon: Icon(Icons.developer_board_rounded),
+              label: 'Thiết bị',
+            ),
+          const NavigationDestination(
             key: Key('mobile-account-destination'),
             icon: Icon(Icons.person_outline_rounded),
             selectedIcon: Icon(Icons.manage_accounts_rounded),
@@ -267,10 +287,12 @@ Future<void> _showMobileAccountMenu(BuildContext context) {
 class _DesktopNavRail extends StatelessWidget {
   const _DesktopNavRail({
     required this.selectedIndex,
+    required this.showDeviceManagement,
     required this.onDestinationSelected,
   });
 
   final int selectedIndex;
+  final bool showDeviceManagement;
   final ValueChanged<int> onDestinationSelected;
 
   @override
@@ -338,6 +360,17 @@ class _DesktopNavRail extends StatelessWidget {
               label: 'Bản đồ',
               onTap: () => onDestinationSelected(1),
             ),
+            if (showDeviceManagement) ...[
+              const SizedBox(height: 6),
+              _NavItem(
+                key: const Key('desktop-device-destination'),
+                index: 2,
+                isSelected: selectedIndex == 2,
+                icon: Icons.developer_board_rounded,
+                label: 'Thiết bị',
+                onTap: () => onDestinationSelected(2),
+              ),
+            ],
             const Spacer(),
             const _DesktopAccountMenu(),
             const SizedBox(height: 12),
@@ -434,6 +467,7 @@ class _DesktopAccountMenu extends StatelessWidget {
 
 class _NavItem extends StatelessWidget {
   const _NavItem({
+    super.key,
     required this.index,
     required this.isSelected,
     required this.icon,

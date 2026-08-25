@@ -59,6 +59,7 @@ void main() {
 
     // Desktop chỉ mở Cài đặt từ menu tài khoản; thanh điều hướng không lặp lại mục này.
     expect(find.text('Cài đặt'), findsNothing);
+    expect(find.byKey(const Key('desktop-device-destination')), findsNothing);
     await tester.tap(find.text('Tài khoản'));
     await tester.pumpAndSettle();
 
@@ -194,7 +195,7 @@ void main() {
     expect(find.byKey(const Key('edit-current-account')), findsOneWidget);
     expect(
       tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-      2,
+      3,
     );
     expect(tester.takeException(), isNull);
 
@@ -223,6 +224,14 @@ void main() {
 
     expect(find.text('Cài đặt'), findsNothing);
     expect(find.text('Tài khoản'), findsOneWidget);
+    expect(find.byKey(const Key('mobile-device-destination')), findsNothing);
+    expect(
+      tester
+          .widget<NavigationBar>(find.byType(NavigationBar))
+          .destinations
+          .map((destination) => (destination as NavigationDestination).label),
+      ['Dashboard', 'Bản đồ', 'Tài khoản'],
+    );
     await tester.tap(find.byKey(const Key('mobile-account-destination')));
     await tester.pumpAndSettle();
 
@@ -342,6 +351,87 @@ void main() {
     );
     expect(find.byKey(const Key('device-management-content')), findsOneWidget);
     expect(apiClient.authMeCount, 1);
+    expect(tester.takeException(), isNull);
+
+    websocketClient.dispose();
+  });
+
+  testWidgets('desktop ADMIN device menu reuses device settings page', (
+    tester,
+  ) async {
+    AppRouter.router.go('/');
+    final websocketClient = _FakeWebsocketClient();
+    await tester.pumpWidget(
+      VMonitorApp(
+        apiClient: _FakeApiClient(role: 'ADMIN'),
+        websocketClient: websocketClient,
+        authTokenStore: _MemoryTokenStore('saved-credential'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final dashboardTop = tester.getTopLeft(find.text('Dashboard').first).dy;
+    final mapTop = tester.getTopLeft(find.text('Bản đồ')).dy;
+    final deviceTop = tester.getTopLeft(find.text('Thiết bị')).dy;
+    final accountTop = tester.getTopLeft(find.text('Tài khoản')).dy;
+    expect(dashboardTop, lessThan(mapTop));
+    expect(mapTop, lessThan(deviceTop));
+    expect(deviceTop, lessThan(accountTop));
+
+    await tester.tap(find.byKey(const Key('desktop-device-destination')));
+    await tester.pumpAndSettle();
+
+    expect(
+      AppRouter.router.routeInformationProvider.value.uri.path,
+      '/settings/devices',
+    );
+    expect(find.byKey(const Key('device-management-content')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    websocketClient.dispose();
+  });
+
+  testWidgets('mobile ADMIN menu keeps four compact ordered destinations', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    AppRouter.router.go('/');
+
+    final websocketClient = _FakeWebsocketClient();
+    await tester.pumpWidget(
+      VMonitorApp(
+        apiClient: _FakeApiClient(role: 'ADMIN'),
+        websocketClient: websocketClient,
+        authTokenStore: _MemoryTokenStore('saved-credential'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final navigationBar = tester.widget<NavigationBar>(
+      find.byType(NavigationBar),
+    );
+    expect(
+      navigationBar.destinations.map(
+        (destination) => (destination as NavigationDestination).label,
+      ),
+      ['Dashboard', 'Bản đồ', 'Thiết bị', 'Tài khoản'],
+    );
+
+    await tester.tap(find.byKey(const Key('mobile-device-destination')));
+    await tester.pumpAndSettle();
+
+    expect(
+      AppRouter.router.routeInformationProvider.value.uri.path,
+      '/settings/devices',
+    );
+    expect(
+      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      2,
+    );
+    expect(find.byKey(const Key('device-management-content')), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     websocketClient.dispose();
