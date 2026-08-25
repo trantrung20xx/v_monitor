@@ -1,10 +1,13 @@
+// Dải thống kê chuyển các bộ đếm DashboardState thành StatCard responsive;
+// không tự đếm lại hoặc thay đổi ý nghĩa online/offline/moving.
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme_colors.dart';
 import '../../../core/widgets/stat_card.dart';
 import '../dashboard_state.dart';
 
-/// Horizontal scrollable stats overview for mobile.
+/// Dải thống kê cuộn ngang trên màn hình hẹp để thẻ không bị ép hoặc tràn chữ.
+// Dải thẻ thống kê cho mobile, đọc trực tiếp các bộ đếm đã resolve trong DashboardState.
 class StatsOverview extends StatelessWidget {
   const StatsOverview({super.key, required this.state});
 
@@ -12,6 +15,7 @@ class StatsOverview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Wrap cho phép thẻ xuống dòng khi không đủ rộng, tránh ép nội dung hoặc overflow.
     final colors = context.appColors;
     final cards = [
       StatCard(

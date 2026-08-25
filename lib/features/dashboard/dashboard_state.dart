@@ -1,9 +1,11 @@
+// State bất biến của dashboard gồm dữ liệu gốc, số liệu tổng hợp, bộ lọc và cache
+// địa chỉ theo device id. filteredDevices chỉ tạo lát cắt hiển thị, không sửa danh sách gốc.
 import 'package:equatable/equatable.dart';
 
 import '../../data/models/device_model.dart';
 import '../../domain/entities/device_query_filter.dart';
 
-/// Dashboard state.
+/// Ảnh chụp toàn bộ dữ liệu cần để dựng dashboard tại một thời điểm.
 class DashboardState extends Equatable {
   const DashboardState({
     this.isLoading = true,
@@ -22,8 +24,10 @@ class DashboardState extends Equatable {
     this.deviceAddresses = const {},
   });
 
+  // Trạng thái tải/lỗi chỉ mô tả lần lấy snapshot REST gần nhất.
   final bool isLoading;
   final String? error;
+  // devices là dữ liệu gốc; các count là kết quả đã resolve cùng thời điểm emit.
   final List<DeviceModel> devices;
   final int totalDevices;
   final int onlineCount;
@@ -33,8 +37,10 @@ class DashboardState extends Equatable {
   final int inactiveCount;
   final int staleCount;
   final int attentionCount;
+  // Hai điều kiện chỉ lọc phần hiển thị, không xóa hoặc sửa devices.
   final String searchQuery;
   final DeviceFilter statusFilter;
+  // Ánh xạ device id sang địa chỉ geocoding hiện có; thiếu khóa nghĩa là chưa dịch được.
   final Map<String, String> deviceAddresses;
 
   DashboardState copyWith({
@@ -53,6 +59,8 @@ class DashboardState extends Equatable {
     DeviceFilter? statusFilter,
     Map<String, String>? deviceAddresses,
   }) {
+    // Tạo snapshot mới từ state hiện tại; riêng error nhận trực tiếp để một lần tải
+    // thành công có thể xóa lỗi cũ bằng null.
     return DashboardState(
       isLoading: isLoading ?? this.isLoading,
       error: error,
@@ -73,6 +81,7 @@ class DashboardState extends Equatable {
 
   @override
   List<Object?> get props => [
+    // Mọi dữ liệu ảnh hưởng UI đều tham gia so sánh Equatable.
     isLoading,
     error,
     devices,

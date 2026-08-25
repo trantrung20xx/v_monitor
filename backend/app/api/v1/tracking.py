@@ -1,3 +1,5 @@
+# API theo dõi gồm nhận một mẫu GPS, truy vấn lịch sử theo khoảng thời gian và
+# đọc sự kiện thiết bị. TrackingService chịu trách nhiệm thứ tự thời gian và trạng thái mới nhất.
 from datetime import datetime
 from typing import List, Optional
 import uuid
@@ -25,7 +27,10 @@ router = APIRouter()
 
 
 def _event_payload(event) -> dict:
+    # Chuẩn hóa model sự kiện thành envelope realtime/REST gọn. Cột riêng được ưu
+    # tiên, metadata giữ tương thích với dữ liệu cũ từng lưu source/description trong JSON.
     metadata = event.metadata_ or {}
+    # Chuyển UUID/datetime sang chuỗi để cùng payload dùng được cho send_json và REST.
     return {
         "id": str(event.id),
         "device_id": str(event.device_id),
@@ -42,12 +47,16 @@ async def add_location(
     db: AsyncSession = Depends(get_db),
     _current_user=Depends(require_admin_if_enabled),
 ):
+    # Endpoint này dành cho nhập GPS có kiểm soát ngoài MQTT. Cả hai đường đều gọi
+    # TrackingService nên dùng chung quy tắc latest state và sinh sự kiện.
     try:
         result, generated_events = await TrackingService.add_location(db, location)
     except DeviceNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
 
+    # Đọc lại snapshot sau commit để frontend nhận đúng trạng thái vừa được lưu.
     device = await DeviceService.get_device(db, location.device_id)
+    # Trường hợp hiếm thiết bị bị xóa sau commit được bỏ qua broadcast thay vì phát payload rỗng.
     if device:
         await realtime_service.broadcast_telemetry(
             {
@@ -55,6 +64,7 @@ async def add_location(
                 "device": DeviceResponse.model_validate(device).model_dump(mode="json"),
             }
         )
+    # Mỗi cạnh ONLINE/MOVEMENT tạo một event độc lập cho timeline frontend.
     for event in generated_events:
         await realtime_service.broadcast_telemetry(
             {"type": "DEVICE_EVENT", "event": _event_payload(event)}
@@ -69,6 +79,7 @@ async def get_history(
     db: AsyncSession = Depends(get_db),
     _current_user=Depends(require_viewer_if_enabled),
 ):
+    # Trả tối đa `limit` mẫu gần nhất; dùng cho phần xem nhanh, không phải toàn bộ hành trình.
     return await TrackingService.get_location_history(db, device_id, limit)
 
 
@@ -81,14 +92,19 @@ async def get_history_range(
     db: AsyncSession = Depends(get_db),
     _current_user=Depends(require_viewer_if_enabled),
 ):
+    # Khoảng thời gian phải có thứ tự rõ ràng trước khi chạy count và truy vấn mẫu.
+    # Dấu bằng cũng bị từ chối vì khoảng có độ dài bằng 0 không chứa một hành trình.
     if from_time >= to_time:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Thời điểm bắt đầu phải nhỏ hơn thời điểm kết thúc",
         )
+    # Kiểm tra hồ sơ trước để UUID hợp lệ nhưng không tồn tại trả 404 thay vì danh sách rỗng.
     if await DeviceService.get_device(db, device_id) is None:
         raise HTTPException(status_code=404, detail="Không tìm thấy thiết bị")
 
+    # Service trả cả tổng số bản ghi và cờ truncated để UI không hiểu nhầm dữ liệu
+    # đã cắt theo giới hạn là toàn bộ hành trình.
     samples, total_count, truncated = await TrackingService.get_location_history_range(
         db=db,
         device_id=device_id,
@@ -114,16 +130,22 @@ async def get_events(
     db: AsyncSession = Depends(get_db),
     _current_user=Depends(require_viewer_if_enabled),
 ):
+    # Cho phép client dùng UUID nội bộ hoặc device_code dễ đọc. Mã không tồn tại
+    # trả danh sách rỗng để tab sự kiện hiển thị trạng thái trống ổn định.
     try:
+        # Nhánh nhanh khi path đã là UUID chuẩn.
         resolved_uuid = uuid.UUID(device_id)
     except (ValueError, TypeError):
+        # Chuỗi không phải UUID được hiểu là device_code và tra đúng một lần.
         result = await db.execute(
             select(Device.id).where(Device.device_code == device_id)
         )
         resolved_uuid = result.scalar_one_or_none()
 
+    # Mã không khớp thiết bị nào là trạng thái trống hợp lệ của timeline.
     if not resolved_uuid:
         return []
+    # event_type được service chuẩn hóa chữ hoa; limit đã được Query kiểm tra biên.
     events = await TrackingService.get_device_events(
         db,
         resolved_uuid,

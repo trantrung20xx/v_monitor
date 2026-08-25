@@ -1,4 +1,6 @@
+// Bộ cảnh báo compiler giúp phát hiện nullability, selector, control flow và lỗi Objective-C.
 WARNING_CFLAGS = -Wall -Wconditional-uninitialized -Wnullable-to-nonnull-conversion -Wmissing-method-return-type -Woverlength-strings
+# Các cờ YES nâng từng nhóm cảnh báo cụ thể cho toàn target Runner macOS.
 GCC_WARN_UNDECLARED_SELECTOR = YES
 CLANG_UNDEFINED_BEHAVIOR_SANITIZER_NULLABILITY = YES
 CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE

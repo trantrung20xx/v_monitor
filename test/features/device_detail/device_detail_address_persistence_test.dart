@@ -1,3 +1,4 @@
+// Xác nhận địa chỉ chỉ đổi theo GPS mới và không biến mất sai lúc cập nhật realtime.
 import 'dart:async';
 
 import 'package:flutter/material.dart';

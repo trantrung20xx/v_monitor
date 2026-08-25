@@ -1,3 +1,4 @@
+// Xác nhận dịch vụ mở bản đồ tạo URI hợp lệ và xử lý nền tảng không hỗ trợ an toàn.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v_monitor/core/utils/map_launcher_service.dart';
 import 'package:v_monitor/data/models/device_model.dart';

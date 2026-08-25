@@ -1,3 +1,4 @@
+# Xác nhận Uvicorn lấy host, port và reload từ Settings dùng chung.
 import os
 import sys
 import unittest

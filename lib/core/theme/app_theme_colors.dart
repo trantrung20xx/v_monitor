@@ -1,3 +1,5 @@
+// Bảng màu tập trung của ứng dụng. Mọi màu UI/nghiệp vụ lấy qua theme hiện hành
+// để light/dark đồng bộ và không hard-code màu rải rác trong widget.
 import 'package:flutter/material.dart';
 
 /// Các màu gốc được chủ đích giữ độc lập với theme.
@@ -69,6 +71,7 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
   });
 
   static const light = AppThemeColors(
+    // Token light ưu tiên nền sáng trung tính, chữ tối và màu trạng thái đủ tương phản.
     background: Color(0xFFF4F6F8),
     mapBackground: Color(0xFFEFF5F8),
     surface: Color(0xFFFFFFFF),
@@ -109,6 +112,7 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
   );
 
   static const dark = AppThemeColors(
+    // Token dark được chọn riêng cho nền tối; không dùng opacity đảo từ light.
     background: Color(0xFF121212),
     mapBackground: Color(0xFF111827),
     surface: Color(0xFF1B1F24),
@@ -148,23 +152,28 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
     shadow: Color(0xFF000000),
   );
 
+  // Nhóm bề mặt: nền toàn app, nền bản đồ và các cấp surface theo độ nổi.
   final Color background;
   final Color mapBackground;
   final Color surface;
   final Color surfaceSubtle;
   final Color surfaceMuted;
   final Color surfaceRaised;
+  // Nhóm đường biên/phân cách dùng cho card, input và section.
   final Color border;
   final Color borderSoft;
   final Color divider;
+  // Bốn cấp chữ từ nội dung chính tới trạng thái disabled.
   final Color textPrimary;
   final Color textSecondary;
   final Color textMuted;
   final Color textDisabled;
+  // Primary cho hành động/đang chọn; Strong/Soft/Border phục vụ độ nhấn khác nhau.
   final Color primary;
   final Color primaryStrong;
   final Color primarySoft;
   final Color primaryBorder;
+  // Success, warning và danger là màu ngữ nghĩa cho trạng thái vận hành.
   final Color success;
   final Color successStrong;
   final Color successSoft;
@@ -174,6 +183,7 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
   final Color danger;
   final Color dangerStrong;
   final Color dangerSoft;
+  // Các màu phụ dùng cho phân nhóm biểu đồ/icon nhưng vẫn thay đồng bộ theo theme.
   final Color orange;
   final Color orangeSoft;
   final Color teal;
@@ -188,6 +198,8 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
 
   @override
   AppThemeColors copyWith({
+    // ThemeExtension yêu cầu copyWith để Material có thể tạo biến thể mà vẫn giữ
+    // token không được truyền từ snapshot hiện tại.
     Color? background,
     Color? mapBackground,
     Color? surface,
@@ -269,6 +281,7 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
 
   @override
   AppThemeColors lerp(covariant AppThemeColors? other, double t) {
+    // Nội suy từng token giúp chuyển theme có màu trung gian nhất quán.
     if (other == null) return this;
     return AppThemeColors(
       background: Color.lerp(background, other.background, t)!,
@@ -314,6 +327,8 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
 
 extension AppThemeColorsContext on BuildContext {
   AppThemeColors get appColors {
+    // Ưu tiên extension gắn trong AppTheme; fallback theo brightness bảo vệ widget
+    // được dựng trong test hoặc MaterialApp tối giản chưa khai báo extension.
     final theme = Theme.of(this);
     return theme.extension<AppThemeColors>() ??
         (theme.brightness == Brightness.dark

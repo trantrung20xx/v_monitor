@@ -1,3 +1,5 @@
+// Toàn bộ giao diện chi tiết thiết bị: tổng quan, bản đồ, thông số, sự kiện và hành trình.
+// Các widget con chỉ định dạng dữ liệu thật từ DeviceDetailState và dùng theme tập trung.
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -33,6 +35,7 @@ import '../journey_history/widgets/point_info_popup.dart';
 import '../settings/settings_cubit.dart';
 
 /// Màn hình chi tiết phục vụ tổng quan, hành trình và sự kiện của thiết bị.
+/// `deviceId` đến từ route; repository tải hồ sơ, vị trí và sự kiện theo đúng id này.
 class DeviceDetailPage extends StatelessWidget {
   const DeviceDetailPage({super.key, required this.deviceId});
 
@@ -40,6 +43,8 @@ class DeviceDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Route sở hữu DeviceDetailCubit; Cubit bắt đầu tải dữ liệu ngay khi được tạo và
+    // tự đóng subscription khi BlocProvider rời khỏi cây widget.
     return BlocProvider(
       create: (context) {
         return DeviceDetailCubit(
@@ -54,11 +59,14 @@ class DeviceDetailPage extends StatelessWidget {
   }
 }
 
+// Vỏ màn hình chọn loading/error/nội dung và giữ ba tab dùng chung một snapshot thiết bị.
 class _DeviceDetailView extends StatelessWidget {
   const _DeviceDetailView();
 
   @override
   Widget build(BuildContext context) {
+    // DeviceDetailState là nguồn dữ liệu của header và tab Tổng quan/Sự kiện.
+    // JourneyTab tạo Cubit hành trình riêng vì có máy trạng thái phát lại độc lập.
     return BlocBuilder<DeviceDetailCubit, DeviceDetailState>(
       builder: (context, state) {
         if (state.isLoading) {
@@ -76,6 +84,7 @@ class _DeviceDetailView extends StatelessWidget {
 
         final device = state.device!;
 
+        // Trạng thái header được resolve từ latest state thật và ngưỡng runtime.
         final status = DeviceStatusResolver.resolve(
           isOnline: device.isOnline,
           lastSeenAt: device.lastSeenAt,
@@ -122,8 +131,9 @@ class _DeviceDetailView extends StatelessWidget {
   }
 }
 
-// ─── Tab 1: Overview + Map ────────────────────────────────────────────────────
+// Tab 1: tổng quan và bản đồ.
 
+// Header cố định hiển thị quay lại, tên/mã, trạng thái và thao tác làm mới/chia sẻ.
 class _DeviceDetailHeader extends StatelessWidget {
   const _DeviceDetailHeader({
     required this.device,
@@ -285,6 +295,7 @@ class _DeviceDetailHeader extends StatelessWidget {
   }
 }
 
+// Nút quay lại dạng vuông giữ vùng chạm đủ lớn và màu theo theme.
 class _BackSquareButton extends StatelessWidget {
   const _BackSquareButton({required this.onPressed, this.compact = false});
 
@@ -315,6 +326,7 @@ class _BackSquareButton extends StatelessWidget {
   }
 }
 
+// Nhãn trạng thái lấy từ ResolvedDeviceStatus, không tự suy luận trong widget.
 class _HeaderStatusText extends StatelessWidget {
   const _HeaderStatusText({required this.label, required this.color});
 
@@ -341,6 +353,7 @@ class _HeaderStatusText extends StatelessWidget {
   }
 }
 
+// Nút thao tác header dùng chung icon/tooltip để hàng tiêu đề vẫn gọn.
 class _HeaderActionButton extends StatelessWidget {
   const _HeaderActionButton({
     required this.icon,
@@ -373,6 +386,8 @@ class _HeaderActionButton extends StatelessWidget {
 
 bool _hasText(String? value) => value?.trim().isNotEmpty == true;
 
+// Tab Tổng quan ghép tóm tắt, bản đồ vị trí mới nhất, thông tin trực tiếp,
+// chỉ số vận hành và hoạt động gần đây từ DeviceDetailState.
 class _OverviewTab extends StatelessWidget {
   const _OverviewTab({
     required this.device,
@@ -389,6 +404,8 @@ class _OverviewTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // `device` chứa hồ sơ/latest state; `locations/events/address` do Cubit tải từ
+    // REST/geocoding. Layout responsive chỉ đổi cách xếp các khối.
     final cubitState = state ?? context.watch<DeviceDetailCubit>().state;
     final cubit = context.read<DeviceDetailCubit>();
 
@@ -460,7 +477,7 @@ class _OverviewTab extends StatelessWidget {
                       ),
                     )
                   else ...[
-                    // Layout cho màn hình hẹp (Mobile / Tablet nhỏ)
+                    // Bố cục cho điện thoại và máy tính bảng nhỏ.
                     SizedBox(
                       height: mobileMapHeight,
                       child: _MapSurface(
@@ -501,6 +518,7 @@ class _OverviewTab extends StatelessWidget {
   }
 
   Future<void> _pickCustomRange(BuildContext context) async {
+    // Khoảng tùy chỉnh được chuyển về Cubit để tải dữ liệu thật theo mốc đã chọn.
     final cubit = context.read<DeviceDetailCubit>();
     final cubitState = cubit.state;
     final now = DateTime.now();
@@ -523,6 +541,7 @@ class _OverviewTab extends StatelessWidget {
   }
 }
 
+// Dải tóm tắt ngang ở đầu tab, có thể cuộn khi các chỉ số không vừa chiều rộng.
 class _SummaryStrip extends StatefulWidget {
   const _SummaryStrip({required this.device, required this.status});
 
@@ -534,6 +553,7 @@ class _SummaryStrip extends StatefulWidget {
 }
 
 class _SummaryStripState extends State<_SummaryStrip> {
+  // ScrollController chỉ phục vụ dải pill và được hủy cùng widget.
   final ScrollController _controller = ScrollController();
 
   @override
@@ -611,6 +631,7 @@ class _SummaryStripState extends State<_SummaryStrip> {
   }
 }
 
+// Một pill tóm tắt icon/nhãn/giá trị; dữ liệu đã được format ở widget cha.
 class _SummaryPill extends StatelessWidget {
   const _SummaryPill({
     required this.icon,
@@ -686,6 +707,7 @@ class _SummaryPill extends StatelessWidget {
   }
 }
 
+// Khối địa chỉ ưu tiên geocoding; khi chưa có vẫn hiển thị tọa độ thật.
 class _AddressInfoBlock extends StatelessWidget {
   const _AddressInfoBlock({required this.address});
 
@@ -779,7 +801,9 @@ class _AddressInfoBlock extends StatelessWidget {
 }
 
 /// Widget chia 2 cột (Trái: Bản đồ, Phải: Thông tin) trong đó chiều cao của Bản đồ (trái)
-/// tự động co giãn bằng chính xác chiều cao tự nhiên của cụm thông tin (phải) theo layout 1-pass.
+/// tự động co giãn đúng chiều cao tự nhiên của cụm thông tin bên phải trong một lượt bố trí.
+// Layout hai khối tùy biến: đặt cạnh nhau khi đủ rộng và xếp dọc khi không đủ,
+// bảo đảm nội dung không bị overflow theo chiều ngang.
 class _AdaptiveOverviewRow extends MultiChildRenderObjectWidget {
   _AdaptiveOverviewRow({
     required this.spacing,
@@ -810,9 +834,12 @@ class _AdaptiveOverviewRow extends MultiChildRenderObjectWidget {
   }
 }
 
+// ParentData lưu offset của từng con để render object bố trí và hit-test chính xác.
 class _AdaptiveOverviewRowParentData
     extends ContainerBoxParentData<RenderBox> {}
 
+// RenderBox tự đo và đặt hai con vì Row/Flex thường không đáp ứng được yêu cầu
+// chuyển ngang/dọc theo kích thước nội dung thực tế của hai card.
 class _RenderAdaptiveOverviewRow extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, _AdaptiveOverviewRowParentData>,
@@ -855,6 +882,8 @@ class _RenderAdaptiveOverviewRow extends RenderBox
 
   @override
   void performLayout() {
+    // Thử bố cục ngang theo flex; khi không đủ chỗ, đo lại theo toàn chiều rộng và
+    // đặt hai con thành cột để tránh cắt nội dung.
     final leftChild = firstChild;
     final rightChild = leftChild != null ? childAfter(leftChild) : null;
 
@@ -911,6 +940,7 @@ class _RenderAdaptiveOverviewRow extends RenderBox
   }
 }
 
+// Card bản đồ nhỏ của Tổng quan, nhận tọa độ đã xác nhận từ DeviceModel.
 class _MapOverviewCard extends StatelessWidget {
   const _MapOverviewCard({required this.map, required this.strip});
 
@@ -942,6 +972,7 @@ class _MapOverviewCard extends StatelessWidget {
   }
 }
 
+// Vỏ bề mặt bản đồ giữ bo góc/clip và trạng thái thiếu tọa độ thống nhất.
 class _MapSurface extends StatelessWidget {
   const _MapSurface({required this.child});
 
@@ -972,8 +1003,9 @@ BoxDecoration _referenceCardDecoration(BuildContext context) {
   );
 }
 
-// ─── Overview Time Range Filter Bar ──────────────────────────────────────────
+// Thanh lọc khoảng thời gian ở trang tổng quan.
 
+// Thanh chọn khoảng dữ liệu cho các chỉ số; callback yêu cầu Cubit tải lại.
 class _OverviewTimeRangeFilterBar extends StatelessWidget {
   const _OverviewTimeRangeFilterBar({
     required this.selectedRange,
@@ -1229,7 +1261,7 @@ class _OverviewTimeRangeFilterBar extends StatelessWidget {
             );
           }
 
-          // Layout khi hẹp (Mobile / Tablet)
+          // Bố cục khi màn hình điện thoại hoặc máy tính bảng bị hẹp.
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -1246,6 +1278,7 @@ class _OverviewTimeRangeFilterBar extends StatelessWidget {
   }
 }
 
+// Card vị trí hiện tại hiển thị địa chỉ, tọa độ, mốc đo/nhận và thao tác bản đồ.
 class _OverviewLiveLocationCard extends StatelessWidget {
   const _OverviewLiveLocationCard({
     required this.device,
@@ -1308,7 +1341,7 @@ class _OverviewLiveLocationCard extends StatelessWidget {
                 ? MainAxisSize.max
                 : MainAxisSize.min,
             children: [
-              // 1. Header: Tiêu đề vị trí + Nút xem thông số kỹ thuật thiết bị
+              // Phần đầu: tiêu đề vị trí và nút xem thông số kỹ thuật.
               Row(
                 children: [
                   Container(
@@ -1528,7 +1561,7 @@ class _OverviewLiveLocationCard extends StatelessWidget {
               ),
               if (!isTightlyBounded) const SizedBox(height: 12),
 
-              // 5. Actions Footer (Chia sẻ vị trí & Chuyển sang xem hành trình)
+              // Phần thao tác cuối: chia sẻ vị trí và mở hành trình.
               Row(
                 children: [
                   Expanded(child: _ShareLocationInlineButton(device: device)),
@@ -1589,6 +1622,7 @@ class _OverviewLiveLocationCard extends StatelessWidget {
 
 // ─── Metrics Dashboard (4 Core Statistic Cards) ──────────────────────────────
 
+// Lưới chỉ số tính từ DeviceModel và mẫu lịch sử trong khoảng đang chọn.
 class _OverviewMetricsDashboard extends StatelessWidget {
   const _OverviewMetricsDashboard({required this.journey, this.timeRangeLabel});
 
@@ -1786,6 +1820,7 @@ class _OverviewMetricsDashboard extends StatelessWidget {
   }
 }
 
+// Một thẻ chỉ số gồm icon, giá trị, đơn vị và mô tả; lưới cha quyết định số cột.
 class _MetricDashboardCard extends StatelessWidget {
   const _MetricDashboardCard({
     required this.title,
@@ -1845,7 +1880,7 @@ class _MetricDashboardCard extends StatelessWidget {
                 : MainAxisAlignment.start,
             mainAxisSize: isBounded ? MainAxisSize.max : MainAxisSize.min,
             children: [
-              // Header: Icon + Title + Extra info
+              // Phần đầu: biểu tượng, tiêu đề và thông tin bổ sung.
               Row(
                 children: [
                   Container(
@@ -1994,8 +2029,10 @@ class _MetricDashboardCard extends StatelessWidget {
   }
 }
 
-// ─── Device Technical Info Modal ─────────────────────────────────────────────
+// Khối thông tin kỹ thuật của thiết bị.
 
+// Modal gom hồ sơ thiết bị và latest state thật; bottom sheet cuộn giữ nội dung dài
+// không làm thay đổi bố cục trang chi tiết chính.
 void _showDeviceTechnicalInfoModal(
   BuildContext context, {
   required DeviceModel device,
@@ -2043,7 +2080,7 @@ void _showDeviceTechnicalInfoModal(
               ),
             ),
 
-            // Modal Header
+            // Phần đầu hộp thoại.
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 12, 12),
               child: Row(
@@ -2094,14 +2131,14 @@ void _showDeviceTechnicalInfoModal(
             ),
             Divider(height: 1, color: context.appColors.borderSoft),
 
-            // Scrollable Content
+            // Nội dung có thể cuộn.
             Flexible(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Section 1: Thông tin phần cứng
+                    // Nhóm 1: thông tin phần cứng.
                     _buildTechSectionTitle(
                       context: context,
                       icon: Icons.devices_other_rounded,
@@ -2173,7 +2210,7 @@ void _showDeviceTechnicalInfoModal(
                     ),
                     const SizedBox(height: 20),
 
-                    // Section 2: Vị trí & Cảm biến GPS
+                    // Nhóm 2: vị trí và cảm biến GPS.
                     _buildTechSectionTitle(
                       context: context,
                       icon: Icons.satellite_alt_rounded,
@@ -2244,6 +2281,7 @@ void _showDeviceTechnicalInfoModal(
   );
 }
 
+// Tiêu đề phân nhóm icon + text trong modal thông tin kỹ thuật.
 Widget _buildTechSectionTitle({
   required BuildContext context,
   required IconData icon,
@@ -2265,6 +2303,7 @@ Widget _buildTechSectionTitle({
   );
 }
 
+// Một hàng label/value trong modal; Expanded cho phép giá trị dài tự xuống dòng.
 Widget _buildTechRow(
   BuildContext context,
   String label,
@@ -2304,6 +2343,7 @@ Widget _buildTechRow(
   );
 }
 
+// Card hoạt động gần đây hiển thị DeviceEventModel mới nhất do backend sinh.
 class _RecentActivityCard extends StatelessWidget {
   const _RecentActivityCard({
     required this.events,
@@ -2417,6 +2457,7 @@ class _RecentActivityCard extends StatelessWidget {
   }
 }
 
+// Một sự kiện gần đây gồm màu theo loại, mô tả và thời điểm thật từ server.
 class _RecentActivityRow extends StatelessWidget {
   const _RecentActivityRow({required this.event, this.compact = false});
 
@@ -2478,6 +2519,7 @@ class _RecentActivityRow extends StatelessWidget {
 }
 
 Color _eventAccent(String type, AppThemeColors colors) {
+  // Ánh xạ loại sự kiện sang màu ngữ nghĩa của theme, không hard-code mã màu.
   switch (type) {
     case 'MOVEMENT_STOPPED':
     case 'IDLE':
@@ -2493,6 +2535,8 @@ Color _eventAccent(String type, AppThemeColors colors) {
   }
 }
 
+// Kết quả tổng hợp nội bộ cho phần Tổng quan: quãng đường, tốc độ và thời lượng
+// được tính từ LocationModel hợp lệ trong khoảng đang chọn.
 class _JourneySnapshot {
   const _JourneySnapshot({
     this.distanceM,
@@ -2533,7 +2577,7 @@ class _JourneySnapshot {
     final validSamples = GpsValidator.sanitizeSamples(locations);
     if (validSamples.isEmpty) return const _JourneySnapshot();
 
-    // 2. Split into segments using standard gap threshold
+    // 2. Chia thành các đoạn bằng ngưỡng mất dữ liệu đang áp dụng cho hệ thống.
     final segments = RouteSegment.splitIntoSegments(
       validSamples,
       gapThreshold: gapThreshold,
@@ -2580,6 +2624,7 @@ class _JourneySnapshot {
   }
 }
 
+// Bản đồ vị trí hiện tại dùng trong Tổng quan, nhận DeviceModel đã có tọa độ/latest state.
 class _MapWidget extends StatefulWidget {
   const _MapWidget({required this.device, required this.locations});
   final DeviceModel device;
@@ -2590,6 +2635,7 @@ class _MapWidget extends StatefulWidget {
 }
 
 class _MapWidgetState extends State<_MapWidget> {
+  // Camera và zoom là state trình bày; fallback center chỉ dùng khi chưa có tọa độ.
   static const _initialZoom = 15.0;
   static const _minZoom = 5.0;
   static const _maxZoom = 18.0;
@@ -2609,6 +2655,8 @@ class _MapWidgetState extends State<_MapWidget> {
 
   @override
   void didUpdateWidget(covariant _MapWidget oldWidget) {
+    // Khi vị trí thiết bị đổi từ realtime, camera chỉ cập nhật theo quy tắc hiện có
+    // và không tạo lại MapController.
     super.didUpdateWidget(oldWidget);
     final nextCenter = _resolveCenter();
     if (!_samePoint(nextCenter, _targetCenter)) {
@@ -2627,6 +2675,8 @@ class _MapWidgetState extends State<_MapWidget> {
 
   @override
   Widget build(BuildContext context) {
+    // Tile lấy theo SettingsCubit, marker lấy từ device/status; lớp điều khiển nổi
+    // nằm trên FlutterMap trong cùng Stack.
     final mapType = context.watch<SettingsCubit>().state.userSettings.mapType;
     final isSatellite = mapType == AppMapType.satellite;
     final hasPosition =
@@ -2778,6 +2828,7 @@ class _MapWidgetState extends State<_MapWidget> {
   }
 }
 
+// Marker vị trí hiện tại hiển thị icon loại thiết bị và hướng nếu có dữ liệu heading.
 class _DeviceMapMarker extends StatelessWidget {
   const _DeviceMapMarker({required this.icon, required this.color});
 
@@ -2840,6 +2891,7 @@ class _DeviceMapMarker extends StatelessWidget {
   }
 }
 
+// Cụm zoom/căn giữa/đổi tile cho bản đồ Tổng quan.
 class _MapControls extends StatelessWidget {
   const _MapControls({
     required this.onZoomIn,
@@ -2919,6 +2971,7 @@ class _MapControls extends StatelessWidget {
   }
 }
 
+// Nút điều khiển bản đồ có tooltip và vùng chạm đồng nhất.
 class _MapControlButton extends StatelessWidget {
   const _MapControlButton({
     required this.icon,
@@ -2951,8 +3004,10 @@ class _MapControlButton extends StatelessWidget {
   }
 }
 
-// ─── Tab 2: Journey (Hành trình GPS & Replay — Reference Design) ─────────────
+// Tab 2: hành trình GPS và phát lại.
 
+// Tab Hành trình sở hữu JourneyHistoryCubit để tải khoảng thời gian, tính đoạn đường
+// và điều khiển playback độc lập với tab Tổng quan.
 class _JourneyTab extends StatefulWidget {
   const _JourneyTab({required this.device, required this.locations});
 
@@ -2964,6 +3019,7 @@ class _JourneyTab extends StatefulWidget {
 }
 
 class _JourneyTabState extends State<_JourneyTab> {
+  // Chỉ số preset là state UI; dữ liệu lịch sử và con trỏ playback nằm trong Cubit.
   late JourneyHistoryCubit _cubit;
   late DateTime _fromTime;
   late DateTime _toTime;
@@ -2997,6 +3053,7 @@ class _JourneyTabState extends State<_JourneyTab> {
   }
 
   void _fetchHistory() {
+    // Gửi device id và khoảng đang chọn tới Cubit; repository gọi endpoint range thật.
     _cubit.loadHistory(
       deviceId: widget.device.id,
       from: _fromTime,
@@ -3012,6 +3069,8 @@ class _JourneyTabState extends State<_JourneyTab> {
 
   @override
   Widget build(BuildContext context) {
+    // BlocBuilder dựng panel lọc, số liệu, bản đồ phát lại và timeline từ cùng
+    // JourneyHistoryState để các khối luôn đồng bộ một mốc playback.
     return BlocProvider.value(
       value: _cubit,
       child: BlocConsumer<JourneyHistoryCubit, JourneyHistoryState>(
@@ -3043,7 +3102,7 @@ class _JourneyTabState extends State<_JourneyTab> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // ─── TẦNG 1: Filter / Time Range Panel ───────────────
+                          // Tầng 1: bảng lọc khoảng thời gian.
                           _JourneyFilterPanel(
                             fromTime: _fromTime,
                             toTime: _toTime,
@@ -3069,7 +3128,7 @@ class _JourneyTabState extends State<_JourneyTab> {
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  // CỘT TRÁI (~77%): Map tự co + Playback + Current Info
+                                  // Cột trái: bản đồ tự co, phát lại và dữ liệu mốc hiện tại.
                                   Expanded(
                                     flex: 77,
                                     child: Column(
@@ -3089,7 +3148,7 @@ class _JourneyTabState extends State<_JourneyTab> {
                                         ),
                                         const SizedBox(height: 10),
 
-                                        // 2. Playback Card
+                                        // Thẻ điều khiển phát lại.
                                         _JourneyPlaybackCard(
                                           state: state,
                                           onPlay: () => _cubit.play(),
@@ -3109,7 +3168,7 @@ class _JourneyTabState extends State<_JourneyTab> {
                                         ),
                                         const SizedBox(height: 10),
 
-                                        // 3. Current Info Card
+                                        // Thẻ dữ liệu tại mốc hiện tại.
                                         _JourneyCurrentInfoCard(state: state),
                                       ],
                                     ),
@@ -3132,7 +3191,7 @@ class _JourneyTabState extends State<_JourneyTab> {
                               ),
                             )
                           else
-                            // Layout xếp tầng dọc cho Mobile / Tablet
+                            // Bố cục xếp dọc trên điện thoại và máy tính bảng.
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
@@ -3187,6 +3246,7 @@ class _JourneyTabState extends State<_JourneyTab> {
   }
 
   void _onPresetSelected(int index) {
+    // Preset chỉ đổi khoảng thời gian rồi tải lại, không lọc cục bộ mẫu cũ.
     final now = DateTime.now();
     setState(() {
       _rangePresetIndex = index;
@@ -3243,6 +3303,7 @@ class _JourneyTabState extends State<_JourneyTab> {
   }
 
   Future<void> _openCustomDateTimeRangePicker(BuildContext context) async {
+    // Dialog trả mốc bắt đầu/kết thúc rõ ràng; chỉ tải khi người dùng xác nhận.
     final result = await showCustomDateTimeRangeDialog(
       context,
       initialFrom: _fromTime,
@@ -3260,8 +3321,9 @@ class _JourneyTabState extends State<_JourneyTab> {
   }
 }
 
-// ─── TẦNG 1: Panel Bộ Lọc Thời Gian ──────────────────────────────────────────
+// Tầng 1: bảng lọc thời gian.
 
+// Panel chọn khoảng thời gian, gap tách đoạn và thao tác tải lại hành trình.
 class _JourneyFilterPanel extends StatelessWidget {
   const _JourneyFilterPanel({
     required this.fromTime,
@@ -3509,7 +3571,7 @@ class _JourneyFilterPanel extends StatelessWidget {
             );
           }
 
-          // Layout nhỏ gọn khi hẹp (Tablet / Mobile)
+          // Bố cục nhỏ gọn khi màn hình hẹp.
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -3550,7 +3612,7 @@ class _JourneyFilterPanel extends StatelessWidget {
               ),
               const SizedBox(height: 10),
 
-              // Chips nhanh
+              // Các lựa chọn nhanh dạng chip.
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
@@ -3738,6 +3800,7 @@ class _JourneyFilterPanel extends StatelessWidget {
 
 // ─── TẦNG 2: Hàng Thẻ KPI Chỉ Số Hành Trình ──────────────────────────────────
 
+// Dải số liệu hành trình đọc trực tiếp tổng hợp trong JourneyHistoryState.
 class _JourneyMetricsRow extends StatelessWidget {
   const _JourneyMetricsRow({required this.state});
 
@@ -3875,6 +3938,7 @@ class _JourneyMetricsRow extends StatelessWidget {
   }
 }
 
+// Model trình bày của một ô số liệu hành trình.
 class _MetricItemData {
   final IconData icon;
   final String label;
@@ -3891,8 +3955,9 @@ class _MetricItemData {
   });
 }
 
-// ─── TẦNG 3.1: Map Card ───────────────────────────────────────────────────────
+// Tầng 3.1: thẻ bản đồ.
 
+// Card bản đồ hành trình truyền samples, segments và điểm playback tới lớp bản đồ.
 class _JourneyMapCard extends StatelessWidget {
   const _JourneyMapCard({
     required this.state,
@@ -3925,7 +3990,7 @@ class _JourneyMapCard extends StatelessWidget {
           // Bản đồ chính
           _DeviceJourneyMapView(state: state, onPointSelected: onPointSelected),
 
-          // Popup chi tiết điểm GPS khi bấm chọn
+          // Thẻ chi tiết điểm GPS khi bấm chọn.
           if (selectedPoint != null)
             Positioned(
               top: 12,
@@ -3949,8 +4014,10 @@ class _JourneyMapCard extends StatelessWidget {
   }
 }
 
-// ─── TẦNG 3.2: Playback Card (Thanh điều khiển Replay) ────────────────────────
+// Tầng 3.2: thẻ điều khiển phát lại.
 
+// Bộ điều khiển phát lại hiển thị tiến độ, tốc độ phát, play/pause và bước thời gian;
+// mọi callback thay đổi máy trạng thái JourneyHistoryCubit.
 class _JourneyPlaybackCard extends StatelessWidget {
   const _JourneyPlaybackCard({
     required this.state,
@@ -4030,7 +4097,7 @@ class _JourneyPlaybackCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (!isCompact) ...[
-            // ── DESKTOP LAYOUT: 1 Row with Left, Center, Right ──
+            // Desktop: một hàng gồm vùng trái, giữa và phải.
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -4077,7 +4144,7 @@ class _JourneyPlaybackCard extends StatelessWidget {
                   ),
                 ),
 
-                // CENTER: Play / Pause / Step buttons (60s & 30s)
+                // Ở giữa: nút phát, tạm dừng và tua theo bước 60/30 giây.
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -4094,7 +4161,7 @@ class _JourneyPlaybackCard extends StatelessWidget {
                       onPressed: hasSamples ? onStepBackward30s : null,
                     ),
                     const SizedBox(width: 2),
-                    // Primary circular play button
+                    // Nút phát hình tròn là thao tác chính.
                     Container(
                       width: 44,
                       height: 44,
@@ -4152,11 +4219,11 @@ class _JourneyPlaybackCard extends StatelessWidget {
                   ],
                 ),
 
-                // RIGHT: Tốc độ + Toggle Theo dõi xe
+                // Bên phải: tốc độ phát và công tắc theo dõi xe.
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Dropdown tốc độ
+                    // Danh sách chọn tốc độ phát.
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 6,
@@ -4194,7 +4261,7 @@ class _JourneyPlaybackCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
 
-                    // Toggle Follow Camera
+                    // Công tắc camera tự bám theo thiết bị.
                     InkWell(
                       borderRadius: BorderRadius.circular(6),
                       onTap: () => onFollowChanged(!state.followCamera),
@@ -4245,7 +4312,7 @@ class _JourneyPlaybackCard extends StatelessWidget {
             ),
           ] else ...[
             // ── MOBILE LAYOUT: Split into clean, uncrowded rows ──
-            // Hàng 1 (Mobile): Thời gian & Trạng thái (Trái) + Tốc độ & Theo dõi (Phải)
+            // Hàng 1 trên di động: thời gian/trạng thái và tốc độ/theo dõi.
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -4381,7 +4448,7 @@ class _JourneyPlaybackCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 4),
-            // Hàng 2 (Mobile): Cụm nút phát / tua / chuyển bước (Căn giữa)
+            // Hàng 2 trên di động: cụm nút phát, tua và chuyển bước căn giữa.
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -4526,8 +4593,9 @@ class _JourneyPlaybackCard extends StatelessWidget {
   }
 }
 
-// ─── TẦNG 3.3: Current Information Panel (Dữ liệu mốc hiện tại) ───────────────
+// Tầng 3.3: bảng dữ liệu tại mốc hiện tại.
 
+// Card thông tin tại con trỏ playback: thời gian, tốc độ, hướng, tọa độ và quãng đường.
 class _JourneyCurrentInfoCard extends StatelessWidget {
   const _JourneyCurrentInfoCard({required this.state});
 
@@ -4906,6 +4974,7 @@ class _JourneyCurrentInfoCard extends StatelessWidget {
 
 // ─── TẦNG 3.4: thẻ dòng thời gian bên phải ──────────────────────────────────
 
+// Timeline sự kiện suy ra từ các đoạn/mẫu hành trình và giải địa chỉ theo từng nút.
 class _JourneyTimelineCard extends StatelessWidget {
   const _JourneyTimelineCard({
     super.key,
@@ -4946,7 +5015,7 @@ class _JourneyTimelineCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
+          // Phần đầu dòng thời gian.
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -4990,7 +5059,7 @@ class _JourneyTimelineCard extends StatelessWidget {
           Divider(height: 1, color: context.appColors.borderSoft),
           const SizedBox(height: 8),
 
-          // List timeline cuộn độc lập
+          // Danh sách dòng thời gian cuộn độc lập.
           Expanded(
             child: timelineEvents.isEmpty
                 ? Center(
@@ -5010,7 +5079,7 @@ class _JourneyTimelineCard extends StatelessWidget {
                       final isFirstEvent = index == 0;
                       final isFinalEvent = index == timelineEvents.length - 1;
 
-                      // Dot color
+                      // Màu nút mốc theo loại sự kiện.
                       final dotColor = event.color(context.appColors);
                       final titleLabel = event.title;
 
@@ -5036,7 +5105,7 @@ class _JourneyTimelineCard extends StatelessWidget {
                               ),
                               const SizedBox(width: 6),
 
-                              // Content
+                              // Nội dung của mốc.
                               Expanded(
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(
@@ -5099,6 +5168,7 @@ class _JourneyTimelineCard extends StatelessWidget {
   }
 }
 
+// Painter vẽ đường trục dọc nối các nút timeline; nội dung sự kiện vẫn là widget thường.
 class _JourneyTimelineRailPainter extends CustomPainter {
   const _JourneyTimelineRailPainter({
     required this.nodeColor,
@@ -5147,8 +5217,10 @@ class _JourneyTimelineRailPainter extends CustomPainter {
   }
 }
 
+// Các loại mốc trình bày trong timeline, không phải DeviceEvent lưu ở backend.
 enum _JourneyTimelineEventType { start, moving, parked, dataRestored, end }
 
+// Model trình bày của một mốc timeline được tạo từ LocationModel/RouteSegment.
 class _JourneyTimelineEvent {
   const _JourneyTimelineEvent({
     required this.sample,
@@ -5180,6 +5252,8 @@ class _JourneyTimelineEvent {
 List<_JourneyTimelineEvent> _buildJourneyTimelineEvents(
   JourneyHistoryState state,
 ) {
+  // Tạo mốc bắt đầu/kết thúc, di chuyển/dừng và khôi phục dữ liệu từ samples đã
+  // làm sạch; không ghi ngược các mốc suy ra này về backend.
   final samples = state.validSamples;
   if (samples.isEmpty) return const [];
 
@@ -5253,6 +5327,7 @@ List<_JourneyTimelineEvent> _buildJourneyTimelineEvents(
   return events;
 }
 
+// Thành phần giải địa chỉ bất đồng bộ cho một mốc timeline bằng GeocodingRepository.
 class _JourneyEventAddress extends StatefulWidget {
   const _JourneyEventAddress({required this.sample});
 
@@ -5263,6 +5338,7 @@ class _JourneyEventAddress extends StatefulWidget {
 }
 
 class _JourneyEventAddressState extends State<_JourneyEventAddress> {
+  // Future được tạo lại khi tọa độ đổi để không hiển thị địa chỉ của mốc cũ.
   late Future<String?> _addressFuture;
 
   @override
@@ -5281,6 +5357,7 @@ class _JourneyEventAddressState extends State<_JourneyEventAddress> {
   }
 
   void _resolveAddress() {
+    // Repository có cache/gộp request; widget chỉ giữ Future để FutureBuilder hiển thị.
     _addressFuture = context.read<GeocodingRepository>().reverseAddress(
       widget.sample.latitude,
       widget.sample.longitude,
@@ -5327,6 +5404,8 @@ class _JourneyEventAddressState extends State<_JourneyEventAddress> {
   }
 }
 
+// Bản đồ hành trình đầy đủ: route đã chia đoạn, marker đầu/cuối, điểm playback
+// và nhãn địa chỉ được giải bất đồng bộ.
 class _DeviceJourneyMapView extends StatefulWidget {
   final JourneyHistoryState state;
   final ValueChanged<LocationModel?> onPointSelected;
@@ -5341,6 +5420,8 @@ class _DeviceJourneyMapView extends StatefulWidget {
 }
 
 class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
+  // Version request ngăn response geocoding cũ ghi đè labels của hành trình mới;
+  // camera/zoom/show labels chỉ là state hiển thị cục bộ.
   final MapController _mapController = MapController();
   final Map<String, String> _nodeAddresses = {};
   bool _mapReady = false;
@@ -5383,6 +5464,8 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
   }
 
   Future<void> _loadNodeAddresses(List<LocationModel> samples) async {
+    // Chỉ giải địa chỉ các nút cần hiển thị; kết quả được áp dụng khi request version
+    // vẫn khớp và widget còn mounted.
     final nodes = HistoryMapLayers.extractRouteNodes(samples);
     if (nodes.isEmpty) return;
 
@@ -5420,6 +5503,7 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
   }
 
   void _fitRouteBounds(List<LocationModel> samples) {
+    // Tính bounds từ mẫu thật rồi điều khiển camera sau khi map sẵn sàng.
     if (samples.isEmpty || !_mapReady) return;
 
     if (samples.length == 1) {
@@ -5454,6 +5538,8 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
 
   @override
   Widget build(BuildContext context) {
+    // HistoryMapLayers dựng polyline/marker từ state; lớp controls và popup nằm trên
+    // Stack nhưng không thay đổi samples nguồn.
     final theme = Theme.of(context);
     final state = widget.state;
     final mapType = context.watch<SettingsCubit>().state.userSettings.mapType;
@@ -5496,7 +5582,7 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
             },
           ),
           children: [
-            // Map Tiles
+            // Lớp tile nền bản đồ.
             TileLayer(
               urlTemplate: MapTileProviders.getUrl(
                 isSatellite ? AppMapType.satellite : AppMapType.standard,
@@ -5511,7 +5597,7 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
               errorImage: MemoryImage(TileProvider.transparentImage),
             ),
 
-            // Polyline Layer cho lộ trình
+            // Lớp đường nối thể hiện lộ trình.
             if (state.segments.isNotEmpty)
               PolylineLayer(
                 polylines: [
@@ -5550,7 +5636,7 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
                 ),
               ),
 
-            // Replay Device Marker
+            // Marker thiết bị tại vị trí phát lại.
             if (state.currentPosition != null &&
                 (state.isPlaying || state.isPaused || state.isCompleted))
               MarkerLayer(
@@ -5598,7 +5684,7 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
           ),
         ),
 
-        // Trạng thái Loading
+        // Trạng thái đang tải.
         if (state.isLoading)
           Positioned.fill(
             child: Container(
@@ -5627,7 +5713,7 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
             ),
           ),
 
-        // Trạng thái Empty / 1 điểm
+        // Trạng thái không có dữ liệu hoặc chỉ có một điểm.
         if (!state.isLoading && state.isEmpty)
           Positioned.fill(
             child: IgnorePointer(
@@ -5707,6 +5793,7 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
   }
 }
 
+// Cụm zoom và bật/tắt nhãn tuyến đường cho bản đồ hành trình.
 class _MapZoomControls extends StatelessWidget {
   final VoidCallback onZoomIn;
   final VoidCallback onZoomOut;
@@ -5827,8 +5914,9 @@ class _MapZoomControls extends StatelessWidget {
   }
 }
 
-// ─── Tab 3: sự kiện theo dòng thời gian ──────────────────────────────────────
+// Tab 3: sự kiện theo dòng thời gian.
 
+// Tab Sự kiện nhận DeviceEventModel thật từ DeviceDetailState và lọc theo nhóm hiển thị.
 class _EventsTab extends StatefulWidget {
   const _EventsTab({required this.events});
   final List<DeviceEventModel> events;
@@ -5838,14 +5926,17 @@ class _EventsTab extends StatefulWidget {
 }
 
 class _EventsTabState extends State<_EventsTab> {
+  // selectedCategory chỉ lọc danh sách cục bộ; không tạo hoặc sửa sự kiện backend.
   String _selectedCategory = 'all';
 
   @override
   Widget build(BuildContext context) {
+    // Các chip lọc nằm trên danh sách timeline cuộn; empty state xuất hiện khi không
+    // có event phù hợp với nhóm đang chọn.
     final theme = Theme.of(context);
     final allEvents = widget.events;
 
-    // Filter events by selected category
+    // Lọc sự kiện theo nhóm người dùng đang chọn.
     final filteredEvents = _selectedCategory == 'all'
         ? allEvents
         : allEvents.where((e) => e.category == _selectedCategory).toList();
@@ -5978,6 +6069,7 @@ class _EventsTabState extends State<_EventsTab> {
   }
 }
 
+// Chip lọc loại sự kiện với số lượng/nhãn dễ đọc.
 class _EventFilterChip extends StatelessWidget {
   const _EventFilterChip({
     required this.label,
@@ -6050,6 +6142,7 @@ class _EventFilterChip extends StatelessWidget {
   }
 }
 
+// Một dòng timeline hiển thị loại, mô tả, nguồn và thời điểm từ DeviceEventModel.
 class _EventTimelineItem extends StatelessWidget {
   const _EventTimelineItem({
     required this.event,
@@ -6101,7 +6194,7 @@ class _EventTimelineItem extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          // Content Card
+          // Thẻ nội dung sự kiện.
           Expanded(
             child: Container(
               margin: EdgeInsets.only(bottom: isLast ? 0 : 12),
@@ -6225,6 +6318,7 @@ class _EventTimelineItem extends StatelessWidget {
 
 // ─── Share Location ───────────────────────────────────────────────────────────
 
+// Nút chia sẻ/mở vị trí nhận tọa độ thật và chuyển lựa chọn tới MapLauncherService.
 class _ShareLocationInlineButton extends StatelessWidget {
   const _ShareLocationInlineButton({required this.device});
 
@@ -6301,6 +6395,7 @@ List<PopupMenuEntry<String>> _shareLocationMenuItems(
   BuildContext context,
   DeviceModel device,
 ) {
+  // Tạo menu theo các nền tảng bản đồ mà MapLauncherService báo có thể mở.
   final gpsTime = device.latestMeasuredAt ?? device.lastSeenAt;
   final isStale =
       gpsTime != null &&
@@ -6351,6 +6446,7 @@ Future<void> _handleShareLocationSelection(
   DeviceModel device,
   String value,
 ) async {
+  // Thực hiện lựa chọn qua service nền tảng và hiển thị lỗi thân thiện nếu không mở được.
   if (value == 'google') {
     final success = await MapLauncherService.openGoogleMaps(
       device.latitude,

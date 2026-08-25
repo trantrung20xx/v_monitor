@@ -1,3 +1,5 @@
+// Hộp thoại nhập khoảng ngày giờ tùy chỉnh, kiểm tra thứ tự và trả DateTimeRange
+// cho Cubit; không tự gọi API hoặc thay đổi hành trình.
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -9,6 +11,7 @@ Future<DateTimeRange?> showCustomDateTimeRangeDialog(
   required DateTime initialFrom,
   required DateTime initialTo,
 }) {
+  // Helper trả DateTimeRange đã xác nhận hoặc null khi người dùng hủy.
   return showDialog<DateTimeRange>(
     context: context,
     builder: (ctx) => CustomDateTimeRangeDialog(
@@ -35,6 +38,7 @@ class CustomDateTimeRangeDialog extends StatefulWidget {
 }
 
 class _CustomDateTimeRangeDialogState extends State<CustomDateTimeRangeDialog> {
+  // Hai mốc tạm chỉ sống trong dialog; static formatter tránh tạo lại mỗi rebuild.
   late DateTime tempFrom;
   late DateTime tempTo;
 
@@ -44,12 +48,14 @@ class _CustomDateTimeRangeDialogState extends State<CustomDateTimeRangeDialog> {
   @override
   void initState() {
     super.initState();
+    // Sao chép đầu vào để thao tác Hủy không làm đổi bộ lọc bên ngoài.
     tempFrom = widget.initialFrom;
     tempTo = widget.initialTo;
   }
 
   @override
   Widget build(BuildContext context) {
+    // `isValid` khóa xác nhận nếu mốc bắt đầu không nhỏ hơn mốc kết thúc.
     final appColors = context.appColors;
     final isValid = tempFrom.isBefore(tempTo);
 
@@ -116,6 +122,7 @@ class _CustomDateTimeRangeDialogState extends State<CustomDateTimeRangeDialog> {
                       ),
                     ),
                     onPressed: () async {
+                      // Chỉ thay phần ngày, giữ nguyên giờ/phút/giây đã chọn.
                       final pickedDate = await showDatePicker(
                         context: context,
                         initialDate: tempFrom,
@@ -164,6 +171,7 @@ class _CustomDateTimeRangeDialogState extends State<CustomDateTimeRangeDialog> {
                       ),
                     ),
                     onPressed: () async {
+                      // Giờ bắt đầu đặt giây về 0 để biên truy vấn rõ ràng.
                       final pickedTime = await showTimePicker(
                         context: context,
                         initialTime: TimeOfDay(
@@ -227,6 +235,7 @@ class _CustomDateTimeRangeDialogState extends State<CustomDateTimeRangeDialog> {
                       ),
                     ),
                     onPressed: () async {
+                      // Ngày kết thúc thay đổi độc lập và giữ lại phần giờ hiện tại.
                       final pickedDate = await showDatePicker(
                         context: context,
                         initialDate: tempTo,
@@ -275,6 +284,7 @@ class _CustomDateTimeRangeDialogState extends State<CustomDateTimeRangeDialog> {
                       ),
                     ),
                     onPressed: () async {
+                      // Giây 59 giúp lựa chọn theo phút bao phủ trọn phút kết thúc.
                       final pickedTime = await showTimePicker(
                         context: context,
                         initialTime: TimeOfDay(
@@ -302,6 +312,7 @@ class _CustomDateTimeRangeDialogState extends State<CustomDateTimeRangeDialog> {
             const SizedBox(height: 12),
 
             if (!isValid)
+              // Cảnh báo và trạng thái vô hiệu hóa nút Áp dụng dùng cùng điều kiện.
               Text(
                 'Thời gian bắt đầu phải trước thời gian kết thúc!',
                 style: TextStyle(
@@ -326,6 +337,7 @@ class _CustomDateTimeRangeDialogState extends State<CustomDateTimeRangeDialog> {
             ),
           ),
           onPressed: isValid
+              // Chỉ trả kết quả cho nơi gọi; dialog không tự gọi API hành trình.
               ? () => Navigator.of(
                   context,
                 ).pop(DateTimeRange(start: tempFrom, end: tempTo))

@@ -1,3 +1,4 @@
+# Xác nhận định dạng địa chỉ, cache, gộp request và retry khi provider tạm lỗi.
 import asyncio
 import os
 import sys

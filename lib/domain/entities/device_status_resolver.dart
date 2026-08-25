@@ -1,7 +1,11 @@
+// Nguồn sự thật duy nhất để suy luận kết nối, độ mới GPS, chuyển động và hoạt động.
+// Resolver chỉ dùng dữ liệu thật cùng ngưỡng runtime; UI không tự đoán trạng thái.
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme_colors.dart';
 
+// Bốn trục độc lập để UI không trộn quyền hoạt động, kết nối, độ mới GPS và
+// chuyển động thành một boolean hoặc nhãn mơ hồ.
 enum ConnectivityStatus { online, offline }
 
 enum DataFreshnessStatus { fresh, stale, unknown }
@@ -10,6 +14,7 @@ enum MovementStatus { moving, stopped, unknown }
 
 enum ActivityStatus { active, inactive, unknown }
 
+// Kết quả bất biến dùng chung cho dashboard, bản đồ, chi tiết và quản lý thiết bị.
 class ResolvedDeviceStatus {
   const ResolvedDeviceStatus({
     required this.connectivity,
@@ -28,6 +33,7 @@ class ResolvedDeviceStatus {
   final Color color;
 }
 
+// Bộ ngưỡng có thể inject trong test hoặc cập nhật từ SystemSettingsModel lúc chạy.
 class DeviceStateThresholds {
   const DeviceStateThresholds({
     this.onlineTimeout = const Duration(minutes: 5),
@@ -41,6 +47,8 @@ class DeviceStateThresholds {
 }
 
 class DeviceStatusResolver {
+  // Fallback dùng trước khi tải server; runtimeThresholds được SettingsCubit cập
+  // nhật và reset khi đăng xuất để không rò cấu hình giữa hai tài khoản.
   static const DeviceStateThresholds _fallbackThresholds =
       DeviceStateThresholds();
   static DeviceStateThresholds _runtimeThresholds = _fallbackThresholds;
@@ -54,6 +62,7 @@ class DeviceStatusResolver {
     required Duration onlineTimeout,
     required double movementSpeedThresholdMps,
   }) {
+    // Chỉ hai ngưỡng có nguồn từ backend được thay; gpsStaleTimeout giữ chính sách client.
     _runtimeThresholds = DeviceStateThresholds(
       onlineTimeout: onlineTimeout,
       gpsStaleTimeout: _runtimeThresholds.gpsStaleTimeout,
@@ -73,6 +82,7 @@ class DeviceStatusResolver {
     required String baseStatus,
     DeviceStateThresholds? thresholds,
   }) {
+    // Bước 1 tính tuổi kết nối theo lastSeenAt và tuổi GPS theo measuredAt.
     final activeThresholds = thresholds ?? defaultThresholds;
     final now = DateTime.now();
     final connectionAge = lastSeenAt == null
@@ -84,12 +94,15 @@ class DeviceStatusResolver {
         ? null
         : now.difference(gpsTimestamp.toLocal());
 
+    // Không timestamp tạo unknown; dữ liệu quá ngưỡng tạo stale.
     final freshness = gpsAge == null
         ? DataFreshnessStatus.unknown
         : gpsAge > activeThresholds.gpsStaleTimeout
         ? DataFreshnessStatus.stale
         : DataFreshnessStatus.fresh;
 
+    // isOnline từ backend phải đồng thời có lastSeen đủ mới; cách kiểm tra kép
+    // ngăn UI giữ online khi tác vụ presence chưa kịp quét.
     final hasRecentConnection =
         connectionAge != null &&
         connectionAge <= activeThresholds.onlineTimeout;
@@ -97,6 +110,7 @@ class DeviceStatusResolver {
         ? ConnectivityStatus.online
         : ConnectivityStatus.offline;
 
+    // Chỉ kết luận moving/stopped khi online, GPS còn mới và có tốc độ thật.
     var movement = MovementStatus.unknown;
     if (connectivity == ConnectivityStatus.online &&
         freshness == DataFreshnessStatus.fresh &&
@@ -106,6 +120,7 @@ class DeviceStatusResolver {
           : MovementStatus.stopped;
     }
 
+    // Activity lấy từ status hồ sơ, không suy ra từ telemetry.
     var activity = ActivityStatus.unknown;
     if (baseStatus == 'ACTIVE') {
       activity = ActivityStatus.active;
@@ -116,6 +131,8 @@ class DeviceStatusResolver {
     var label = 'Không xác định';
     Color color = AppPalette.materialGrey;
 
+    // Ưu tiên nhãn theo mức dễ hành động: offline → GPS stale → moving/stopped
+    // → online. INACTIVE nghiệp vụ ghi đè ở bước cuối.
     if (connectivity == ConnectivityStatus.offline) {
       label = 'Ngoại tuyến';
       color = AppPalette.materialGrey;

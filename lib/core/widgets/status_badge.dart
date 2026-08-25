@@ -1,8 +1,11 @@
+// Huy hiệu trạng thái dùng icon, nhãn và màu ngữ nghĩa từ theme; chỉ trình bày
+// kết quả đã được DeviceStatusResolver xác định, không tự suy luận nghiệp vụ.
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme_colors.dart';
 
-/// A small colored badge showing device status text + icon for accessibility.
+/// Badge màu nhỏ hiển thị nhãn và biểu tượng trạng thái, có hỗ trợ ngữ nghĩa truy cập.
+// Badge trạng thái icon + nhãn; màu được truyền từ resolver/theme của màn hình gọi.
 class StatusBadge extends StatelessWidget {
   const StatusBadge({
     super.key,

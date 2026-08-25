@@ -1,3 +1,4 @@
+// Xác nhận AppConfig đọc đúng biến dart-define và ghép endpoint theo môi trường build.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v_monitor/core/config/app_config.dart';
 

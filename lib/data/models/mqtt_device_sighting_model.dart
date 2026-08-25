@@ -1,4 +1,7 @@
+// Thống kê một device_code MQTT chưa đăng ký: lần đầu/cuối thấy, số gói và topic.
+// Model này không đại diện thiết bị được phép hoạt động.
 class MqttDeviceSightingModel {
+  // Thống kê gộp một device_code lạ trên MQTT; đây chưa phải DeviceModel đã đăng ký.
   const MqttDeviceSightingModel({
     required this.deviceCode,
     required this.firstSeenAt,
@@ -14,6 +17,7 @@ class MqttDeviceSightingModel {
   final String lastTopic;
 
   factory MqttDeviceSightingModel.fromJson(Map<String, dynamic> json) {
+    // first/last seen và messageCount lấy từ backend, UI không tự tạo trạng thái online.
     return MqttDeviceSightingModel(
       deviceCode: json['device_code']?.toString() ?? '',
       firstSeenAt:

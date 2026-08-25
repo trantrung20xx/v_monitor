@@ -1,3 +1,5 @@
+// Popup mô tả một điểm hành trình bằng thời gian, vị trí, tốc độ và ý nghĩa dừng/đỗ.
+// Nội dung ưu tiên thuật ngữ dễ hiểu và tự co để không che quá nhiều bản đồ.
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -10,6 +12,7 @@ import 'history_map_layers.dart';
 typedef JourneyAddressResolver =
     Future<String?> Function(double latitude, double longitude);
 
+// Popup của một mẫu GPS được chọn: thời gian, tốc độ, tọa độ và địa chỉ.
 class PointInfoPopup extends StatefulWidget {
   const PointInfoPopup({
     super.key,
@@ -29,6 +32,7 @@ class PointInfoPopup extends StatefulWidget {
 }
 
 class _PointInfoPopupState extends State<PointInfoPopup> {
+  // Future địa chỉ được tạo lại khi sample đổi; GPS còn lại lấy trực tiếp từ sample.
   Future<String?>? _addressFuture;
 
   @override
@@ -48,6 +52,7 @@ class _PointInfoPopupState extends State<PointInfoPopup> {
   }
 
   void _loadAddress() {
+    // Repository xử lý cache/lỗi; popup chỉ giữ Future để hiển thị tiến trình.
     final resolver = widget.resolveAddress;
     _addressFuture = resolver?.call(
       widget.point.latitude,
@@ -57,6 +62,7 @@ class _PointInfoPopupState extends State<PointInfoPopup> {
 
   @override
   Widget build(BuildContext context) {
+    // Giới hạn kích thước và cho nội dung co/cuộn để địa chỉ dài không overflow.
     final appColors = context.appColors;
     final point = widget.point;
     final stop = widget.stopPoint;
@@ -236,6 +242,7 @@ class _PointInfoPopupState extends State<PointInfoPopup> {
   }
 }
 
+// Hàng địa chỉ xử lý trạng thái đang tải, có kết quả và không khả dụng.
 class _PopupAddressRow extends StatelessWidget {
   const _PopupAddressRow({
     required this.addressFuture,
@@ -276,6 +283,7 @@ class _PopupAddressRow extends StatelessWidget {
   }
 }
 
+// Hàng icon + label + value cho một thuộc tính của mẫu GPS.
 class _PopupInfoRow extends StatelessWidget {
   const _PopupInfoRow({
     required this.icon,

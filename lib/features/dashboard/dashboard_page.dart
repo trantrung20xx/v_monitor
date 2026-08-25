@@ -1,3 +1,5 @@
+// Màn hình tổng quan vận hành: thống kê, tìm kiếm/lọc và danh sách thiết bị.
+// Widget chỉ trình bày DashboardState; toàn bộ dữ liệu và trạng thái do Cubit cung cấp.
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -12,11 +14,14 @@ import 'widgets/device_list_panel.dart';
 // ignore: unused_import
 import 'widgets/stats_overview.dart';
 
+// Route Dashboard tạo DashboardCubit từ các repository dùng chung và tải snapshot ban đầu.
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // BlocProvider sở hữu Cubit trong phạm vi route; repository tiếp tục cung cấp
+    // REST, WebSocket và geocoding cho Cubit.
     return BlocProvider(
       create: (context) => DashboardCubit(
         deviceRepo: context.read<DeviceRepository>(),
@@ -28,11 +33,13 @@ class DashboardPage extends StatelessWidget {
   }
 }
 
+// Chọn trạng thái loading/error/nội dung và chuyển desktop/mobile theo chiều rộng.
 class _DashboardView extends StatelessWidget {
   const _DashboardView();
 
   @override
   Widget build(BuildContext context) {
+    // DashboardState là nguồn duy nhất cho danh sách, bộ lọc, số đếm và địa chỉ.
     return BlocBuilder<DashboardCubit, DashboardState>(
       builder: (context, state) {
         final appColors = context.appColors;
@@ -66,7 +73,8 @@ class _DashboardView extends StatelessWidget {
   }
 }
 
-/// ─── Desktop: Left sidebar (stats) + Right content (device grid) ────────────
+/// Desktop: cột thống kê bên trái và lưới thiết bị bên phải.
+// Bố cục desktop chia sidebar thống kê/bộ lọc và vùng lưới thiết bị rộng bên phải.
 class _DesktopLayout extends StatelessWidget {
   const _DesktopLayout({required this.state});
   final DashboardState state;
@@ -85,7 +93,7 @@ class _DesktopLayout extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ── Right panel: Main Device List (Section 15, 16, 17, 18, 19) ─────
+          // Khung phải chứa danh sách thiết bị chính.
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -104,7 +112,7 @@ class _DesktopLayout extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ── Top Toolbar: Title + Badge (Left) & Search + Refresh (Right) ──
+                  // Thanh trên: tiêu đề/số lượng bên trái, tìm kiếm/làm mới bên phải.
                   Row(
                     children: [
                       // Title & Count Badge
@@ -145,7 +153,7 @@ class _DesktopLayout extends StatelessWidget {
                         ],
                       ),
                       const Spacer(),
-                      // WhatsGPS sleek Search Bar
+                      // Thanh tìm kiếm thiết bị dạng gọn.
                       SizedBox(
                         width: 260,
                         child: _SearchBar(initialValue: state.searchQuery),
@@ -159,7 +167,7 @@ class _DesktopLayout extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 10),
-                  // ── Filter Bar: Segmented Status Pill Strip ──
+                  // Thanh lọc trạng thái dạng nút phân đoạn.
                   _StatusFilterBar(selected: state.statusFilter, state: state),
                   const SizedBox(height: 10),
                   // ── Device grid ──
@@ -181,7 +189,8 @@ class _DesktopLayout extends StatelessWidget {
   }
 }
 
-/// ─── Mobile: Vertical scroll with AppBar ────────────────────────────────────
+/// Di động: nội dung cuộn dọc dưới AppBar.
+// Bố cục mobile xếp tìm kiếm, lọc, thống kê và danh sách theo chiều dọc có cuộn.
 class _MobileLayout extends StatelessWidget {
   const _MobileLayout({required this.state});
   final DashboardState state;
@@ -222,7 +231,7 @@ class _MobileLayout extends StatelessWidget {
       ),
       body: Column(
         children: [
-          // Search & Refresh in 1 compact row
+          // Tìm kiếm và làm mới trong cùng một hàng gọn.
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
             child: Row(
@@ -261,7 +270,7 @@ class _MobileLayout extends StatelessWidget {
             ),
           ),
           Divider(height: 1, color: appColors.divider),
-          // Device list
+          // Danh sách thiết bị sau khi áp dụng tìm kiếm và bộ lọc.
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -281,6 +290,7 @@ class _MobileLayout extends StatelessWidget {
 
 /// ─── Shared Widgets ──────────────────────────────────────────────────────────
 
+// Nút tải lại snapshot REST; cập nhật realtime vẫn được DashboardCubit lắng nghe riêng.
 class _RefreshButton extends StatelessWidget {
   const _RefreshButton({required this.onPressed});
   final VoidCallback onPressed;
@@ -314,6 +324,7 @@ class _RefreshButton extends StatelessWidget {
   }
 }
 
+// Ô tìm kiếm điều khiển DashboardState.searchQuery nhưng giữ FocusNode/controller cục bộ.
 class _SearchBar extends StatefulWidget {
   const _SearchBar({required this.initialValue});
   final String initialValue;
@@ -323,6 +334,7 @@ class _SearchBar extends StatefulWidget {
 }
 
 class _SearchBarState extends State<_SearchBar> {
+  // Đồng bộ controller khi query đổi từ bên ngoài và chỉ dùng focus để đổi viền hiển thị.
   late final TextEditingController _controller;
   final FocusNode _focusNode = FocusNode();
   bool _isFocused = false;
@@ -441,7 +453,8 @@ class _SearchBarState extends State<_SearchBar> {
   }
 }
 
-/// Shared status filter used by dashboard device lists - WhatsGPS style segmented tab strip.
+/// Thanh lọc trạng thái dùng chung cho các danh sách thiết bị của Dashboard.
+// Thanh lọc trạng thái dùng các số đếm đã được DashboardCubit tính bằng DeviceStatusResolver.
 class _StatusFilterBar extends StatelessWidget {
   const _StatusFilterBar({required this.selected, this.state});
 
@@ -449,6 +462,7 @@ class _StatusFilterBar extends StatelessWidget {
   final DashboardState? state;
 
   int _countFor(DeviceFilter filter) {
+    // Ánh xạ từng lựa chọn UI tới đúng bộ đếm trong DashboardState.
     if (state == null) return 0;
     switch (filter) {
       case DeviceFilter.all:
@@ -571,6 +585,7 @@ class _StatusFilterBar extends StatelessWidget {
   }
 }
 
+// Model trình bày nội bộ của một chip lọc, không chứa dữ liệu thiết bị.
 class _FilterOption {
   const _FilterOption(this.filter, this.label);
 
@@ -578,7 +593,8 @@ class _FilterOption {
   final String label;
 }
 
-/// Sidebar stat items - compact vertical list for desktop left panel.
+/// Danh sách thống kê dọc nhỏ gọn cho panel trái trên desktop.
+// Khối thống kê desktop hiển thị tổng/online/offline/chuyển động từ DashboardState.
 // ignore: unused_element
 class _SidebarStats extends StatelessWidget {
   const _SidebarStats({required this.state});
@@ -689,6 +705,7 @@ class _SidebarStats extends StatelessWidget {
   }
 }
 
+// Dữ liệu trình bày cho một hàng thống kê trong sidebar.
 class _StatRow {
   final String label;
   final int value;
@@ -702,6 +719,7 @@ class _StatRow {
   });
 }
 
+// Chú giải màu trạng thái giúp đọc thẻ thiết bị; màu lấy từ AppThemeColors.
 // ignore: unused_element
 class _SidebarLegend extends StatelessWidget {
   const _SidebarLegend();
@@ -741,6 +759,7 @@ class _SidebarLegend extends StatelessWidget {
   }
 }
 
+// Một mục chú giải gồm chấm màu và nhãn, tự co để không cắt chữ.
 class _LegendItem extends StatelessWidget {
   const _LegendItem({
     required this.color,
@@ -779,6 +798,7 @@ class _LegendItem extends StatelessWidget {
 }
 
 /// ─── Error view ──────────────────────────────────────────────────────────────
+// Trạng thái lỗi toàn trang hiển thị thông báo đã chuẩn hóa và cho phép gọi tải lại.
 class _ErrorView extends StatelessWidget {
   const _ErrorView({required this.error});
   final String error;

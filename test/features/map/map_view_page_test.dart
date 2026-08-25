@@ -1,3 +1,4 @@
+// Xác nhận trang bản đồ dựng controls, marker và xử lý thao tác chạm an toàn.
 import 'dart:async';
 
 import 'package:flutter/material.dart';

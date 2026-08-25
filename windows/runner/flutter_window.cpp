@@ -16,11 +16,10 @@ bool FlutterWindow::OnCreate() {
 
   RECT frame = GetClientArea();
 
-  // The size here must match the window dimensions to avoid unnecessary surface
-  // creation / destruction in the startup path.
+  // Kích thước controller phải khớp vùng client để không tạo/hủy surface dư lúc khởi động.
   flutter_controller_ = std::make_unique<flutter::FlutterViewController>(
       frame.right - frame.left, frame.bottom - frame.top, project_);
-  // Ensure that basic setup of the controller was successful.
+  // Chỉ tiếp tục khi cả engine và view native đã được tạo thành công.
   if (!flutter_controller_->engine() || !flutter_controller_->view()) {
     return false;
   }
@@ -31,9 +30,8 @@ bool FlutterWindow::OnCreate() {
     this->Show();
   });
 
-  // Flutter can complete the first frame before the "show window" callback is
-  // registered. The following call ensures a frame is pending to ensure the
-  // window is shown. It is a no-op if the first frame hasn't completed yet.
+  // Yêu cầu vẽ lại nếu khung đầu hoàn tất trước lúc đăng ký callback hiện cửa sổ;
+  // lời gọi không gây tác dụng phụ khi khung đầu chưa hoàn tất.
   flutter_controller_->ForceRedraw();
 
   return true;
@@ -51,7 +49,7 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
-  // Give Flutter, including plugins, an opportunity to handle window messages.
+  // Cho Flutter và plugin xử lý message trước; message còn lại mới về lớp nền.
   if (flutter_controller_) {
     std::optional<LRESULT> result =
         flutter_controller_->HandleTopLevelWindowProc(hwnd, message, wparam,

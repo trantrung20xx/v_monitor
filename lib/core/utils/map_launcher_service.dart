@@ -1,10 +1,12 @@
+// Mở tọa độ bằng ứng dụng bản đồ ngoài hoặc sao chép vị trí. Tọa độ luôn được
+// kiểm tra trước để không tạo URL sai hay gửi NaN/Infinity sang hệ điều hành.
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../data/models/device_model.dart';
 
 class MapLauncherService {
-  /// Validate GPS coordinates
+  /// Kiểm tra biên tọa độ trước khi tạo URL hoặc thao tác clipboard.
   static bool isValidCoordinate(double? lat, double? lng) {
     if (lat == null || lng == null) return false;
     if (lat < -90 || lat > 90) return false;
@@ -16,6 +18,7 @@ class MapLauncherService {
     double? latitude,
     double? longitude,
   ) async {
+    // URL web chính thức hoạt động đa nền tảng và được mở bằng ứng dụng ngoài nếu có.
     if (!isValidCoordinate(latitude, longitude)) return false;
     final url = Uri.parse(
       'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude',
@@ -32,6 +35,8 @@ class MapLauncherService {
     double? longitude, {
     String? label,
   }) async {
+    // Apple Maps chỉ được mở khi hệ điều hành báo xử lý được URI; label được encode
+    // để ký tự tiếng Việt không làm sai query.
     if (!isValidCoordinate(latitude, longitude)) return false;
 
     final query = Uri.encodeComponent(
@@ -56,6 +61,7 @@ class MapLauncherService {
     double? lat,
     double? lng,
   ) async {
+    // Clipboard dùng URL Google Maps phổ thông để người nhận mở được trên nhiều nền tảng.
     if (!isValidCoordinate(lat, lng)) {
       throw Exception("Invalid coordinates");
     }

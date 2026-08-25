@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Modify this file to customize your launch splash screen -->
+<!-- Nền splash hiển thị trước khung hình Flutter đầu tiên. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@android:color/white" />
 
-    <!-- You can insert your own image assets here -->
+    <!-- Có thể thêm ảnh splash vào danh sách layer khi có thiết kế chính thức. -->
     <!-- <item>
         <bitmap
             android:gravity="center"

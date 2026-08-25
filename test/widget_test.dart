@@ -1,3 +1,4 @@
+// Kiểm tra tích hợp cây ứng dụng, menu desktop/mobile, điều hướng quyền và đăng xuất.
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

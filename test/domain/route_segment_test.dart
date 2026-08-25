@@ -1,3 +1,4 @@
+// Xác nhận tách đoạn theo gap và tính quãng đường/thời lượng/tốc độ đúng đơn vị.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v_monitor/data/models/location_model.dart';
 import 'package:v_monitor/domain/entities/route_segment.dart';

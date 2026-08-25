@@ -1,3 +1,4 @@
+# Xác nhận ngưỡng runtime tác động đúng presence/tracking và gói đến trễ không ghi đè latest state.
 import os
 import sys
 import unittest

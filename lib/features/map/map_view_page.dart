@@ -1,3 +1,5 @@
+// Màn hình bản đồ realtime: hiển thị marker thiết bị, danh sách nổi, chọn thiết bị,
+// zoom/recenter và nguồn tile theo tùy chọn cá nhân.
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -28,6 +30,8 @@ class MapViewPage extends StatefulWidget {
 }
 
 class _MapViewPageState extends State<MapViewPage> {
+  // Cubit riêng của route bản đồ dùng repository cấp ứng dụng; route sở hữu và đóng
+  // Cubit để subscription realtime không sống sau khi rời màn hình.
   late DashboardCubit _cubit;
 
   @override
@@ -49,10 +53,12 @@ class _MapViewPageState extends State<MapViewPage> {
 
   @override
   Widget build(BuildContext context) {
+    // BlocProvider.value đưa Cubit đã khởi tạo xuống thân bản đồ mà không tạo instance mới.
     return BlocProvider.value(value: _cubit, child: const _MapViewBody());
   }
 }
 
+// Thân bản đồ giữ state trình bày cục bộ như camera, panel danh sách và mức zoom.
 class _MapViewBody extends StatefulWidget {
   const _MapViewBody();
 
@@ -61,6 +67,7 @@ class _MapViewBody extends StatefulWidget {
 }
 
 class _MapViewBodyState extends State<_MapViewBody> {
+  // Giới hạn camera khớp khả năng nguồn tile; selectedZoom dùng khi chọn thiết bị.
   static const double _initialZoom = 13;
   static const double _selectedZoom = 18;
   static const double _minZoom = 5;
@@ -73,6 +80,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
   double _currentZoom = _initialZoom;
 
   void _onDeviceSelected(BuildContext context, DeviceModel device) {
+    // Chỉ di chuyển camera khi backend đã trả đủ tọa độ và FlutterMap đã sẵn sàng.
     if (device.latitude != null && device.longitude != null) {
       if (!_mapReady) return;
       _currentZoom = _selectedZoom;
@@ -89,6 +97,8 @@ class _MapViewBodyState extends State<_MapViewBody> {
     List<DeviceModel> devices,
     Map<String, String> addresses,
   ) {
+    // Mobile dùng bottom sheet kéo được để danh sách không che bản đồ vĩnh viễn;
+    // dữ liệu thiết bị/địa chỉ là snapshot hiện tại từ DashboardState.
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -127,6 +137,8 @@ class _MapViewBodyState extends State<_MapViewBody> {
 
   @override
   Widget build(BuildContext context) {
+    // SettingsCubit cung cấp loại tile; DashboardCubit cung cấp thiết bị, tọa độ và
+    // địa chỉ. Breakpoint 800 px chỉ quyết định layout, không đổi dữ liệu nghiệp vụ.
     final appColors = context.appColors;
     final isDesktop = MediaQuery.of(context).size.width > 800;
     final mapType = context.watch<SettingsCubit>().state.userSettings.mapType;
@@ -134,6 +146,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
 
     return BlocBuilder<DashboardCubit, DashboardState>(
       builder: (context, state) {
+        // Scaffold gồm AppBar thao tác và một Stack bản đồ toàn vùng ở body.
         return Scaffold(
           backgroundColor: appColors.mapBackground,
           appBar: AppBar(
@@ -282,10 +295,14 @@ class _MapViewBodyState extends State<_MapViewBody> {
             ],
           ),
           body: () {
+            // Loading chỉ che trong lần lấy snapshot REST đầu; cập nhật WebSocket sau
+            // đó được hợp nhất vào state mà không thay toàn màn hình bằng spinner.
             if (state.isLoading) {
               return const Center(child: CircularProgressIndicator());
             }
 
+            // Marker chỉ được tạo cho thiết bị có đủ cả latitude và longitude thật.
+            // Thiết bị thiếu GPS vẫn xuất hiện trong danh sách và số đếm tổng.
             final located = state.devices
                 .where((d) => d.latitude != null && d.longitude != null)
                 .toList();
@@ -304,6 +321,8 @@ class _MapViewBodyState extends State<_MapViewBody> {
               });
             }
 
+            // Thứ tự lớp: tile/marker ở đáy, điều khiển camera, empty overlay,
+            // nút mobile hoặc panel desktop ở trên cùng.
             return Stack(
               children: [
                 Positioned.fill(
@@ -326,6 +345,8 @@ class _MapViewBodyState extends State<_MapViewBody> {
                         },
                       ),
                       children: [
+                        // URL và max zoom lấy từ MapTileProviders theo tùy chọn cá
+                        // nhân; lỗi tile dùng ảnh trong suốt để không phá layout.
                         TileLayer(
                           urlTemplate: MapTileProviders.getUrl(
                             isSatellite
@@ -347,6 +368,8 @@ class _MapViewBodyState extends State<_MapViewBody> {
                             TileProvider.transparentImage,
                           ),
                         ),
+                        // Marker được dựng từ danh sách đã lọc tọa độ, mỗi marker mở
+                        // route chi tiết theo id database của thiết bị.
                         MarkerLayer(
                           markers: located
                               .map((device) => _buildMarker(context, device))
@@ -375,7 +398,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
                     ),
                   ),
                 ),
-                // Empty GPS state overlay
+                // Lớp thông báo khi chưa có dữ liệu GPS.
                 if (located.isEmpty)
                   Positioned.fill(
                     child: IgnorePointer(
@@ -441,7 +464,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
                       ),
                     ),
                   ),
-                // Floating Action Button on Mobile
+                // Nút thao tác nổi trên màn hình di động.
                 if (!isDesktop && !state.isLoading && state.devices.isNotEmpty)
                   Positioned(
                     right: 16,
@@ -472,7 +495,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
                       ),
                     ),
                   ),
-                // Desktop Floating Panel
+                // Bảng thiết bị nổi trên màn hình desktop.
                 if (isDesktop && _showDesktopList)
                   Positioned(
                     top: 16,
@@ -494,6 +517,8 @@ class _MapViewBodyState extends State<_MapViewBody> {
   }
 
   Marker _buildMarker(BuildContext context, DeviceModel device) {
+    // Resolver dùng isOnline/lastSeen/GPS/speed thật để chọn màu và biểu tượng;
+    // widget không tạo thêm trạng thái vận hành riêng cho bản đồ.
     final appColors = context.appColors;
     final status = DeviceStatusResolver.resolve(
       isOnline: device.isOnline,
@@ -578,7 +603,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
                 ],
               ),
             ),
-            // Arrow tip
+            // Mũi nhọn nối nhãn với điểm tọa độ.
             CustomPaint(
               size: const Size(10, 6),
               painter: _ArrowPainter(markerColor),
@@ -590,6 +615,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
   }
 
   void _zoomBy(double delta) {
+    // Clamp mức zoom trong giới hạn tile trước khi điều khiển camera.
     if (!_mapReady) return;
     final camera = _mapController.camera;
     final nextZoom = (camera.zoom + delta).clamp(_minZoom, _maxZoom).toDouble();
@@ -603,6 +629,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
   }
 }
 
+// Vẽ mũi nhọn nhỏ nối nhãn marker với đúng điểm tọa độ trên bản đồ.
 class _ArrowPainter extends CustomPainter {
   _ArrowPainter(this.color);
   final Color color;
@@ -622,6 +649,7 @@ class _ArrowPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
+// Cụm nút nổi điều khiển zoom, căn giữa và đổi loại bản đồ; callback do state cha xử lý.
 class _MapControls extends StatelessWidget {
   const _MapControls({
     required this.onZoomIn,
@@ -702,6 +730,7 @@ class _MapControls extends StatelessWidget {
   }
 }
 
+// Nút bản đồ vuông dùng tooltip/semantics và màu theme thống nhất cho từng hành động.
 class _MapControlButton extends StatelessWidget {
   const _MapControlButton({
     required this.icon,

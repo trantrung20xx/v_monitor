@@ -1,3 +1,5 @@
+// Lắp ráp dependency, repository và Cubit cấp ứng dụng; đồng thời chọn màn hình
+// đăng nhập hay hệ thống giám sát theo AuthState và áp dụng theme từ SettingsState.
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -17,6 +19,8 @@ import '../features/auth/login_page.dart';
 import '../features/settings/settings_cubit.dart';
 import '../features/settings/settings_state.dart';
 
+// Gốc dependency: nhận hai client từ main, tạo token store/repository/AuthCubit
+// và chọn màn hình theo trạng thái xác thực.
 class VMonitorApp extends StatelessWidget {
   final ApiClient apiClient;
   final WebsocketClient websocketClient;
@@ -31,6 +35,7 @@ class VMonitorApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // MultiRepositoryProvider bảo đảm mọi Cubit/route dùng cùng repository và cache runtime.
     return MultiRepositoryProvider(
       providers: [
         RepositoryProvider<DeviceRepository>(
@@ -68,11 +73,15 @@ class VMonitorApp extends StatelessWidget {
   }
 }
 
+// Cây sau đăng nhập: khởi tạo SettingsCubit, nạp cấu hình cá nhân/hệ thống rồi
+// MaterialApp.router dựng theme và điều hướng theo các snapshot đó.
 class _AuthenticatedApplication extends StatelessWidget {
   const _AuthenticatedApplication();
 
   @override
   Widget build(BuildContext context) {
+    // BlocBuilder chỉ rebuild MaterialApp khi settings/theme thay đổi; router và
+    // repository vẫn giữ cùng instance.
     return BlocListener<AuthCubit, AuthState>(
       listenWhen: (previous, current) => previous.status != current.status,
       listener: (context, state) {
@@ -117,6 +126,7 @@ class _AuthenticatedApplication extends StatelessWidget {
 }
 
 Widget _fixedTextScaleBuilder(BuildContext context, Widget? child) {
+  // Giữ textScaler theo chính sách giao diện hiện tại và bọc child an toàn khi null.
   final data = MediaQuery.of(context);
   return MediaQuery(
     data: data.copyWith(

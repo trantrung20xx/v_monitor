@@ -1,3 +1,4 @@
+# Xác nhận lịch sử GPS sắp theo measured_at, giữ timezone và serialize metadata phân trang.
 import os
 import sys
 import unittest

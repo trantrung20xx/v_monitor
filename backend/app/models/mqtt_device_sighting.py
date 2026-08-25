@@ -1,3 +1,5 @@
+# Bảng tổng hợp thiết bị MQTT chưa đăng ký. Chỉ giữ lần đầu, lần cuối, số gói và topic
+# để quản trị viên nhận diện thiết bị lạ mà không lưu toàn bộ payload gây phình dữ liệu.
 from datetime import datetime, timezone
 
 from sqlalchemy import BigInteger, CheckConstraint, Index, String
@@ -8,6 +10,8 @@ from app.models.base import Base
 
 
 class MqttDeviceSighting(Base):
+    # device_code là khóa tổng hợp; first/last_seen_at tạo khoảng quan sát.
+    # message_count đo tần suất và last_topic hỗ trợ chẩn đoán cấu hình firmware.
     """Dấu vết của các mã thiết bị MQTT chưa được đăng ký."""
 
     __tablename__ = "mqtt_device_sightings"

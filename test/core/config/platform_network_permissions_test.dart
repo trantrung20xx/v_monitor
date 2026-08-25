@@ -1,3 +1,4 @@
+// Xác nhận manifest/entitlement production cho phép REST, WebSocket và tile bản đồ ra ngoài.
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';

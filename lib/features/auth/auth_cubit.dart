@@ -1,3 +1,5 @@
+// Điều phối phiên đăng nhập: khôi phục token, tải người dùng, đăng nhập/đăng xuất,
+// đổi mật khẩu và đồng bộ trạng thái HTTP với WebSocket.
 import 'dart:async';
 
 import 'package:dio/dio.dart';
@@ -10,6 +12,8 @@ import '../../data/models/user_model.dart';
 import 'auth_state.dart';
 
 class AuthCubit extends Cubit<AuthState> {
+  // Ba dependency dùng chung một credential: HTTP gọi REST, WebSocket nhận realtime
+  // và tokenStore duy trì đăng nhập an toàn qua các lần mở ứng dụng.
   AuthCubit(this._apiClient, this._websocketClient, this._tokenStore)
     : super(const AuthState()) {
     _apiClient.setUnauthorizedHandler(_handleUnauthorized);
@@ -19,8 +23,10 @@ class AuthCubit extends Cubit<AuthState> {
   final ApiClient _apiClient;
   final WebsocketClient _websocketClient;
   final AuthTokenStore _tokenStore;
+  // Chặn nhiều callback 401 đồng thời cùng xóa token và phát state lặp.
   bool _clearingCredential = false;
 
+  /// Khôi phục phiên đã lưu, xác minh token với backend rồi mới mở WebSocket.
   Future<void> initialize() async {
     emit(const AuthState(status: AuthStatus.checking));
 
@@ -38,6 +44,7 @@ class AuthCubit extends Cubit<AuthState> {
     }
 
     if (storedToken == null || storedToken.trim().isEmpty) {
+      // Không có token là trạng thái chưa đăng nhập bình thường, không phải lỗi server.
       _deactivateCredential();
       emit(const AuthState(status: AuthStatus.unauthenticated));
       return;
@@ -45,6 +52,7 @@ class AuthCubit extends Cubit<AuthState> {
 
     _activateCredential(storedToken);
     try {
+      // `/auth/me` là bước xác minh token/version/quyền hiện vẫn hợp lệ.
       final response = await _apiClient.get('/auth/me');
       final user = UserModel.fromJson(
         Map<String, dynamic>.from(response.data as Map),
@@ -76,6 +84,7 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
+  /// Xác thực, lưu token bền vững, cập nhật state rồi mới kết nối realtime.
   Future<void> login(String username, String password) async {
     if (state.status == AuthStatus.authenticating) return;
     emit(const AuthState(status: AuthStatus.authenticating));
@@ -176,6 +185,7 @@ class AuthCubit extends Cubit<AuthState> {
 
   Future<void> logout() => _clearCredential();
 
+  // HTTP và WebSocket cùng gọi nhánh này khi backend thu hồi credential.
   Future<void> _handleUnauthorized() {
     return _clearCredential(
       message: 'Thông tin đăng nhập đã bị thu hồi. Vui lòng đăng nhập lại.',
@@ -183,11 +193,13 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   void _activateCredential(String token) {
+    // Cùng một token được gắn vào Bearer header HTTP và bản tin AUTH WebSocket.
     _apiClient.setAccessToken(token);
     _websocketClient.setAccessToken(token);
   }
 
   void _deactivateCredential() {
+    // Xóa credential trong bộ nhớ trước và đóng socket để ngừng nhận dữ liệu bảo vệ.
     _apiClient.setAccessToken(null);
     _websocketClient.setAccessToken(null);
     _websocketClient.disconnect();
@@ -198,6 +210,7 @@ class AuthCubit extends Cubit<AuthState> {
     _clearingCredential = true;
     _deactivateCredential();
     try {
+      // Xóa kho bền vững để lần mở tiếp theo không thử lại token đã thu hồi.
       await _tokenStore.clearToken();
     } finally {
       _clearingCredential = false;
@@ -206,6 +219,7 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   static String _responseMessage(DioException error, String fallback) {
+    // Ưu tiên thông điệp nghiệp vụ `detail`; fallback dùng cho lỗi mạng/response lạ.
     final data = error.response?.data;
     if (data is Map && data['detail'] is String) {
       final detail = data['detail'].toString().trim();
@@ -216,6 +230,7 @@ class AuthCubit extends Cubit<AuthState> {
 
   @override
   Future<void> close() async {
+    // Gỡ callback trước khi Cubit đóng để client dùng chung không emit vào state đã hủy.
     _apiClient.setUnauthorizedHandler(null);
     _websocketClient.setUnauthorizedHandler(null);
     _websocketClient.disconnect();

@@ -1,3 +1,4 @@
+// Xác nhận popup điểm GPS trình bày đúng thời gian, tốc độ, vị trí và trạng thái dừng.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v_monitor/data/models/location_model.dart';

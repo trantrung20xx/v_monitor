@@ -1,8 +1,10 @@
+# Tiện ích phát triển cũ để tạo bảng và dữ liệu minh họa trực tiếp. Luồng triển khai
+# chính thức dùng Alembic; tệp này không được backend gọi khi khởi động.
 import asyncio
 import sys
 import os
 
-# Add backend to path
+# Thêm thư mục backend vào Python path để script độc lập import được package app.
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'backend'))
 
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
@@ -16,10 +18,11 @@ from app.models.device import Device, DeviceType, DeviceStatus
 from app.models.device_latest_state import DeviceLatestState
 from app.models.device_event import DeviceEvent
 
-# Import all models here to ensure they are registered with Base.metadata
+# Nạp toàn bộ model để Base.metadata biết đủ bảng trước khi gọi create_all.
 import app.models
 
 async def setup_db():
+    # Engine echo=True in câu SQL để quan sát khi chạy tiện ích phát triển này.
     print(f"Connecting to database...")
     engine = create_async_engine(settings.database_url, echo=True)
     
@@ -28,7 +31,7 @@ async def setup_db():
         await conn.run_sync(Base.metadata.create_all)
         print("Tables created successfully.")
 
-    # Seed demo devices and events if empty
+    # Chỉ thêm thiết bị và sự kiện minh họa khi bảng tương ứng hoàn toàn rỗng.
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     async with session_factory() as db:
         dev_count = await db.scalar(select(func.count(Device.id)))
@@ -69,7 +72,7 @@ async def setup_db():
                 )
             await db.commit()
 
-        # Seed sample events if empty
+        # Sự kiện mẫu dùng mốc tương đối so với thời điểm chạy để dễ kiểm tra timeline.
         event_count = await db.scalar(select(func.count(DeviceEvent.id)))
         if event_count == 0:
             print("Seeding initial sample events...")

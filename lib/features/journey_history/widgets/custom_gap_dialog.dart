@@ -1,3 +1,5 @@
+// Hộp thoại đặt ngưỡng đứt quãng hành trình. Controller chuyển giá trị người dùng
+// thành số giây hợp lệ trước khi trả về nơi gọi.
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -6,6 +8,7 @@ import '../../../core/widgets/app_menu.dart';
 
 /// Định dạng thời lượng ngắt quãng thân thiện với người dùng (tiếng Việt).
 String formatGapDuration(Duration duration) {
+  // Giữ đơn vị đầu vào là Duration và chỉ đổi thành nhãn phút/giờ dễ đọc.
   final totalMinutes = duration.inMinutes;
   if (totalMinutes <= 0) {
     return '${duration.inSeconds} giây';
@@ -26,6 +29,7 @@ Future<Duration?> showCustomGapThresholdDialog(
   BuildContext context, {
   required Duration initialDuration,
 }) {
+  // Helper trả Duration khi xác nhận hoặc null khi đóng, không tự thay đổi Cubit.
   return showDialog<Duration>(
     context: context,
     builder: (ctx) =>
@@ -46,6 +50,7 @@ class CustomGapThresholdDialog extends StatefulWidget {
 }
 
 class _CustomGapThresholdDialogState extends State<CustomGapThresholdDialog> {
+  // Controller và đơn vị là state nhập liệu; kết quả cuối luôn quy về Duration.
   late TextEditingController _valueController;
   late String _unit; // 'minutes' hoặc 'hours'
   String? _errorMessage;
@@ -72,6 +77,7 @@ class _CustomGapThresholdDialogState extends State<CustomGapThresholdDialog> {
   }
 
   int? get _parsedMinutes {
+    // Chuẩn hóa phút làm đơn vị trung gian để kiểm tra một quy tắc cho cả phút và giờ.
     final text = _valueController.text.trim();
     if (text.isEmpty) return null;
     final val = int.tryParse(text);
@@ -90,6 +96,7 @@ class _CustomGapThresholdDialogState extends State<CustomGapThresholdDialog> {
   }
 
   void _onPresetSelected(int value, String unit) {
+    // Preset chỉ điền form; người dùng vẫn có thể chỉnh trước khi xác nhận.
     setState(() {
       _unit = unit;
       _valueController.text = value.toString();
@@ -98,6 +105,7 @@ class _CustomGapThresholdDialogState extends State<CustomGapThresholdDialog> {
   }
 
   void _submit() {
+    // Chỉ đóng dialog khi giá trị nằm trong biên nghiệp vụ 1 phút đến 7 ngày.
     final mins = _parsedMinutes;
     if (mins == null || mins < 1 || mins > 10080) {
       setState(() {
@@ -111,6 +119,7 @@ class _CustomGapThresholdDialogState extends State<CustomGapThresholdDialog> {
 
   @override
   Widget build(BuildContext context) {
+    // AlertDialog giới hạn chiều rộng; các preset dùng Wrap để không overflow.
     final appColors = context.appColors;
     final mins = _parsedMinutes;
     final valid = _isValid;

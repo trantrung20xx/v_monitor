@@ -1,17 +1,26 @@
+// Mô hình thiết bị hợp nhất hồ sơ quản lý với latest state từ backend.
+// Giá trị nullable có nghĩa backend chưa nhận phép đo tương ứng, không phải số 0.
 class DeviceModel {
+  // Một object kết hợp hồ sơ `devices` với `device_latest_state` do backend trả phẳng.
+  // Trường null biểu diễn chưa có telemetry tương ứng, không được tự đổi thành 0.
+  // id là UUID database; deviceCode là mã dùng trên topic MQTT; name là tên hiển thị.
   final String id;
   final String deviceCode;
   final String name;
+  // type phân loại phần cứng; status là trạng thái quản lý gốc; isEnabled là quyền nhận gói.
   final String type;
   final String status;
   final bool isEnabled;
+  // Thông tin phần cứng tùy chọn phục vụ kiểm kê, không tham gia tính online/offline.
   final String? serialNumber;
   final String? manufacturer;
   final String? model;
   final String? firmwareVersion;
+  // metadataJson chứa thuộc tính mở rộng; createdAt/updatedAt là thời gian hồ sơ thay đổi.
   final Map<String, dynamic>? metadataJson;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  // isOnline và current* lấy từ DeviceLatestState, không lấy từ status quản lý.
   final bool isOnline;
   final double? latitude;
   final double? longitude;
@@ -21,6 +30,7 @@ class DeviceModel {
 
   /// Phần trăm pin của chính thiết bị; null khi thiết bị chưa gửi dữ liệu pin.
   final int? batteryPct;
+  // lastSeenAt là lần backend nhận gói; latestMeasuredAt là thời gian GPS được đo.
   final DateTime? lastSeenAt;
   final DateTime? latestMeasuredAt;
 
@@ -55,6 +65,7 @@ class DeviceModel {
     'Use DeviceStatusResolver.resolve(...) to account for offline and stale GPS.',
   )
   String get statusLabel {
+    // Nhãn này chỉ phản ánh status hồ sơ; trạng thái realtime dùng DeviceStatusResolver.
     switch (status) {
       case 'ONLINE':
         return 'Trực tuyến';
@@ -67,7 +78,10 @@ class DeviceModel {
     }
   }
 
+  // Chuyển JSON linh hoạt vì số từ HTTP có thể là int, double hoặc chuỗi.
   factory DeviceModel.fromJson(Map<String, dynamic> json) {
+    // Parse cả tên trường backend hiện tại và alias tương thích cũ; DateTime luôn
+    // được giữ kèm timezone để resolver có thể chuyển local chính xác.
     final metadata = json['metadata_json'];
     return DeviceModel(
       id: json['id'] ?? '',

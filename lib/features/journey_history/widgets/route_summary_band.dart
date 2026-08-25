@@ -1,8 +1,11 @@
+// Dải tóm tắt hành trình hiển thị quãng đường, thời lượng và số điểm/đoạn từ state;
+// không tính lại dữ liệu GPS trong lớp giao diện.
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme_colors.dart';
 import '../../../core/utils/device_formatters.dart';
 import '../journey_history_state.dart';
 
+// Dải tóm tắt hiển thị quãng đường, thời lượng và tốc độ từ JourneyHistoryState.
 class RouteSummaryBand extends StatelessWidget {
   final JourneyHistoryState state;
 
@@ -105,6 +108,7 @@ class RouteSummaryBand extends StatelessWidget {
   }
 }
 
+// Model trình bày của một chỉ số trong dải tóm tắt.
 class _SummaryItem {
   final IconData icon;
   final String label;

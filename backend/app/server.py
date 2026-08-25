@@ -1,3 +1,5 @@
+# Entrypoint chạy Uvicorn bằng cùng Settings với toàn backend, tránh host/port/reload
+# bị khai báo lặp trong script khởi động hoặc câu lệnh triển khai.
 import uvicorn
 
 from app.core.config import settings

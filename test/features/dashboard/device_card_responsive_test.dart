@@ -1,3 +1,4 @@
+// Xác nhận thẻ thiết bị dashboard co giãn an toàn ở các kích thước viewport.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v_monitor/app/app_theme.dart';

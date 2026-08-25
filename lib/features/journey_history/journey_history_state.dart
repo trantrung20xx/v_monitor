@@ -1,3 +1,5 @@
+// State bất biến của hành trình: khoảng chọn, mẫu gốc/đã xử lý, đoạn đường, playback,
+// điểm đang chọn và thống kê. Các getter chỉ suy ra dữ liệu để trình bày.
 import 'package:equatable/equatable.dart';
 import 'package:latlong2/latlong.dart';
 import '../../data/models/device_model.dart';
@@ -5,6 +7,7 @@ import '../../data/models/location_model.dart';
 import '../../domain/entities/gps_validator.dart';
 import '../../domain/entities/route_segment.dart';
 
+// Máy trạng thái phát lại/tải hành trình; mỗi giá trị quyết định nhóm control được bật.
 enum JourneyHistoryStatus {
   idle,
   loading,
@@ -16,13 +19,15 @@ enum JourneyHistoryStatus {
 }
 
 class JourneyHistoryState extends Equatable {
+  // status/error điều khiển trạng thái màn hình; selectedDevice xác định nguồn truy vấn.
   final JourneyHistoryStatus status;
   final String? errorMessage;
   final DeviceModel? selectedDevice;
   final DateTime? fromTime;
   final DateTime? toTime;
 
-  // Dữ liệu mẫu GPS
+  // rawSamples là dữ liệu API; validSamples đã qua kiểm tra GPS; segments là các đoạn
+  // liên tục; cumulativeDistancesM hỗ trợ đọc nhanh quãng đường tại con trỏ playback.
   final List<LocationModel> rawSamples;
   final List<LocationModel> validSamples;
   final List<RouteSegment> segments;
@@ -30,18 +35,18 @@ class JourneyHistoryState extends Equatable {
   final int totalCount;
   final bool truncated;
 
-  // Tổng hợp chỉ số
+  // Chỉ số tổng hợp được tính từ validSamples/segments, không lấy số giả từ UI.
   final double totalDistanceM;
   final int movingDurationS;
   final int stoppedDurationS;
   final double? maxSpeedMps;
   final double? avgSpeedMps;
 
-  // Cấu hình
+  // Hai ngưỡng quyết định tách đoạn và phân loại di chuyển cho phiên đang xem.
   final Duration gapThreshold;
   final double movementThresholdMps;
 
-  // Trạng thái phát lại (Replay Engine)
+  // Trạng thái phát lại: mốc mô phỏng, marker nội suy, mẫu lân cận, tốc độ phát và camera.
   final DateTime? currentReplayTime;
   final LatLng? currentPosition;
   final double? currentSpeedMps;
@@ -91,6 +96,8 @@ class JourneyHistoryState extends Equatable {
 
   /// Tiến độ phát lại từ 0.0 đến 1.0
   double get playbackProgress {
+    // Tiến độ dựa trên mốc đo đầu/cuối thật, không dựa vào chỉ số mẫu vì khoảng cách
+    // thời gian giữa các mẫu có thể không đều.
     if (validSamples.length < 2 ||
         fromTime == null ||
         toTime == null ||
@@ -110,6 +117,8 @@ class JourneyHistoryState extends Equatable {
 
   /// Quãng đường đã đi tính đến thời điểm phát lại / điểm đang chọn hiện tại (m)
   double get currentDistanceM {
+    // Ưu tiên mảng cộng dồn O(1); nhánh tính lại giữ tương thích state cũ/test chưa
+    // cung cấp cumulativeDistancesM và không cộng qua gap.
     if (cumulativeDistancesM.isNotEmpty) {
       if (currentSampleIndex <= 0) return 0.0;
       final targetIndex = currentSampleIndex.clamp(
@@ -167,6 +176,8 @@ class JourneyHistoryState extends Equatable {
     LocationModel? selectedPoint,
     bool clearSelectedPoint = false,
   }) {
+    // clearError/clearSelectedPoint tách thao tác gán null khỏi trường không truyền;
+    // các trường còn lại mặc định giữ giá trị snapshot hiện tại.
     return JourneyHistoryState(
       status: status ?? this.status,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),

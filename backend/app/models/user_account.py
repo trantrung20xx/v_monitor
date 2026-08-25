@@ -1,3 +1,5 @@
+# Hai bảng tài khoản nội bộ và tùy chọn cá nhân. UserAccount giữ xác thực/phân quyền;
+# UserSetting giữ theme, ngôn ngữ, múi giờ và preferences, không liên kết thiết bị.
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -11,12 +13,18 @@ from app.models.base import Base, TimestampMixin, UUIDMixin
 
 
 class UserAccount(Base, UUIDMixin, TimestampMixin):
+    # username/password_hash phục vụ xác thực; full_name/email phục vụ hiển thị.
+    # role/is_active cấp quyền; failed count/locked_until chống dò; token_version thu hồi JWT.
     __tablename__ = "user_accounts"
 
+    # Username/email được unique không phân biệt hoa thường bằng index bên dưới;
+    # password_hash chỉ chứa kết quả băm, không chứa mật khẩu gốc.
     username: Mapped[str] = mapped_column(String(50), nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     email: Mapped[Optional[str]] = mapped_column(String(320), nullable=True)
+    # role quyết định USER/ADMIN; is_active quyết định có được đăng nhập và tiếp tục
+    # dùng token hay không. Hai trường thay đổi sẽ làm tăng token_version tại service.
     role: Mapped[UserRole] = mapped_column(
         Enum(UserRole),
         default=UserRole.USER,
@@ -29,6 +37,8 @@ class UserAccount(Base, UUIDMixin, TimestampMixin):
         server_default=true(),
         nullable=False,
     )
+    # Nhóm trường vòng đời đăng nhập: lần thành công gần nhất, lần đổi mật khẩu,
+    # số lần sai liên tiếp và thời hạn khóa tạm.
     last_login_at: Mapped[Optional[datetime]] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=True,
@@ -47,6 +57,8 @@ class UserAccount(Base, UUIDMixin, TimestampMixin):
         TIMESTAMP(timezone=True),
         nullable=True,
     )
+    # JWT mang bản sao token_version. Tăng giá trị này thu hồi toàn bộ token đã ký
+    # trước đó mà không cần lưu blacklist hoặc phiên đăng nhập riêng.
     token_version: Mapped[int] = mapped_column(
         Integer,
         default=0,
@@ -54,6 +66,7 @@ class UserAccount(Base, UUIDMixin, TimestampMixin):
         nullable=False,
     )
 
+    # Cài đặt cá nhân bị xóa theo tài khoản; uselist=False thể hiện quan hệ một-một.
     settings = relationship(
         "UserSetting",
         back_populates="user",
@@ -61,6 +74,8 @@ class UserAccount(Base, UUIDMixin, TimestampMixin):
         cascade="all, delete-orphan",
     )
 
+    # Constraint giữ dữ liệu không rỗng/không âm; unique index dùng lower() để
+    # `Admin` và `admin` không trở thành hai tài khoản khác nhau.
     __table_args__ = (
         CheckConstraint(
             "length(btrim(username)) >= 3",
@@ -101,6 +116,8 @@ class UserAccount(Base, UUIDMixin, TimestampMixin):
 
 
 class UserSetting(Base, TimestampMixin):
+    # user_id tạo quan hệ một-một; theme/language/timezone/notifications là tùy chọn chuẩn.
+    # preferences là JSON mở rộng, được hợp nhất từng khóa khi cập nhật.
     __tablename__ = "user_settings"
 
     user_id: Mapped[uuid.UUID] = mapped_column(
@@ -108,6 +125,8 @@ class UserSetting(Base, TimestampMixin):
         ForeignKey("user_accounts.id", ondelete="CASCADE"),
         primary_key=True,
     )
+    # Các cột phổ biến có kiểu/constraint rõ; preferences chứa tùy chọn mở rộng như
+    # loại bản đồ và đơn vị tốc độ để không phải thêm cột cho từng lựa chọn nhỏ.
     theme: Mapped[str] = mapped_column(
         String(20),
         default="system",

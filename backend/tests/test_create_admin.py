@@ -1,3 +1,4 @@
+# Xác nhận công cụ tạo ADMIN dùng cùng giới hạn mật khẩu và báo lỗi dòng lệnh an toàn.
 import unittest
 from contextlib import redirect_stderr
 from io import StringIO

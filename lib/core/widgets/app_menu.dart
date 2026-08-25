@@ -1,3 +1,5 @@
+// Bộ primitive menu dùng chung: nút, popup, mục chọn và trạng thái hover/focus.
+// Kích thước/màu lấy từ AppMenuStyle và theme để các màn hình không tự dựng khác nhau.
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme_colors.dart';
@@ -29,6 +31,7 @@ abstract final class AppMenuStyle {
 /// Khi [onTap] để trống, widget chỉ dựng nội dung để `PopupMenuItem` quản lý
 /// toàn bộ focus, hover và callback. Khi [onTap] có giá trị, `InkWell` cung cấp
 /// cùng ngôn ngữ tương tác cho menu trên màn hình cảm ứng.
+// Item menu dùng trong popup/bottom sheet, hỗ trợ icon, subtitle và trạng thái nguy hiểm.
 class AppMenuItem extends StatelessWidget {
   const AppMenuItem({
     super.key,
@@ -141,6 +144,7 @@ class AppMenuItem extends StatelessWidget {
 }
 
 /// Phần nhận diện tài khoản đặt ở đầu account menu.
+// Header menu tài khoản hiển thị avatar, họ tên, username và vai trò từ UserModel.
 class AppMenuHeader extends StatelessWidget {
   const AppMenuHeader({
     super.key,
@@ -239,6 +243,7 @@ class AppMenuHeader extends StatelessWidget {
 }
 
 String _initialsFor(String value) {
+  // Lấy tối đa hai chữ cái đầu làm avatar fallback, không thay đổi tên gốc.
   final parts = value
       .trim()
       .split(RegExp(r'\s+'))

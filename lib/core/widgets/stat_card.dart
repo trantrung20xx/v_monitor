@@ -1,6 +1,8 @@
+// Thẻ thống kê gọn cho dashboard: icon, giá trị và nhãn tự co theo không gian.
 import 'package:flutter/material.dart';
 
-/// A compact statistics card used in the dashboard overview.
+/// Thẻ thống kê nhỏ gọn dùng trong phần tổng quan dashboard.
+// Thẻ thống kê dùng chung gồm icon, tiêu đề, giá trị và màu ngữ nghĩa từ theme.
 class StatCard extends StatelessWidget {
   const StatCard({
     super.key,
@@ -19,6 +21,7 @@ class StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Layout co theo constraints và giới hạn dòng để giá trị dài không overflow.
     final theme = Theme.of(context);
     final cardColor = color ?? theme.colorScheme.primary;
 

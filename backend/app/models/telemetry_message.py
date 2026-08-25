@@ -1,3 +1,5 @@
+# Nhật ký gói telemetry đã nhận. external_message_id kết hợp device_id để chống xử lý trùng;
+# payload giữ dữ liệu gốc, processing_status/error/processed_at mô tả kết quả pipeline.
 import uuid
 from datetime import datetime
 from sqlalchemy import CheckConstraint, Enum, ForeignKey, Index, Integer, SmallInteger, String, UniqueConstraint, text
@@ -10,6 +12,8 @@ from app.domain.enums import ProcessingStatus
 
 
 class TelemetryMessage(Base, UUIDMixin):
+    # topic/qos/protocol mô tả đường truyền; measured/received_at đo độ trễ.
+    # status/error/processed_at/retry_count mô tả vòng đời xử lý payload gốc.
     __tablename__ = "telemetry_messages"
 
     # ID của thiết bị gửi bản tin telemetry
@@ -21,6 +25,7 @@ class TelemetryMessage(Base, UUIDMixin):
         nullable=True,
     )
 
+    # Topic và QoS giữ bằng chứng lớp vận chuyển để truy vết gói đến từ kênh nào.
     topic: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     qos: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
 
@@ -42,7 +47,8 @@ class TelemetryMessage(Base, UUIDMixin):
     # Nội dung dữ liệu telemetry gốc dưới dạng JSON
     payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
 
-    # Trạng thái xử lý bản tin
+    # PENDING: đã lưu nhưng chưa xử lý; PROCESSED: đã cập nhật nghiệp vụ; SKIPPED:
+    # không có vị trí; FAILED: payload hoặc xử lý lỗi và có processing_error.
     processing_status: Mapped[ProcessingStatus] = mapped_column(Enum(ProcessingStatus), default=ProcessingStatus.PENDING, nullable=False)
 
     # Nội dung lỗi nếu xử lý bản tin thất bại
@@ -53,6 +59,7 @@ class TelemetryMessage(Base, UUIDMixin):
         nullable=True,
     )
 
+    # Bộ đếm dành cho cơ chế retry xử lý về sau; không được phép âm theo constraint.
     retry_count: Mapped[int] = mapped_column(
         Integer,
         default=0,
@@ -68,6 +75,8 @@ class TelemetryMessage(Base, UUIDMixin):
     # Liên kết bản tin telemetry với thiết bị gửi dữ liệu
     device = relationship("Device")
 
+    # Unique(device_id, external_message_id) là hàng rào chống trùng ở database.
+    # PostgreSQL cho phép nhiều NULL nên gói cũ không có message_id vẫn được lưu.
     __table_args__ = (
         CheckConstraint(
             "qos IS NULL OR qos BETWEEN 0 AND 2",
@@ -90,6 +99,8 @@ class TelemetryMessage(Base, UUIDMixin):
         Index(
             "ix_telemetry_messages_pending_received",
             "received_at",
+            # Chỉ mục partial phục vụ truy vấn bản tin chưa hoàn tất mà không làm
+            # chỉ mục phình theo toàn bộ lịch sử PROCESSED.
             postgresql_where=text(
                 "processing_status IN ('PENDING', 'FAILED')"
             ),

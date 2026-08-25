@@ -1,3 +1,5 @@
+# Nhóm API tài khoản cá nhân: đăng nhập, đọc hồ sơ, đổi mật khẩu và lưu tùy chọn.
+# Mọi thao tác dùng cùng UserService để quy tắc khóa tài khoản và thu hồi token nhất quán.
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -26,6 +28,8 @@ async def login(
     credentials: LoginRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    # Service khóa dòng tài khoản, áp dụng giới hạn lần sai và trả None cho mọi
+    # trường hợp không được phép đăng nhập; route không tự suy luận nguyên nhân.
     user = await UserService.authenticate(
         db,
         credentials.username,
@@ -37,6 +41,7 @@ async def login(
             detail="Username hoặc mật khẩu không chính xác",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    # Chỉ phát JWT sau khi audit đăng nhập thành công đã commit trong UserService.
     token = create_access_token(user)
     return TokenResponse(
         access_token=token,
@@ -48,6 +53,7 @@ async def login(
 async def read_current_user(
     user: Annotated[UserAccount, Depends(require_current_user)],
 ):
+    # User lấy trực tiếp từ dependency đã xác minh token_version và is_active.
     return user
 
 
@@ -57,6 +63,8 @@ async def change_password(
     user: Annotated[UserAccount, Depends(require_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    # Service kiểm tra mật khẩu hiện tại, băm mật khẩu mới và tăng token_version;
+    # phản hồi 204 không gửi lại hash hoặc token thay thế.
     changed = await UserService.change_own_password(
         db,
         user,
@@ -75,6 +83,7 @@ async def read_current_settings(
     user: Annotated[UserAccount, Depends(require_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    # Tự tạo dòng mặc định cho tài khoản cũ nếu chưa có user_settings.
     return await UserService.get_settings(db, user.id)
 
 
@@ -84,4 +93,5 @@ async def update_current_settings(
     user: Annotated[UserAccount, Depends(require_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    # PATCH chỉ cập nhật trường đã gửi; preferences được merge theo từng khóa tại service.
     return await UserService.update_settings(db, user, settings_in)

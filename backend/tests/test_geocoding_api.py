@@ -1,3 +1,4 @@
+# Xác nhận API geocoding trả provider thật và ánh xạ lỗi dịch vụ ngoài thành HTTP 503.
 import asyncio
 import os
 import sys

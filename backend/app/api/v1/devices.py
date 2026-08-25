@@ -1,3 +1,5 @@
+# Nhóm API quản lý thiết bị: danh sách, đăng ký, cập nhật, xem chi tiết và thiết bị MQTT lạ.
+# Quyền xem dành cho người dùng hợp lệ; tạo/sửa thiết bị chỉ dành cho ADMIN.
 import uuid
 from typing import List
 
@@ -31,6 +33,8 @@ async def read_mqtt_sightings(
     db: AsyncSession = Depends(get_db),
     _current_user=Depends(require_admin_if_enabled),
 ):
+    # Danh sách chờ chỉ hiển thị mã đã phát MQTT nhưng chưa có trong `devices`.
+    # Dependency ADMIN bảo vệ cả khi frontend cố gọi endpoint trực tiếp.
     return await DeviceService.get_mqtt_sightings(db, skip=skip, limit=limit)
 
 
@@ -41,6 +45,9 @@ async def read_devices(
     db: AsyncSession = Depends(get_db),
     _current_user=Depends(require_viewer_if_enabled),
 ):
+    # Query schema kiểm tra limit dương; trần cấu hình bổ sung cho phép điều chỉnh
+    # quy mô doanh nghiệp mà không sửa route hoặc giao diện.
+    # Kiểm tra tại route vì giới hạn tối đa đến từ `.env`, không phải hằng số của schema.
     if limit > settings.device_list_max_limit:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -55,13 +62,17 @@ async def create_device(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(require_admin_if_enabled),
 ):
+    # Schema đã chuẩn hóa dữ liệu đầu vào; service tạo hồ sơ, latest state và audit
+    # trong cùng transaction. Unique constraint là lớp chống trùng cuối cùng.
     try:
+        # Khi auth được tắt có chủ đích trong test, actor có thể là None; production luôn có ADMIN.
         return await DeviceService.create_device(
             db,
             device,
             actor_user_id=current_user.id if current_user else None,
         )
     except IntegrityError:
+        # Rollback giải phóng session lỗi trước khi FastAPI trả xung đột cho client.
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -75,7 +86,9 @@ async def read_device(
     db: AsyncSession = Depends(get_db),
     _current_user=Depends(require_viewer_if_enabled),
 ):
+    # UUID lấy từ path nên FastAPI loại định dạng sai trước khi service truy vấn.
     device = await DeviceService.get_device(db, device_id)
+    # Hồ sơ không tồn tại được phân biệt với thiết bị tồn tại nhưng chưa có telemetry.
     if device is None:
         raise HTTPException(status_code=404, detail="Không tìm thấy thiết bị")
     return device
@@ -88,6 +101,8 @@ async def update_device(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(require_admin_if_enabled),
 ):
+    # PATCH chỉ thay trường có trong payload. Service khóa dòng, ghi audit và commit
+    # trước khi route phát snapshot thiết bị mới qua WebSocket.
     try:
         updated = await DeviceService.update_device(
             db,
@@ -96,6 +111,7 @@ async def update_device(
             actor_user_id=current_user.id if current_user else None,
         )
     except IntegrityError as exc:
+        # Xung đột thường là đổi device_code sang mã đã tồn tại; không che exception gốc.
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -103,6 +119,8 @@ async def update_device(
         ) from exc
     if updated is None:
         raise HTTPException(status_code=404, detail="Không tìm thấy thiết bị")
+    # Broadcast sau commit; nếu socket lỗi, dữ liệu REST/database vẫn là nguồn đúng.
+    # Payload dùng cùng cấu trúc DeviceResponse mà danh sách REST đang sử dụng.
     await realtime_service.broadcast_telemetry(
         {"type": "DEVICE_UPDATE", "device": updated}
     )

@@ -1,14 +1,21 @@
+// Một phép đo GPS bất biến. measuredAt là lúc thiết bị đo, receivedAt là lúc
+// backend nhận; hai mốc này không được tráo vì dùng đánh giá độ trễ và thứ tự hành trình.
 class LocationModel {
+  // Một mẫu lịch sử GPS bất biến từ API; measuredAt là lúc đo, receivedAt là lúc server nhận.
+  // id/deviceId liên kết bản ghi; measuredAt quyết định thứ tự thật của hành trình.
   final String id;
   final String deviceId;
   final DateTime measuredAt;
+  // latitude/longitude bắt buộc; altitudeM là cao độ mét nếu thiết bị hỗ trợ.
   final double latitude;
   final double longitude;
   final double? altitudeM;
+  // speedMps và headingDeg mô tả chuyển động; accuracyM/satelliteCount đánh giá GPS.
   final double? speedMps;
   final double? headingDeg;
   final double? accuracyM;
   final int? satelliteCount;
+  // source cho biết MQTT/REST; receivedAt/createdAt là thời điểm phía backend.
   final String? source;
   final DateTime? receivedAt;
   final DateTime? createdAt;
@@ -30,6 +37,7 @@ class LocationModel {
   });
 
   factory LocationModel.fromJson(Map<String, dynamic> json) {
+    // Ép số qua `num` để chấp nhận JSON integer/double mà không mất giá trị thập phân.
     return LocationModel(
       id: json['id'] ?? '',
       deviceId: json['device_id'] ?? '',

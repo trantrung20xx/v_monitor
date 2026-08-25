@@ -1,3 +1,4 @@
+# Xác nhận Settings chuẩn hóa đúng API, PostgreSQL, MQTT, CORS và giá trị bảo mật bắt buộc.
 import os
 import sys
 import unittest

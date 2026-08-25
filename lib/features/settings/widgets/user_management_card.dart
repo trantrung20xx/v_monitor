@@ -1,3 +1,5 @@
+// Giao diện quản trị tài khoản: tìm kiếm, lọc vai trò/quyền đăng nhập, tạo/sửa,
+// bật/tạm khóa và reset mật khẩu; mọi thao tác ghi vẫn phải qua API ADMIN.
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -6,10 +8,12 @@ import '../../../core/widgets/app_menu.dart';
 import '../../../data/models/user_model.dart';
 import '../settings_cubit.dart';
 
+// Hai chiều lọc độc lập: vai trò nghiệp vụ và quyền đăng nhập hiện tại.
 enum _UserRoleFilter { all, member, admin }
 
 enum _UserLoginFilter { all, allowed, blocked }
 
+// Action của popup gộp cả hai nhóm để không chiếm hai hàng bộ lọc trên giao diện.
 enum _UserFilterAction {
   roleAll,
   roleMember,
@@ -20,6 +24,8 @@ enum _UserFilterAction {
   reset,
 }
 
+// Khối quản trị tài khoản dành cho ADMIN. Danh sách UserModel lấy từ SettingsState;
+// widget chỉ tìm kiếm/lọc và chuyển thao tác tạo/sửa/reset về SettingsCubit.
 class UserManagementCard extends StatefulWidget {
   const UserManagementCard({
     super.key,
@@ -37,6 +43,7 @@ class UserManagementCard extends StatefulWidget {
 }
 
 class _UserManagementCardState extends State<UserManagementCard> {
+  // SearchController và hai filter là state trình bày cục bộ, không ghi xuống server.
   final TextEditingController _searchController = TextEditingController();
   _UserRoleFilter _roleFilter = _UserRoleFilter.all;
   _UserLoginFilter _loginFilter = _UserLoginFilter.all;
@@ -49,21 +56,29 @@ class _UserManagementCardState extends State<UserManagementCard> {
   }
 
   List<UserModel> get _visibleUsers {
+    // Chuẩn hóa không dấu/chữ thường rồi áp dụng vai trò, quyền đăng nhập và từ khóa.
+    // `isActive` là dữ liệu thật từ backend, không suy ra theo trạng thái online.
     return widget.users
         .where((user) {
+          // Vai trò lấy từ role thật; isAdmin chỉ là getter đọc role == ADMIN.
           final matchesRole = switch (_roleFilter) {
             _UserRoleFilter.all => true,
             _UserRoleFilter.member => !user.isAdmin,
             _UserRoleFilter.admin => user.isAdmin,
           };
+          // Loại sai vai trò trước khi xét quyền và từ khóa.
           if (!matchesRole) return false;
+          // Quyền đăng nhập đọc trực tiếp isActive do backend quản lý.
           final matchesLoginPermission = switch (_loginFilter) {
             _UserLoginFilter.all => true,
             _UserLoginFilter.allowed => user.isActive,
             _UserLoginFilter.blocked => !user.isActive,
           };
+          // Tài khoản sai quyền đăng nhập không tham gia tìm kiếm text.
           if (!matchesLoginPermission) return false;
+          // Từ khóa rỗng giữ toàn bộ tài khoản đã qua hai bộ lọc.
           if (_normalizedQuery.isEmpty) return true;
+          // Ghép ba trường nhận diện thành một chuỗi chuẩn hóa để tìm một lần.
           final searchableText = _normalizeSearchText(
             '${user.fullName} ${user.username} ${user.email ?? ''}',
           );
@@ -73,6 +88,7 @@ class _UserManagementCardState extends State<UserManagementCard> {
   }
 
   void _updateSearch(String value) {
+    // Chỉ rebuild khi chuỗi chuẩn hóa thay đổi để tránh dựng lại không cần thiết.
     setState(() => _normalizedQuery = _normalizeSearchText(value));
   }
 
@@ -82,25 +98,31 @@ class _UserManagementCardState extends State<UserManagementCard> {
   }
 
   int get _activeFilterCount {
+    // Badge đếm số chiều lọc khác `all`, không phải số tài khoản khớp.
     return (_roleFilter == _UserRoleFilter.all ? 0 : 1) +
         (_loginFilter == _UserLoginFilter.all ? 0 : 1);
   }
 
   void _selectFilter(_UserFilterAction action) {
+    // Một popup cập nhật đúng nhóm filter; lựa chọn Xóa bộ lọc đặt lại cả hai nhóm.
+    // Toàn bộ switch nằm trong một setState để mỗi lựa chọn chỉ rebuild một lần.
     setState(() {
       switch (action) {
+        // Nhóm role chỉ thay _roleFilter và giữ nguyên lựa chọn quyền đăng nhập.
         case _UserFilterAction.roleAll:
           _roleFilter = _UserRoleFilter.all;
         case _UserFilterAction.roleMember:
           _roleFilter = _UserRoleFilter.member;
         case _UserFilterAction.roleAdmin:
           _roleFilter = _UserRoleFilter.admin;
+        // Nhóm login chỉ thay _loginFilter và giữ nguyên lựa chọn vai trò.
         case _UserFilterAction.loginAll:
           _loginFilter = _UserLoginFilter.all;
         case _UserFilterAction.loginAllowed:
           _loginFilter = _UserLoginFilter.allowed;
         case _UserFilterAction.loginBlocked:
           _loginFilter = _UserLoginFilter.blocked;
+        // Reset đồng thời đưa cả hai chiều lọc về `all`.
         case _UserFilterAction.reset:
           _roleFilter = _UserRoleFilter.all;
           _loginFilter = _UserLoginFilter.all;
@@ -110,19 +132,24 @@ class _UserManagementCardState extends State<UserManagementCard> {
 
   @override
   Widget build(BuildContext context) {
+    // Header chứa tìm kiếm, lọc và nút thêm; phần dưới chỉ dựng danh sách đã lọc
+    // hoặc trạng thái rỗng để giữ cấu trúc dễ quét trên màn hình hẹp.
     final visibleUsers = _visibleUsers;
+    // Các bộ đếm luôn tính từ danh sách gốc để menu lọc không đổi số theo chính filter.
     final memberCount = widget.users.where((user) => !user.isAdmin).length;
     final adminCount = widget.users.length - memberCount;
     final allowedLoginCount = widget.users
         .where((user) => user.isActive)
         .length;
     final blockedLoginCount = widget.users.length - allowedLoginCount;
+    // Card bao toàn bộ tiêu đề, thanh công cụ và danh sách để giữ một vùng quản trị nhất quán.
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Hàng đầu hiển thị tiêu đề/tổng số bên trái và hai thao tác bên phải.
             Row(
               children: [
                 Icon(
@@ -155,6 +182,7 @@ class _UserManagementCardState extends State<UserManagementCard> {
                   key: const Key('reload-users-button'),
                   tooltip: 'Tải lại danh sách',
                   onPressed: widget.loading
+                      // Trong lúc tải, khóa refresh để không gửi request danh sách trùng.
                       ? null
                       : () => context.read<SettingsCubit>().loadUsers(),
                   icon: const Icon(Icons.refresh_rounded),
@@ -164,6 +192,7 @@ class _UserManagementCardState extends State<UserManagementCard> {
                   key: const Key('create-user-button'),
                   tooltip: 'Thêm tài khoản',
                   onPressed: widget.operationInProgress
+                      // Trong thao tác ghi, khóa form mới để tránh hai operation chồng nhau.
                       ? null
                       : () => showUserEditorDialog(context),
                   icon: const Icon(Icons.person_add_alt_1_rounded),
@@ -173,6 +202,7 @@ class _UserManagementCardState extends State<UserManagementCard> {
             const SizedBox(height: 16),
             LayoutBuilder(
               builder: (context, constraints) {
+                // Ô tìm kiếm chiếm phần co giãn; menu lọc chỉ rút về icon dưới 520 px.
                 return Row(
                   children: [
                     Expanded(
@@ -185,6 +215,7 @@ class _UserManagementCardState extends State<UserManagementCard> {
                           hintText: 'Tìm theo tên, username hoặc email',
                           prefixIcon: const Icon(Icons.search_rounded),
                           suffixIcon: _normalizedQuery.isEmpty
+                              // Không dựng nút xóa khi query rỗng để giảm chiếm chỗ.
                               ? null
                               : IconButton(
                                   key: const Key('clear-user-search'),
@@ -213,14 +244,17 @@ class _UserManagementCardState extends State<UserManagementCard> {
               },
             ),
             const SizedBox(height: 12),
+            // Các nhánh dưới loại trừ nhau theo ưu tiên: loading → nguồn rỗng → lọc rỗng → danh sách.
             if (widget.loading)
               const LinearProgressIndicator(minHeight: 2)
             else if (widget.users.isEmpty)
+              // Nguồn rỗng nghĩa API chưa có tài khoản để quản trị.
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 24),
                 child: Center(child: Text('Chưa có tài khoản để hiển thị.')),
               )
             else if (visibleUsers.isEmpty)
+              // Nguồn có dữ liệu nhưng không khớp bộ lọc/từ khóa hiện tại.
               Padding(
                 key: const Key('user-filter-empty'),
                 padding: const EdgeInsets.symmetric(vertical: 28),
@@ -240,6 +274,7 @@ class _UserManagementCardState extends State<UserManagementCard> {
                 ),
               )
             else
+              // Chỉ map danh sách đã lọc; mỗi row nhận đúng một UserModel.
               ...visibleUsers.map((user) => _UserRow(user: user)),
           ],
         ),
@@ -248,6 +283,7 @@ class _UserManagementCardState extends State<UserManagementCard> {
   }
 }
 
+// Nút popup lọc kết hợp vai trò và quyền đăng nhập để tối ưu không gian.
 class _UserFilterMenuButton extends StatelessWidget {
   const _UserFilterMenuButton({
     required this.compact,
@@ -275,12 +311,16 @@ class _UserFilterMenuButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Popup chia mục bằng header nhỏ; checked item thể hiện giá trị đang áp dụng và
+    // badge ngoài nút cho biết có bao nhiêu nhóm lọc hoạt động.
     final colors = Theme.of(context).colorScheme;
+    // Badge/nền active chỉ bật khi ít nhất một trong hai nhóm khác `all`.
     final hasActiveFilters = activeFilterCount > 0;
     final tooltip = hasActiveFilters
         ? 'Bộ lọc người dùng ($activeFilterCount đang áp dụng)'
         : 'Bộ lọc người dùng';
 
+    // Popup chia nhóm bằng item disabled để header không thể bị chọn như một filter.
     return PopupMenuButton<_UserFilterAction>(
       key: const Key('user-filter-button'),
       tooltip: tooltip,
@@ -349,6 +389,7 @@ class _UserFilterMenuButton extends StatelessWidget {
           label: 'Đã chặn ($blockedLoginCount)',
           selected: loginFilter == _UserLoginFilter.blocked,
         ),
+        // Hành động reset chỉ xuất hiện khi thực sự có filter cần xóa.
         if (hasActiveFilters) ...[
           const PopupMenuDivider(height: 10),
           _menuItem(
@@ -360,6 +401,7 @@ class _UserFilterMenuButton extends StatelessWidget {
           ),
         ],
       ],
+      // Semantics mô tả nút và số filter cho trình đọc màn hình ở cả hai dạng.
       child: Semantics(
         button: true,
         label: tooltip,
@@ -379,6 +421,7 @@ class _UserFilterMenuButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
           ),
           child: compact
+              // Mobile dùng icon và badge Positioned để giữ chiều rộng 56 px.
               ? Stack(
                   clipBehavior: Clip.none,
                   alignment: Alignment.center,
@@ -398,6 +441,7 @@ class _UserFilterMenuButton extends StatelessWidget {
                       ),
                   ],
                 )
+              // Desktop hiển thị icon, chữ và badge trong một hàng dễ đọc.
               : Row(
                   mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -454,6 +498,7 @@ class _UserFilterMenuButton extends StatelessWidget {
   }
 }
 
+// Badge số bộ lọc đang bật, không lặp lại toàn bộ tên bộ lọc trên thanh công cụ.
 class _FilterCountBadge extends StatelessWidget {
   const _FilterCountBadge({required this.count});
 
@@ -482,6 +527,7 @@ class _FilterCountBadge extends StatelessWidget {
   }
 }
 
+// Tiêu đề phân nhóm trong popup, không phải lựa chọn có thể nhấn.
 class _FilterMenuHeader extends StatelessWidget {
   const _FilterMenuHeader({required this.icon, required this.label});
 
@@ -511,6 +557,8 @@ class _FilterMenuHeader extends StatelessWidget {
 }
 
 String _normalizeSearchText(String value) {
+  // Bỏ dấu tiếng Việt và chuyển chữ thường để tìm tên thân thiện hơn; dữ liệu gốc
+  // trong UserModel không bị thay đổi.
   var normalized = value.toLowerCase().trim();
   const replacements = <String, String>{
     'àáạảãâầấậẩẫăằắặẳẵ': 'a',
@@ -521,6 +569,7 @@ String _normalizeSearchText(String value) {
     'ỳýỵỷỹ': 'y',
     'đ': 'd',
   };
+  // Thay từng ký tự có dấu bằng chữ cơ sở để tìm tên tiếng Việt không cần gõ dấu.
   for (final entry in replacements.entries) {
     for (final character in entry.key.characters) {
       normalized = normalized.replaceAll(character, entry.value);
@@ -529,6 +578,8 @@ String _normalizeSearchText(String value) {
   return normalized;
 }
 
+// Một dòng tài khoản hiển thị định danh, vai trò, quyền đăng nhập và thao tác.
+// Mọi giá trị lấy trực tiếp từ UserModel do API trả về.
 class _UserRow extends StatelessWidget {
   const _UserRow({required this.user});
 
@@ -536,7 +587,9 @@ class _UserRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Layout co giãn giữ badge và nút thao tác không ép tên/email hoặc gây overflow.
     final colors = Theme.of(context).colorScheme;
+    // Mỗi tài khoản là một surface riêng với viền nhẹ để quét danh sách dài.
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: DecoratedBox(
@@ -551,6 +604,7 @@ class _UserRow extends StatelessWidget {
           key: Key('managed-user-${user.id}'),
           contentPadding: const EdgeInsets.fromLTRB(12, 5, 4, 5),
           leading: SizedBox(
+            // Stack chồng avatar định danh với icon quyền đăng nhập ở góc dưới.
             width: 44,
             height: 44,
             child: Stack(
@@ -561,6 +615,7 @@ class _UserRow extends StatelessWidget {
                     backgroundColor: colors.primaryContainer,
                     foregroundColor: colors.onPrimaryContainer,
                     child: Text(
+                      // Ưu tiên chữ đầu họ tên; fallback username khi fullName rỗng.
                       user.fullName.trim().isNotEmpty
                           ? user.fullName.trim().characters.first.toUpperCase()
                           : user.username.characters.first.toUpperCase(),
@@ -579,6 +634,7 @@ class _UserRow extends StatelessWidget {
             ),
           ),
           title: Text(
+            // Tên dài bị ellipsis trong một dòng để trailing menu luôn còn chỗ.
             user.fullName.trim().isNotEmpty ? user.fullName : user.username,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -586,6 +642,7 @@ class _UserRow extends StatelessWidget {
               context,
             ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
           ),
+          // Wrap cho username và badge vai trò tự xuống dòng khi màn hình hẹp.
           subtitle: Wrap(
             spacing: 8,
             runSpacing: 4,
@@ -599,13 +656,16 @@ class _UserRow extends StatelessWidget {
             ],
           ),
           trailing: PopupMenuButton<String>(
+            // Popup gom sửa hồ sơ và reset mật khẩu để hàng không có nhiều nút lẻ.
             key: Key('user-actions-${user.id}'),
             tooltip: 'Thao tác tài khoản',
             constraints: const BoxConstraints(minWidth: 220, maxWidth: 260),
             onSelected: (action) {
+              // Chuỗi action chỉ tồn tại cục bộ trong menu, không gửi lên backend.
               if (action == 'edit') {
                 showUserEditorDialog(context, user: user);
               } else if (action == 'password') {
+                // Reset password dùng dialog riêng để không trộn mật khẩu với form hồ sơ.
                 _showResetPasswordDialog(context, user);
               }
             },
@@ -636,6 +696,7 @@ class _UserRow extends StatelessWidget {
   }
 }
 
+// Chỉ báo ngắn bằng icon/màu cho `isActive`; tooltip cung cấp diễn giải đầy đủ.
 class _LoginPermissionIndicator extends StatelessWidget {
   const _LoginPermissionIndicator({super.key, required this.allowed});
 
@@ -645,9 +706,12 @@ class _LoginPermissionIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     // `isActive` là quyền đăng nhập, không phải trạng thái online theo thời gian thực.
     final colors = Theme.of(context).colorScheme;
+    // Label đầy đủ nằm trong tooltip/semantics; item chỉ hiện icon ngắn gọn.
     final label = allowed ? 'Được phép đăng nhập' : 'Không được phép đăng nhập';
+    // Màu success/error lấy từ theme hiện tại, không hard-code mã màu.
     final color = allowed ? context.appColors.successStrong : colors.error;
 
+    // ExcludeSemantics ngăn Icon đọc tên kỹ thuật thêm lần nữa sau label bên ngoài.
     return Tooltip(
       message: label,
       child: Semantics(
@@ -677,6 +741,7 @@ class _LoginPermissionIndicator extends StatelessWidget {
   }
 }
 
+// Badge vai trò USER/ADMIN dùng palette theme, tách biệt với quyền đăng nhập.
 class _RoleBadge extends StatelessWidget {
   const _RoleBadge({required this.text, required this.color});
 
@@ -703,6 +768,8 @@ class _RoleBadge extends StatelessWidget {
   }
 }
 
+// Dialog tạo hoặc sửa tài khoản. `profileOnly` chỉ cho sửa hồ sơ cá nhân;
+// ngữ cảnh quản trị mới hiển thị vai trò và quyền đăng nhập.
 class _UserEditorDialog extends StatefulWidget {
   const _UserEditorDialog({this.user, this.profileOnly = false});
 
@@ -714,6 +781,8 @@ class _UserEditorDialog extends StatefulWidget {
 }
 
 class _UserEditorDialogState extends State<_UserEditorDialog> {
+  // Controller giữ dữ liệu form; role/active khởi tạo từ UserModel và chỉ được gửi
+  // khi form đang ở ngữ cảnh quản trị phù hợp.
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _usernameController;
   late final TextEditingController _fullNameController;
@@ -729,11 +798,13 @@ class _UserEditorDialogState extends State<_UserEditorDialog> {
   @override
   void initState() {
     super.initState();
+    // Khi sửa, controller lấy snapshot UserModel; khi tạo, các ô bắt đầu rỗng.
     final user = widget.user;
     _usernameController = TextEditingController(text: user?.username ?? '');
     _fullNameController = TextEditingController(text: user?.fullName ?? '');
     _emailController = TextEditingController(text: user?.email ?? '');
     _passwordController = TextEditingController();
+    // Tài khoản mới mặc định thành viên và được phép đăng nhập.
     _role = user?.role ?? 'USER';
     _isActive = user?.isActive ?? true;
   }
@@ -748,6 +819,9 @@ class _UserEditorDialogState extends State<_UserEditorDialog> {
   }
 
   Future<void> _submit() async {
+    // Form tạo yêu cầu mật khẩu; form sửa không gửi mật khẩu. Cubit chờ backend ghi
+    // audit và kiểm tra quản trị viên cuối cùng trước khi dialog đóng.
+    // Guard ngăn double-click và chỉ gửi khi toàn bộ validator trả null.
     if (_submitting || !(_formKey.currentState?.validate() ?? false)) return;
     setState(() {
       _submitting = true;
@@ -755,12 +829,14 @@ class _UserEditorDialogState extends State<_UserEditorDialog> {
     });
 
     final email = _emailController.text.trim();
+    // Payload nền luôn chứa họ tên/email; email rỗng được gửi null để xóa giá trị cũ.
     final data = <String, dynamic>{
       'full_name': _fullNameController.text.trim(),
       'email': email.isEmpty ? null : email,
       if (!widget.profileOnly) ...{'role': _role, 'is_active': _isActive},
     };
     final cubit = context.read<SettingsCubit>();
+    // Chế độ sửa dùng PATCH; chế độ tạo bổ sung username và mật khẩu cho POST.
     final error = _isEditing
         ? await cubit.updateUser(
             widget.user!.id,
@@ -772,11 +848,14 @@ class _UserEditorDialogState extends State<_UserEditorDialog> {
             'username': _usernameController.text.trim(),
             'password': _passwordController.text,
           });
+    // Dialog có thể đã đóng trong lúc chờ API nên phải kiểm tra mounted trước setState/pop.
     if (!mounted) return;
+    // true báo caller profileOnly rằng hồ sơ đã lưu và cần làm mới AuthCubit.
     if (error == null) {
       Navigator.of(context).pop(true);
       return;
     }
+    // Lỗi nghiệp vụ được giữ ngay trong dialog và mở lại nút gửi.
     setState(() {
       _submitting = false;
       _error = error;
@@ -785,6 +864,8 @@ class _UserEditorDialogState extends State<_UserEditorDialog> {
 
   @override
   Widget build(BuildContext context) {
+    // Nội dung dialog cuộn dọc và co theo màn hình để bàn phím không cắt trường
+    // nhập hoặc nút Lưu.
     return AlertDialog(
       title: Text(
         widget.profileOnly
@@ -802,6 +883,7 @@ class _UserEditorDialogState extends State<_UserEditorDialog> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextFormField(
+                  // Username chỉ chỉnh khi tạo; backend không hỗ trợ đổi username qua PATCH này.
                   key: const Key('user-username-field'),
                   controller: _usernameController,
                   enabled: !_isEditing && !_submitting,
@@ -830,6 +912,7 @@ class _UserEditorDialogState extends State<_UserEditorDialog> {
                     labelText: 'Email (không bắt buộc)',
                   ),
                 ),
+                // Mật khẩu ban đầu chỉ tồn tại ở form tạo và không nằm trong form sửa hồ sơ.
                 if (!_isEditing) ...[
                   const SizedBox(height: 12),
                   TextFormField(
@@ -845,6 +928,7 @@ class _UserEditorDialogState extends State<_UserEditorDialog> {
                         : null,
                   ),
                 ],
+                // profileOnly ẩn role/isActive để người dùng không tự nâng quyền.
                 if (!widget.profileOnly) ...[
                   const SizedBox(height: 12),
                   _UserRoleSelector(
@@ -903,6 +987,7 @@ class _UserEditorDialogState extends State<_UserEditorDialog> {
 
 /// Bộ chọn vai trò dùng cùng popup item với các danh sách lựa chọn của ứng dụng.
 /// Giá trị nghiệp vụ vẫn giữ nguyên `USER` và `ADMIN` khi gửi lên backend.
+// Bộ chọn vai trò trình bày hai lựa chọn dễ hiểu; giá trị gửi vẫn là USER/ADMIN.
 class _UserRoleSelector extends StatelessWidget {
   const _UserRoleSelector({
     super.key,
@@ -920,11 +1005,13 @@ class _UserRoleSelector extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final isAdmin = value == 'ADMIN';
+    // Nhãn/icon thân thiện chỉ dùng hiển thị; value gửi backend vẫn giữ enum tiếng Anh.
     final selectedLabel = isAdmin ? 'Quản trị viên' : 'Thành viên';
     final selectedIcon = isAdmin
         ? Icons.admin_panel_settings_outlined
         : Icons.person_outline_rounded;
 
+    // PopupMenuButton bị disable cùng form khi request đang gửi.
     return PopupMenuButton<String>(
       enabled: enabled,
       tooltip: 'Chọn vai trò',
@@ -1001,6 +1088,7 @@ class _UserRoleSelector extends StatelessWidget {
     required bool selected,
   }) {
     return PopupMenuItem<String>(
+      // value USER/ADMIN được trả cho onSelected; AppMenuItem chỉ quyết định trình bày.
       value: value,
       height: 48,
       padding: EdgeInsets.zero,
@@ -1017,6 +1105,7 @@ class _UserRoleSelector extends StatelessWidget {
   }
 }
 
+// Dialog đặt mật khẩu mới cho tài khoản mục tiêu, được mở từ hàng người dùng của ADMIN.
 class _ResetPasswordDialog extends StatefulWidget {
   const _ResetPasswordDialog({required this.user});
 
@@ -1027,6 +1116,7 @@ class _ResetPasswordDialog extends StatefulWidget {
 }
 
 class _ResetPasswordDialogState extends State<_ResetPasswordDialog> {
+  // Hai controller dùng để xác nhận nhập lại; mật khẩu không đưa vào state ứng dụng.
   final _formKey = GlobalKey<FormState>();
   final _passwordController = TextEditingController();
   final _confirmationController = TextEditingController();
@@ -1041,20 +1131,27 @@ class _ResetPasswordDialogState extends State<_ResetPasswordDialog> {
   }
 
   Future<void> _submit() async {
+    // Kiểm tra độ khớp tại client để phản hồi nhanh; backend vẫn áp dụng policy và
+    // tăng token_version nhằm thu hồi mọi phiên cũ của tài khoản.
+    // Guard ngăn gửi lặp và chỉ chạy khi độ dài/xác nhận đã hợp lệ.
     if (_submitting || !(_formKey.currentState?.validate() ?? false)) return;
     setState(() {
       _submitting = true;
       _error = null;
     });
+    // Mật khẩu chỉ được truyền trực tiếp vào Cubit, không đưa vào SettingsState.
     final error = await context.read<SettingsCubit>().resetUserPassword(
       widget.user.id,
       _passwordController.text,
     );
+    // Dialog có thể bị route đóng trong lúc request đang chạy.
     if (!mounted) return;
+    // Thành công đóng dialog; không hiển thị lại mật khẩu hoặc thông báo chứa mật khẩu.
     if (error == null) {
       Navigator.of(context).pop();
       return;
     }
+    // Lỗi backend được hiển thị và cho phép gửi lại sau khi sửa.
     setState(() {
       _submitting = false;
       _error = error;
@@ -1143,6 +1240,7 @@ Future<bool?> showUserEditorDialog(
   bool profileOnly = false,
 }) {
   return showDialog<bool>(
+    // Không cho đóng bằng chạm nền để tránh mất dữ liệu form ngoài ý muốn.
     context: context,
     barrierDismissible: false,
     builder: (_) => BlocProvider.value(
@@ -1157,6 +1255,7 @@ Future<void> _showResetPasswordDialog(BuildContext context, UserModel user) {
     context: context,
     barrierDismissible: false,
     builder: (_) => BlocProvider.value(
+      // Dialog dùng đúng SettingsCubit của trang thay vì tạo instance rỗng mới.
       value: context.read<SettingsCubit>(),
       child: _ResetPasswordDialog(user: user),
     ),

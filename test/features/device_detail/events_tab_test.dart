@@ -1,3 +1,4 @@
+// Xác nhận tab sự kiện hiển thị timeline đúng từ event backend và lọc nhóm an toàn.
 import 'dart:async';
 
 import 'package:flutter/material.dart';

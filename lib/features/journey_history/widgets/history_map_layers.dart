@@ -1,3 +1,5 @@
+// Các lớp vẽ bản đồ lịch sử: polyline theo đoạn, node đầu/cuối/dừng, marker playback
+// và popup điểm. Tọa độ đầu vào đã được domain kiểm tra trước.
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -14,6 +16,8 @@ import '../../../domain/entities/route_segment.dart';
 import '../journey_history_state.dart';
 
 /// Đại diện cho một điểm Dừng hoặc Đỗ xe được gom cụm tự động từ chuỗi toạ độ GPS.
+// Điểm dừng suy ra từ chuỗi mẫu liên tiếp dưới ngưỡng chuyển động; không phải bản
+// ghi DeviceEvent được lưu ở backend.
 class JourneyStopPoint {
   const JourneyStopPoint({
     required this.sample,
@@ -58,8 +62,10 @@ class JourneyStopPoint {
   }
 }
 
+// Loại nút trình bày trên tuyến: đầu, điểm giữa có nhãn, điểm dừng và cuối.
 enum JourneyRouteNodeType { start, place, park, end }
 
+// Model trình bày một node trên bản đồ, giữ sample nguồn và nhãn địa chỉ tùy chọn.
 class JourneyRouteNode {
   const JourneyRouteNode({
     required this.sample,
@@ -72,8 +78,10 @@ class JourneyRouteNode {
   final JourneyStopPoint? stopPoint;
 }
 
+// Bộ dựng các layer flutter_map cho hành trình: polyline từng đoạn, mũi tên hướng,
+// marker đầu/cuối/dừng, điểm playback và nhãn địa chỉ.
 class HistoryMapLayers {
-  /// Tính toán chiều rộng lõi lộ trình tự động co giãn theo mức Zoom (Responsive Polyline Width).
+  /// Tính chiều rộng lõi lộ trình tự co giãn theo mức thu phóng.
   /// Giúp lộ trình khi thu nhỏ không bị to đùng và khi phóng to đường phố không bị quá mảnh.
   static double getPolylineCoreWidth(double zoom) {
     if (zoom >= 18) return 8.0;
@@ -102,6 +110,7 @@ class HistoryMapLayers {
     final casingWidth = getPolylineCasingWidth(currentZoom);
 
     for (final seg in segments) {
+      // Một polyline cần tối thiểu hai tọa độ; đoạn rỗng hoặc một điểm không tạo thành đường.
       if (seg.samples.length < 2) continue;
 
       // 1. Lớp viền nền ngoài (Outer Casing) tạo độ tương phản cao trên mọi lớp bản đồ
@@ -198,11 +207,14 @@ class HistoryMapLayers {
     const maxArrowCount = 120;
 
     for (final seg in segments) {
+      // Giới hạn tổng marker để hành trình dài không tạo quá nhiều widget trên bản đồ.
       if (markers.length >= maxArrowCount) return markers;
       final samples = seg.samples;
       if (samples.length < 2) continue;
 
+      // Ghi số marker ban đầu để nhận biết đoạn ngắn chưa tạo được ký hiệu hướng.
       final segmentMarkerStart = markers.length;
+      // Mũi tên đầu tiên nằm gần nửa khoảng cách chuẩn, tránh dồn sát đầu đoạn.
       var distanceUntilNextArrow = targetDistanceM * 0.55;
       ({LatLng start, LatLng end, double distance, double bearing})?
       longestEdge;
@@ -212,15 +224,18 @@ class HistoryMapLayers {
         final p2 = LatLng(samples[i + 1].latitude, samples[i + 1].longitude);
 
         final dist = GpsValidator.calculateDistanceM(p1, p2);
+        // Bỏ cạnh cực ngắn để nhiễu GPS không tạo mũi tên xoay liên tục.
         if (dist < 3.0) continue;
 
         final bearing = GpsValidator.calculateBearing(p1, p2);
+        // Cạnh dài nhất dùng làm vị trí dự phòng nếu đoạn ngắn hơn khoảng rải marker.
         if (longestEdge == null || dist > longestEdge.distance) {
           longestEdge = (start: p1, end: p2, distance: dist, bearing: bearing);
         }
 
         var offset = distanceUntilNextArrow;
         while (offset <= dist && markers.length < maxArrowCount) {
+          // Tỷ lệ offset/dist nội suy marker nằm đúng trên cạnh giữa hai mẫu GPS.
           markers.add(
             _buildDirectionArrow(
               point: GpsValidator.interpolatePosition(p1, p2, offset / dist),
@@ -232,6 +247,7 @@ class HistoryMapLayers {
           offset += targetDistanceM;
         }
 
+        // Phần khoảng cách còn thiếu được mang sang cạnh kế tiếp để mật độ marker đều.
         distanceUntilNextArrow = offset - dist;
         if (markers.length >= maxArrowCount) return markers;
       }
@@ -287,6 +303,7 @@ class HistoryMapLayers {
   ) {
     if (samples.isEmpty) return const [];
 
+    // Chỉ sao chép và sort khi đầu vào chưa tăng dần, tránh cấp phát lại thông thường.
     final isSorted = _isChronologicallySorted(samples);
     final ordered = isSorted
         ? samples
@@ -297,6 +314,7 @@ class HistoryMapLayers {
     DateTime? clusterStartTime;
 
     void closeStationaryCluster(int endIndex) {
+      // Chốt cụm và xóa con trỏ trước để lần gọi sau không sử dụng lại cụm cũ.
       final startIndex = clusterStartIndex;
       final startTime = clusterStartTime;
       clusterStartIndex = null;
@@ -308,8 +326,10 @@ class HistoryMapLayers {
 
       final endTime = ordered[endIndex].measuredAt;
       final durationSec = endTime.difference(startTime).inSeconds.abs();
+      // Cụm dưới 30 giây được xem là dao động GPS, chưa đủ ý nghĩa để hiển thị.
       if (durationSec < 30) return;
 
+      // Mẫu giữa cụm đại diện vị trí dừng tốt hơn điểm đầu/cuối lúc đổi trạng thái.
       final midIdx = startIndex + ((endIndex - startIndex) ~/ 2);
       stops.add(
         JourneyStopPoint(
@@ -335,11 +355,13 @@ class HistoryMapLayers {
       final isStationary = _isStationarySample(ordered, i);
 
       if (isStationary) {
+        // Chỉ mở cụm ở mẫu đứng yên đầu tiên; các mẫu sau kéo dài cùng cụm.
         if (clusterStartIndex == null) {
           clusterStartIndex = i;
           clusterStartTime = sample.measuredAt;
         }
       } else {
+        // Mẫu chuyển động kết thúc cụm tại mẫu đứng yên ngay trước nó.
         closeStationaryCluster(i - 1);
       }
     }
@@ -370,6 +392,7 @@ class HistoryMapLayers {
   static List<JourneyRouteNode> extractRouteNodes(List<LocationModel> samples) {
     if (samples.isEmpty) return const [];
 
+    // Các phép tính khoảng cách và thời gian phía dưới yêu cầu thứ tự tăng dần.
     final isSorted = _isChronologicallySorted(samples);
     final ordered = isSorted
         ? samples
@@ -378,6 +401,7 @@ class HistoryMapLayers {
     final first = ordered.first;
     if (ordered.length == 1) {
       return [
+        // Một mẫu chỉ đủ biểu diễn điểm bắt đầu, chưa có điểm kết thúc độc lập.
         JourneyRouteNode(sample: first, type: JourneyRouteNodeType.start),
       ];
     }
@@ -388,6 +412,7 @@ class HistoryMapLayers {
     var totalDistanceM = 0.0;
     for (var i = 1; i < ordered.length; i++) {
       final gap = ordered[i].measuredAt.difference(ordered[i - 1].measuredAt);
+      // Không cộng đường thẳng xuyên qua khoảng mất dữ liệu vào quãng đường thật.
       if (gap > const Duration(minutes: 5)) continue;
       totalDistanceM += GpsValidator.calculateDistanceM(
         LatLng(ordered[i - 1].latitude, ordered[i - 1].longitude),
@@ -395,6 +420,7 @@ class HistoryMapLayers {
       );
     }
 
+    // Mục tiêu khoảng sáu mốc trung gian, có biên để tuyến ngắn/dài vẫn dễ đọc.
     final targetDistanceM = (totalDistanceM / 6).clamp(250.0, 3000.0);
     final placeSamples = <LocationModel>[];
     var distanceSinceNodeM = 0.0;
@@ -408,6 +434,7 @@ class HistoryMapLayers {
       final startsAfterGap = sampleGap > const Duration(minutes: 5);
 
       if (!startsAfterGap) {
+        // Chỉ tích lũy quãng đường trong cùng một đoạn GPS liên tục.
         distanceSinceNodeM += GpsValidator.calculateDistanceM(
           LatLng(previous.latitude, previous.longitude),
           LatLng(current.latitude, current.longitude),
@@ -415,6 +442,7 @@ class HistoryMapLayers {
       }
 
       final elapsed = current.measuredAt.difference(lastNodeTime);
+      // Bỏ điểm đỗ đã quá cũ để mỗi mẫu không phải quét lại toàn bộ danh sách.
       while (parkScanIndex < parks.length &&
           parks[parkScanIndex].sample.measuredAt.isBefore(
             current.measuredAt.subtract(const Duration(minutes: 5)),
@@ -422,6 +450,7 @@ class HistoryMapLayers {
         parkScanIndex++;
       }
       var nearPark = false;
+      // Tránh tạo mốc địa điểm sát điểm đỗ vì hai nhãn sẽ trùng ý nghĩa.
       for (var p = parkScanIndex; p < parks.length; p++) {
         final diffMin = current.measuredAt
             .difference(parks[p].sample.measuredAt)
@@ -438,11 +467,15 @@ class HistoryMapLayers {
         }
       }
       final shouldCreateNode =
+          // Khoảng mất GPS đánh dấu đầu của một đoạn dữ liệu mới.
           startsAfterGap ||
+          // Đủ quãng đường mục tiêu tạo mốc phân bố đều theo độ dài tuyến.
           distanceSinceNodeM >= targetDistanceM ||
+          // Tuyến đi chậm vẫn có mốc sau thời gian dài nếu đã đi ít nhất 100 m.
           (elapsed >= const Duration(minutes: 20) && distanceSinceNodeM >= 100);
 
       if (shouldCreateNode && !nearPark) {
+        // Mốc mới đặt lại cả gốc thời gian và bộ đếm quãng đường.
         placeSamples.add(current);
         lastNodeTime = current.measuredAt;
         distanceSinceNodeM = 0;
@@ -452,6 +485,7 @@ class HistoryMapLayers {
     }
 
     if (placeSamples.isEmpty && totalDistanceM >= 100 && ordered.length > 2) {
+      // Tuyến có di chuyển nhưng chưa đạt điều kiện sẽ dùng một điểm giữa làm dự phòng.
       final middleIndex = ordered.length ~/ 2;
       final fallbackCandidates = <LocationModel>[
         ordered[middleIndex],
@@ -465,6 +499,7 @@ class HistoryMapLayers {
               park.sample.longitude == candidate.longitude,
         );
         if (!duplicatesPark) {
+          // Chỉ cần một mốc dự phòng không trùng điểm đỗ.
           placeSamples.add(candidate);
           break;
         }
@@ -500,6 +535,7 @@ class HistoryMapLayers {
   static bool _isStationarySample(List<LocationModel> samples, int index) {
     final sample = samples[index];
     final threshold = DeviceStatusResolver.movingThresholdMps;
+    // Tốc độ thiết bị gửi là nguồn ưu tiên; chỉ suy diễn khi trường này bị thiếu.
     if (sample.speedMps != null) return sample.speedMps! <= threshold;
 
     LocationModel? other;
@@ -510,6 +546,7 @@ class HistoryMapLayers {
     }
     if (other == null) return false;
 
+    // Hai mẫu cách nhau quá lâu không đủ tin cậy để suy ra vận tốc.
     final seconds = sample.measuredAt
         .difference(other.measuredAt)
         .inSeconds
@@ -520,6 +557,7 @@ class HistoryMapLayers {
       LatLng(sample.latitude, sample.longitude),
       LatLng(other.latitude, other.longitude),
     );
+    // Dùng cùng ngưỡng với resolver để bản đồ không có định nghĩa di chuyển riêng.
     return distance / seconds <= threshold;
   }
 
@@ -535,6 +573,7 @@ class HistoryMapLayers {
   }) {
     if (validSamples.isEmpty) return const [];
 
+    // Thứ tự ba danh sách quyết định marker đầu/cuối được vẽ trên các marker còn lại.
     final placeMarkers = <Marker>[];
     final parkMarkers = <Marker>[];
     final topMarkers = <Marker>[];
@@ -567,6 +606,7 @@ class HistoryMapLayers {
     );
 
     if (validSamples.length >= 2) {
+      // Chỉ dựng marker kết thúc khi có ít nhất hai mẫu trong hành trình.
       final end = nodes
           .firstWhere((node) => node.type == JourneyRouteNodeType.end)
           .sample;
@@ -649,6 +689,7 @@ class HistoryMapLayers {
     LocationModel sample,
     Map<String, String> nodeAddresses,
   ) {
+    // Geocoding chưa có kết quả vẫn fallback tọa độ để không hiển thị ô trống.
     return nodeAddresses[routeNodeKey(sample)] ??
         DeviceFormatters.coordinates(sample.latitude, sample.longitude);
   }
@@ -715,7 +756,7 @@ class HistoryMapLayers {
     );
   }
 
-  /// Marker ĐỖ XE [P] với chữ P biểu tượng và nhãn thời lượng + mốc giờ đỗ trực quan
+  /// Điểm đỗ xe [P] kèm thời lượng và mốc giờ để nhận biết trực quan.
   static Widget _buildParkMarkerWidget({
     required String durationText,
     required String dateTimeText,
@@ -792,7 +833,7 @@ class HistoryMapLayers {
     );
   }
 
-  /// Marker Bắt đầu / Kết thúc nổi bật hiển thị đầy đủ Ngày & Giờ
+  /// Điểm bắt đầu/kết thúc nổi bật, hiển thị đầy đủ ngày và giờ.
   static Widget _buildStartEndMarkerWidget({
     required String title,
     required String dateTimeText,
@@ -935,11 +976,12 @@ class HistoryMapLayers {
     );
   }
 
-  /// Marker cho Replay chuyển động của thiết bị
+  /// Điểm đánh dấu vị trí thiết bị trong lúc phát lại.
   static Marker? buildReplayMarker({
     required JourneyHistoryState state,
     required ThemeData theme,
   }) {
+    // Chưa nội suy được vị trí thì không dựng marker giả tại tâm bản đồ.
     if (state.currentPosition == null) return null;
     final appColors =
         theme.extension<AppThemeColors>() ??
@@ -1024,6 +1066,7 @@ class HistoryMapLayers {
 }
 
 /// Đuôi bong bóng nối label với đúng tâm node GPS trên đường lộ trình.
+// Painter vẽ phần đuôi bong bóng của nhãn marker về đúng tọa độ.
 class _MarkerBubbleTailPainter extends CustomPainter {
   const _MarkerBubbleTailPainter({
     required this.fillColor,
@@ -1063,8 +1106,9 @@ class _MarkerBubbleTailPainter extends CustomPainter {
   }
 }
 
-/// Custom Painter vẽ mũi tên chỉ hướng dạng 2 đường kẻ cụp đầu vào nhau (Chevron ^)
+/// Bộ vẽ tùy chỉnh tạo mũi tên chỉ hướng dạng hai nét chụm đầu (chevron ^).
 /// với nét vẽ bo tròn và bóng đổ tương phản cao dọc theo lộ trình.
+// Painter vẽ chevron chỉ hướng dọc tuyến, dùng góc đã tính từ các mẫu GPS.
 class _RouteChevronPainter extends CustomPainter {
   const _RouteChevronPainter({required this.color, this.strokeWidth = 2.0});
 

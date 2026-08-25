@@ -1,4 +1,7 @@
+// Mô hình sự kiện nhận từ API/WebSocket: định danh thiết bị, loại, thời điểm,
+// vị trí và mô tả. fromJson chỉ chuyển kiểu, không suy diễn trạng thái mới.
 class DeviceEventModel {
+  // Sự kiện thật do backend lưu/phát realtime, khác các mốc trình bày suy ra trong timeline.
   final String id;
   final String deviceId;
   final String eventType;
@@ -16,6 +19,7 @@ class DeviceEventModel {
   });
 
   String get eventLabel {
+    // Ánh xạ mã kỹ thuật sang nhãn; description từ backend vẫn được giữ riêng.
     switch (eventType.toUpperCase()) {
       case 'ONLINE':
         return 'Thiết bị trực tuyến';
@@ -44,6 +48,7 @@ class DeviceEventModel {
 
   /// Phân loại nhóm sự kiện để lọc trên giao diện
   String get category {
+    // Gom nhiều eventType vào nhóm filter của tab Sự kiện mà không sửa mã gốc.
     switch (eventType.toUpperCase()) {
       case 'ONLINE':
       case 'OFFLINE':
@@ -64,6 +69,7 @@ class DeviceEventModel {
   }
 
   factory DeviceEventModel.fromJson(Map<String, dynamic> json) {
+    // occurred_at là mốc nghiệp vụ bắt buộc; source/description có thể vắng ở dữ liệu cũ.
     return DeviceEventModel(
       id: json['id']?.toString() ?? '',
       deviceId: json['device_id']?.toString() ?? '',

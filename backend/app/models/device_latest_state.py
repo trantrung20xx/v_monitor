@@ -1,3 +1,5 @@
+# Ảnh chụp trạng thái mới nhất của mỗi thiết bị để dashboard đọc nhanh mà không quét lịch sử.
+# latest_measured_at chống gói đến trễ ghi đè; last_seen_at phục vụ suy luận online/offline.
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Float, Index, Integer, false, text
 from sqlalchemy.dialects.postgresql import TIMESTAMP
@@ -9,6 +11,8 @@ from app.models.base import Base, TimestampMixin
 
 
 class DeviceLatestState(Base, TimestampMixin):
+    # device_id bảo đảm một hàng mỗi thiết bị; latest_sample_id truy về phép đo nguồn.
+    # current_* là ảnh chụp hiển thị, battery_pct null nghĩa là chưa nhận dữ liệu pin.
     __tablename__ = "device_latest_state"                 # Tên bảng trong PostgreSQL
 
     device_id: Mapped[uuid.UUID] = mapped_column(
@@ -27,6 +31,8 @@ class DeviceLatestState(Base, TimestampMixin):
         nullable=True                                      # Thời điểm đo của mẫu mới nhất
     )
 
+    # Tham chiếu mẫu đã tạo ra snapshot; SET NULL giữ latest state nếu lịch sử nguồn
+    # được dọn theo chính sách lưu trữ trong tương lai.
     latest_sample_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("location_samples.id", ondelete="SET NULL"),
@@ -76,6 +82,8 @@ class DeviceLatestState(Base, TimestampMixin):
         back_populates="latest_state"                       # Quan hệ ngược tới Device
     )
 
+    # Các CHECK bảo vệ dữ liệu vật lý hợp lệ ngay tại PostgreSQL. Chỉ mục partial
+    # cuối bảng tăng tốc tác vụ quét offline vì chỉ chứa những dòng đang online.
     __table_args__ = (
         CheckConstraint(
             "current_latitude IS NULL OR current_latitude BETWEEN -90 AND 90",

@@ -1,3 +1,4 @@
+// Xác nhận primitive menu giữ tương tác, theme và không overflow trên màn hình hẹp.
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';

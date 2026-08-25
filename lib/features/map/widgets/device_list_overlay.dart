@@ -1,3 +1,5 @@
+// Danh sách thiết bị nổi trên bản đồ: tìm kiếm, trạng thái và chọn marker.
+// Chiều cao/chiều rộng được giới hạn theo viewport để không overflow trên mobile.
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -11,7 +13,9 @@ import '../../../domain/entities/device_query_filter.dart';
 import '../../../domain/entities/device_status_resolver.dart';
 
 /// Overlay danh sách thiết bị trên Bản đồ
-/// Được tối ưu cho cả Desktop (Floating Panel) và Mobile (Draggable Bottom Sheet).
+/// Trên desktop dùng bảng nổi; trên di động dùng bottom sheet có thể kéo.
+// Danh sách thiết bị nổi dùng chung cho panel desktop và bottom sheet mobile trên bản đồ.
+// Devices/addresses đến từ DashboardState; widget giữ tìm kiếm và filter cục bộ.
 class DeviceListOverlay extends StatefulWidget {
   const DeviceListOverlay({
     super.key,
@@ -35,6 +39,7 @@ class DeviceListOverlay extends StatefulWidget {
 }
 
 class _DeviceListOverlayState extends State<DeviceListOverlay> {
+  // Query và filter chỉ thay đổi các item đang nhìn, không sửa danh sách nguồn.
   String _searchQuery = '';
   DeviceFilter _statusFilter = DeviceFilter.all;
   final TextEditingController _searchController = TextEditingController();
@@ -47,6 +52,8 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
 
   @override
   Widget build(BuildContext context) {
+    // Lọc theo từ khóa và DeviceStatusResolver, sau đó dựng header, filter và danh
+    // sách cuộn. ScrollController ngoài được dùng khi nằm trong DraggableScrollableSheet.
     final appColors = context.appColors;
     final filteredDevices = DeviceQueryFilter.filter(
       widget.devices,
@@ -62,6 +69,7 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
     int offlineCount = 0;
 
     for (final d in widget.devices) {
+      // Dùng cùng resolver với Dashboard để số đếm và màu marker không lệch nhau.
       final s = DeviceStatusResolver.resolve(
         isOnline: d.isOnline,
         lastSeenAt: d.lastSeenAt,
@@ -70,10 +78,12 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
         baseStatus: d.status,
       );
       if (s.connectivity == ConnectivityStatus.offline) {
+        // Ngoại tuyến không tiếp tục được xếp vào moving, stopped hoặc stale.
         offlineCount++;
       } else {
         onlineCount++;
         if (s.freshness == DataFreshnessStatus.stale) {
+          // Dữ liệu cũ có ưu tiên cao hơn trạng thái chuyển động đã hết hiệu lực.
           staleCount++;
         } else if (s.movement == MovementStatus.moving) {
           movingCount++;
@@ -85,6 +95,7 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
 
     final viewportWidth = MediaQuery.sizeOf(context).width;
     final isSheet = widget.isMobileSheet;
+    // Panel desktop chừa lề hai bên; bottom sheet dùng toàn chiều rộng.
     final panelWidth = isSheet
         ? double.infinity
         : math.min(410.0, math.max(0.0, viewportWidth - 24));
@@ -109,7 +120,7 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
       child: Column(
         mainAxisSize: MainAxisSize.max,
         children: [
-          // ─── Drag Handle (chỉ trên Mobile Sheet) ───
+          // Tay nắm kéo, chỉ hiển thị trên bottom sheet di động.
           if (isSheet) ...[
             const SizedBox(height: 8),
             Center(
@@ -125,7 +136,7 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
             const SizedBox(height: 4),
           ],
 
-          // ─── Header: Tiêu đề + Đếm số lượng + Nút đóng ───
+          // Phần đầu: tiêu đề, số lượng và nút đóng.
           Container(
             padding: EdgeInsets.fromLTRB(12, isSheet ? 4 : 10, 8, 8),
             decoration: BoxDecoration(
@@ -195,7 +206,7 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
             ),
           ),
 
-          // ─── Search Box tinh gọn ───
+          // Ô tìm kiếm tinh gọn.
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
             child: Container(
@@ -264,7 +275,7 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
             ),
           ),
 
-          // ─── Filter Tabs Bar ───
+          // Thanh lọc trạng thái dạng tab.
           _OverlayFilterBar(
             selected: _statusFilter,
             counts: {
@@ -350,6 +361,7 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
   }
 }
 
+// Thanh chip lọc của overlay; số đếm được tính từ snapshot thiết bị đang nhận.
 class _OverlayFilterBar extends StatelessWidget {
   const _OverlayFilterBar({
     required this.selected,
@@ -374,6 +386,7 @@ class _OverlayFilterBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final appColors = context.appColors;
     return SingleChildScrollView(
+      // Chip cuộn ngang để giữ nguyên nhãn và số đếm trên màn hình hẹp.
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.fromLTRB(8, 3, 8, 6),
       child: Row(
@@ -439,6 +452,7 @@ class _OverlayFilterBar extends StatelessWidget {
   }
 }
 
+// Model trình bày của một lựa chọn lọc trong overlay bản đồ.
 class _FilterOption {
   const _FilterOption(this.filter, this.label);
 
@@ -446,7 +460,8 @@ class _FilterOption {
   final String label;
 }
 
-/// Card hiển thị thông tin thiết bị siêu tinh gọn, tối ưu không gian cho màn hình nhỏ
+/// Thẻ thiết bị siêu gọn, ưu tiên thông tin cần quét nhanh trên màn hình nhỏ.
+// Dòng thiết bị trên overlay hiển thị tên, mã, trạng thái, địa chỉ và hành động chọn marker.
 class _DeviceMapCard extends StatelessWidget {
   const _DeviceMapCard({
     required this.device,
@@ -460,6 +475,7 @@ class _DeviceMapCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Tọa độ/trạng thái lấy từ DeviceModel; địa chỉ lấy theo device.id từ cache cha.
     final appColors = context.appColors;
     final status = DeviceStatusResolver.resolve(
       isOnline: device.isOnline,
@@ -487,6 +503,7 @@ class _DeviceMapCard extends StatelessWidget {
     final IconData badgeIcon;
 
     if (!isOnline) {
+      // Thứ tự ưu tiên badge: ngoại tuyến, mất GPS, di chuyển, dừng, trực tuyến.
       badgeColor = appColors.offline;
       badgeText = 'Ngoại tuyến';
       badgeIcon = Icons.power_settings_new_rounded;

@@ -1,3 +1,4 @@
+// Xác nhận dải thống kê hiển thị đúng số liệu và không overflow trên màn hình hẹp.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v_monitor/app/app_theme.dart';

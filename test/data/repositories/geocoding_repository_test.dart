@@ -1,3 +1,4 @@
+// Xác nhận cache địa chỉ, gộp request và khoảng chờ thử lại sau lỗi geocoding.
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v_monitor/core/network/api_client.dart';

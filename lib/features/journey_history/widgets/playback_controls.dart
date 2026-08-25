@@ -1,3 +1,5 @@
+// Bộ điều khiển phát lại gồm play/pause, bước thời gian, tốc độ và timeline.
+// Mọi nút chỉ gọi callback; timer và giới hạn chỉ số thuộc JourneyHistoryCubit.
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -5,6 +7,7 @@ import '../../../core/utils/device_formatters.dart';
 import '../../../core/widgets/app_menu.dart';
 import '../journey_history_state.dart';
 
+// Bộ điều khiển phát lại thuần UI: đọc state và chuyển play/pause/seek/speed về Cubit.
 class PlaybackControls extends StatelessWidget {
   final JourneyHistoryState state;
   final VoidCallback onPlay;
@@ -40,12 +43,14 @@ class PlaybackControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Hai ngưỡng chỉ đổi cách xếp nút; dữ liệu và callback playback không đổi.
     final theme = Theme.of(context);
     final width = MediaQuery.sizeOf(context).width;
     final isDesktop = width >= 800;
     final isCompact = width < 680;
 
     final hasSamples = state.validSamples.length >= 2;
+    // Playback cần hai mẫu để nội suy; thiếu dữ liệu sẽ khóa thao tác thời gian.
     final startTimeStr = hasSamples
         ? _timeFormat.format(state.validSamples.first.measuredAt.toLocal())
         : '--:--:--';
@@ -53,10 +58,12 @@ class PlaybackControls extends StatelessWidget {
         ? _timeFormat.format(state.validSamples.last.measuredAt.toLocal())
         : '--:--:--';
     final currentTimeStr = state.currentReplayTime != null
+        // State lưu UTC từ backend; giao diện đổi sang múi giờ máy trước khi định dạng.
         ? _dateFormat.format(state.currentReplayTime!.toLocal())
         : '--/--/---- --:--:--';
 
     final buttonsRow = Row(
+      // Cụm nút chỉ gọi callback; Cubit clamp thời gian và phát state mới.
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
@@ -78,6 +85,7 @@ class PlaybackControls extends StatelessWidget {
           ),
           onPressed: !hasSamples
               ? null
+              // Đang chạy thì tạm dừng; đã tạm dừng thì tiếp tục đúng vị trí hiện tại.
               : state.isPlaying
               ? onPause
               : (state.isPaused ? onResume : onPlay),
@@ -117,6 +125,7 @@ class PlaybackControls extends StatelessWidget {
     );
 
     final speedAndFollowRow = Row(
+      // Tốc độ phát và bám camera là hai tùy chọn độc lập gửi về Cubit.
       mainAxisSize: MainAxisSize.min,
       children: [
         // Tốc độ phát
@@ -145,7 +154,7 @@ class PlaybackControls extends StatelessWidget {
         ),
         const SizedBox(width: 8),
 
-        // Toggle theo dõi thiết bị
+        // Công tắc bật/tắt camera theo dõi thiết bị.
         InkWell(
           borderRadius: BorderRadius.circular(6),
           onTap: () => onFollowChanged(!state.followCamera),
@@ -257,6 +266,7 @@ class PlaybackControls extends StatelessWidget {
                       ),
                     ),
                     child: Slider(
+                      // Cubit ánh xạ tiến độ 0..1 về timestamp thật của hành trình.
                       value: state.playbackProgress,
                       onChanged: hasSamples ? onSeekProgress : null,
                     ),
@@ -276,11 +286,13 @@ class PlaybackControls extends StatelessWidget {
 
             // 3. Thanh nút điều khiển
             if (!isCompact)
+              // Màn hình rộng giữ điều khiển phát và tùy chọn trên cùng một hàng.
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [buttonsRow, speedAndFollowRow],
               )
             else
+              // Màn hình hẹp cho hàng nút cuộn ngang để không cắt nhãn.
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [

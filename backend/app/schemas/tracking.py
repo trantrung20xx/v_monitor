@@ -1,3 +1,5 @@
+# Hợp đồng GPS và lịch sử hành trình. Các giới hạn tọa độ/tốc độ/hướng loại dữ liệu sai
+# trước khi ghi; truncated báo frontend rằng kết quả đã chạm giới hạn số mẫu.
 from datetime import datetime
 from typing import List, Optional
 import uuid
@@ -8,6 +10,7 @@ from app.schemas.common import BaseSchema
 
 
 class LocationSampleBase(BaseSchema):
+    # measured_at do thiết bị cung cấp; các đơn vị chuẩn là mét, m/s và độ [0, 360).
     device_id: uuid.UUID
     measured_at: datetime
     latitude: float = Field(ge=-90, le=90)
@@ -32,12 +35,14 @@ class LocationSampleCreate(LocationSampleBase):
 
 
 class LocationSampleResponse(LocationSampleBase):
+    # Bổ sung id và thời điểm server nhận/tạo để frontend đánh giá độ trễ dữ liệu.
     id: uuid.UUID
     received_at: datetime
     created_at: datetime
 
 
 class LocationHistoryResponse(BaseSchema):
+    # from/to là khoảng truy vấn thực tế; total_count và truncated mô tả tính đầy đủ kết quả.
     device_id: uuid.UUID
     from_time: datetime
     to_time: datetime
@@ -47,6 +52,7 @@ class LocationHistoryResponse(BaseSchema):
 
 
 class DeviceEventResponse(BaseSchema):
+    # Sự kiện chuẩn hóa để timeline hiển thị thời gian, nguồn và mô tả dễ hiểu.
     id: uuid.UUID
     device_id: uuid.UUID
     event_type: str

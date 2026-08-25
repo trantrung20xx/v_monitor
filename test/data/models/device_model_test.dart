@@ -1,3 +1,4 @@
+// Xác nhận DeviceModel parse đúng hồ sơ quản lý, latest state và các trường nullable.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v_monitor/data/models/device_model.dart';
 

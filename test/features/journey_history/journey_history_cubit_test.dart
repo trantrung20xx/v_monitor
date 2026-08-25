@@ -1,3 +1,4 @@
+// Xác nhận tải, làm sạch, tóm tắt, race guard và máy phát lại của hành trình.
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';

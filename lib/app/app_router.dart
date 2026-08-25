@@ -1,3 +1,5 @@
+// Khai báo toàn bộ tuyến điều hướng. redirect bảo vệ route đăng nhập/quản trị;
+// Shell giữ thanh điều hướng chung và ánh xạ bốn mục Dashboard, Bản đồ, Thiết bị, Tài khoản.
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -18,6 +20,7 @@ final GlobalKey<NavigatorState> _shellNavigatorKey = GlobalKey<NavigatorState>(
 );
 
 /// Cấu hình điều hướng của phần ứng dụng đã xác thực.
+// Khai báo route tập trung cho đăng nhập, shell chính, bản đồ, thiết bị và chi tiết.
 class AppRouter {
   static final GoRouter router = GoRouter(
     navigatorKey: _rootNavigatorKey,
@@ -113,6 +116,7 @@ String? _redirectNonAdminSettings(BuildContext context, GoRouterState state) {
 }
 
 /// Khung điều hướng dùng thanh bên trên desktop và thanh đáy trên màn hình nhỏ.
+// Shell responsive giữ menu chính dùng chung quanh nội dung route con của GoRouter.
 class _AppShell extends StatefulWidget {
   const _AppShell({required this.child});
   final Widget child;
@@ -122,12 +126,15 @@ class _AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<_AppShell> {
+  // Chỉ số chọn dùng cho phản hồi UI; route hiện tại vẫn là nguồn điều hướng thật.
   int _selectedIndex = 0;
   bool _isMobileAccountMenuOpen = false;
 
   int _accountDestinationIndex(bool hasAdminAccess) => hasAdminAccess ? 3 : 2;
 
   void _onPrimaryDestinationSelected(int index) {
+    // Ánh xạ Dashboard/Bản đồ/Thiết bị/Tài khoản sang route có sẵn; mục Thiết bị
+    // tái sử dụng SettingsPage section devices.
     setState(() => _selectedIndex = index);
     switch (index) {
       case 0:
@@ -140,6 +147,7 @@ class _AppShellState extends State<_AppShell> {
   }
 
   Future<void> _onMobileDestinationSelected(int index) async {
+    // Mobile mở menu tài khoản dạng sheet; các mục còn lại điều hướng trực tiếp.
     final accountIndex = _accountDestinationIndex(
       context.read<AuthCubit>().state.hasAdminAccess,
     );
@@ -155,6 +163,8 @@ class _AppShellState extends State<_AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    // AuthState quyết định có hiện mục Thiết bị quản trị; LayoutBuilder chuyển giữa
+    // NavigationRail desktop và thanh điều hướng mobile mà không đổi route con.
     // Xác định mục điều hướng hiện tại từ đường dẫn.
     final hasAdminAccess = context.watch<AuthCubit>().state.hasAdminAccess;
     final accountIndex = _accountDestinationIndex(hasAdminAccess);
@@ -226,6 +236,7 @@ class _AppShellState extends State<_AppShell> {
 }
 
 Future<void> _showMobileAccountMenu(BuildContext context) {
+  // Bottom sheet tài khoản hiển thị hồ sơ/cài đặt/đăng xuất từ AuthState hiện tại.
   final authCubit = context.read<AuthCubit>();
   final user = authCubit.state.user;
   final displayName = user?.fullName.trim().isNotEmpty == true
@@ -284,6 +295,7 @@ Future<void> _showMobileAccountMenu(BuildContext context) {
   );
 }
 
+// Thanh điều hướng desktop hiển thị logo, các đích theo quyền và menu tài khoản cuối.
 class _DesktopNavRail extends StatelessWidget {
   const _DesktopNavRail({
     required this.selectedIndex,
@@ -381,6 +393,7 @@ class _DesktopNavRail extends StatelessWidget {
   }
 }
 
+// Popup tài khoản desktop chứa thông tin nhận diện và hành động tài khoản/cài đặt.
 class _DesktopAccountMenu extends StatelessWidget {
   const _DesktopAccountMenu();
 
@@ -465,6 +478,7 @@ class _DesktopAccountMenu extends StatelessWidget {
   }
 }
 
+// Một item menu chính có icon, nhãn, selected và tooltip khi rail thu gọn.
 class _NavItem extends StatelessWidget {
   const _NavItem({
     super.key,

@@ -1,3 +1,5 @@
+# Khởi tạo engine và session PostgreSQL bất đồng bộ dùng chung toàn backend.
+# Endpoint chỉ nhận session; vòng đời kết nối và pool được quản lý tập trung tại đây.
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import settings

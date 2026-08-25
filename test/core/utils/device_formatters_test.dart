@@ -1,3 +1,4 @@
+// Xác nhận đơn vị tốc độ runtime và cách định dạng dữ liệu thiết bị nhất quán.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v_monitor/core/utils/device_formatters.dart';
 import 'package:v_monitor/data/models/user_settings_model.dart';

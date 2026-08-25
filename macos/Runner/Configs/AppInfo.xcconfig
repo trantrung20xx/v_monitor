@@ -1,14 +1,12 @@
-// Application-level settings for the Runner target.
+// Metadata cấp ứng dụng cho target Runner macOS.
 //
-// This may be replaced with something auto-generated from metadata (e.g., pubspec.yaml) in the
-// future. If not, the values below would default to using the project name when this becomes a
-// 'flutter create' template.
+// Các giá trị này hiện được quản lý tại đây; Flutter chưa tự sinh toàn bộ từ pubspec.yaml.
 
-// The application's name. By default this is also the title of the Flutter window.
+// Tên sản phẩm, mặc định cũng là tiêu đề cửa sổ Flutter.
 PRODUCT_NAME = v_monitor
 
-// The application's bundle identifier
+// Bundle identifier duy nhất của ứng dụng macOS.
 PRODUCT_BUNDLE_IDENTIFIER = com.iig.vmonitor.vMonitor
 
-// The copyright displayed in application information
+// Thông tin bản quyền hiển thị trong hộp thông tin ứng dụng.
 PRODUCT_COPYRIGHT = Copyright © 2026 com.iig.v_monitor. All rights reserved.

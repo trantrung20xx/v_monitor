@@ -1,8 +1,10 @@
+// Biểu tượng thiết bị dùng chung, ánh xạ loại thiết bị sang icon và bề mặt theme.
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme_colors.dart';
 
-/// Returns an icon representing the device type.
+/// Trả biểu tượng tương ứng với loại thiết bị do backend cung cấp.
+// Biểu tượng loại thiết bị dùng chung; deviceType từ API được ánh xạ sang Material icon.
 class DeviceIcon extends StatelessWidget {
   const DeviceIcon({
     super.key,
@@ -38,6 +40,6 @@ class DeviceIcon extends StatelessWidget {
     }
   }
 
-  /// Get icon data without building a widget.
+  /// Trả IconData để marker hoặc widget khác tái sử dụng mà không cần dựng DeviceIcon.
   static IconData iconFor(String type) => _iconForType(type);
 }

@@ -1,3 +1,5 @@
+// Màn hình đăng nhập responsive. Controller chỉ giữ nội dung form; AuthCubit
+// thực hiện request, lưu token và quyết định chuyển sang ứng dụng.
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -5,6 +7,7 @@ import '../../core/theme/app_theme_colors.dart';
 import 'auth_cubit.dart';
 import 'auth_state.dart';
 
+// Màn hình đăng nhập lấy trạng thái xử lý từ AuthCubit và chỉ thu thập username/password.
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -13,6 +16,8 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  // Controller chỉ sống trong màn hình; mật khẩu được xóa cùng widget và không đưa
+  // vào AuthState. `_obscurePassword` chỉ điều khiển hiển thị ký tự.
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -26,6 +31,8 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _submit() {
+    // Validation cục bộ chặn trường rỗng; AuthCubit chịu trách nhiệm gọi API, lưu token
+    // và ánh xạ lỗi đăng nhập thành state cho giao diện.
     if (!(_formKey.currentState?.validate() ?? false)) return;
     context.read<AuthCubit>().login(
       _usernameController.text,
@@ -35,9 +42,12 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    // BlocConsumer vừa dựng spinner/thông báo theo AuthState, vừa điều hướng gián tiếp
+    // qua router khi trạng thái chuyển authenticated. Form cuộn để tránh overflow.
     return BlocBuilder<AuthCubit, AuthState>(
       builder: (context, state) {
         final appColors = context.appColors;
+        // Hai cờ từ AuthState điều khiển khóa form và hành động kết nối lại.
         final isSubmitting = state.status == AuthStatus.authenticating;
         final serverUnavailable = state.status == AuthStatus.serverUnavailable;
 
@@ -111,6 +121,7 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                 ),
                                 validator: (value) {
+                                  // UI kiểm tra hình thức; backend vẫn xác thực tài khoản thật.
                                   if ((value ?? '').trim().length < 3) {
                                     return 'Tên đăng nhập phải có ít nhất 3 ký tự.';
                                   }
@@ -147,6 +158,7 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                 ),
                                 validator: (value) {
+                                  // Không áp độ dài tại đăng nhập để không loại tài khoản cũ.
                                   if ((value ?? '').isEmpty) {
                                     return 'Mật khẩu không được để trống.';
                                   }
@@ -154,6 +166,7 @@ class _LoginPageState extends State<LoginPage> {
                                 },
                               ),
                               if (state.message != null) ...[
+                                // Nội dung lỗi do AuthCubit chuẩn hóa từ xác thực hoặc kết nối.
                                 const SizedBox(height: 14),
                                 Container(
                                   padding: const EdgeInsets.all(12),
@@ -173,6 +186,7 @@ class _LoginPageState extends State<LoginPage> {
                               ],
                               const SizedBox(height: 22),
                               if (serverUnavailable)
+                                // Mất backend sẽ thử initialize, không tự gửi lại mật khẩu.
                                 OutlinedButton.icon(
                                   key: const Key('retry-authentication'),
                                   onPressed: () =>
@@ -223,6 +237,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 }
 
+// Màn hình chờ rất ngắn khi AuthCubit đang đọc token an toàn và xác minh `/auth/me`.
 class AuthCheckingPage extends StatelessWidget {
   const AuthCheckingPage({super.key});
 

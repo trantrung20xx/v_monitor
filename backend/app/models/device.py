@@ -1,3 +1,5 @@
+# Bảng danh mục thiết bị đã được doanh nghiệp chấp nhận quản lý.
+# device_code là định danh MQTT; is_enabled là quyền nhận dữ liệu, độc lập với online/offline.
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import Boolean, CheckConstraint, Enum, String, true
 from sqlalchemy.dialects.postgresql import JSONB
@@ -6,6 +8,8 @@ from app.models.base import Base, UUIDMixin, TimestampMixin
 
 
 class Device(Base, UUIDMixin, TimestampMixin):
+    # `devices` là danh mục được quản trị viên phê duyệt. Sự xuất hiện trên MQTT
+    # không tự tạo bản ghi tại đây, nhờ đó dữ liệu lạ không trở thành thiết bị thật.
     __tablename__ = "devices"
 
     # Mã định danh của thiết bị trong hệ thống
@@ -29,7 +33,8 @@ class Device(Base, UUIDMixin, TimestampMixin):
     # Phiên bản firmware hiện tại
     firmware_version: Mapped[str] = mapped_column(String(50), nullable=True)
 
-    # Trạng thái hiện tại của thiết bị
+    # Trạng thái nghiệp vụ do quản trị quản lý, không dùng thay cho is_online được
+    # suy ra từ telemetry gần nhất trong DeviceLatestState.
     status: Mapped[DeviceStatus] = mapped_column(Enum(DeviceStatus), default=DeviceStatus.UNKNOWN)
 
     # Quyền nhận và xử lý telemetry, tách biệt với trạng thái online/offline.
@@ -40,14 +45,17 @@ class Device(Base, UUIDMixin, TimestampMixin):
         nullable=False,
     )
 
-    # Thông tin mở rộng của thiết bị dưới dạng JSON
+    # Thông tin mở rộng không thuộc schema cốt lõi; null nghĩa là chưa khai báo.
     metadata_json: Mapped[dict] = mapped_column(JSONB, nullable=True)
 
     # Các quan hệ dữ liệu
 
-    # Trạng thái mới nhất của thiết bị
+    # Trạng thái mới nhất quan hệ một-một; `selectinload` dùng tại service để tránh
+    # truy vấn riêng cho từng thiết bị khi dựng danh sách dashboard.
     latest_state = relationship("DeviceLatestState", back_populates="device", uselist=False)
 
+    # Constraint ở database bảo vệ cả dữ liệu đi vào ngoài API/Pydantic: mã và tên
+    # không rỗng, không chứa khoảng trắng thừa ở hai đầu.
     __table_args__ = (
         CheckConstraint(
             "length(btrim(device_code)) >= 1",

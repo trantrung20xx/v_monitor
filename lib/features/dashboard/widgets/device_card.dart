@@ -1,3 +1,5 @@
+// Thẻ thiết bị cho dashboard: hiển thị định danh, trạng thái đã resolve, vị trí,
+// pin và hành động mở chi tiết; bố cục tự đổi theo chiều rộng để tránh overflow.
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme_colors.dart';
@@ -7,6 +9,8 @@ import '../../../core/widgets/device_icon.dart';
 import '../../../data/models/device_model.dart';
 import '../../../domain/entities/device_status_resolver.dart';
 
+// Thẻ tóm tắt một DeviceModel: định danh, trạng thái đã resolve, vị trí, tốc độ,
+// pin và địa chỉ đã geocode từ DashboardState; nhấn thẻ mở trang chi tiết.
 class DeviceCard extends StatelessWidget {
   const DeviceCard({
     super.key,
@@ -21,6 +25,8 @@ class DeviceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Resolver kết hợp latest state thật với ngưỡng runtime. Địa chỉ được truyền từ
+    // cache DashboardCubit; thiếu địa chỉ không làm mất tọa độ hoặc dữ liệu thiết bị.
     final appColors = context.appColors;
     final status = DeviceStatusResolver.resolve(
       isOnline: device.isOnline,
@@ -53,7 +59,7 @@ class DeviceCard extends StatelessWidget {
         ? device.deviceCode.trim()
         : (device.name.trim().isEmpty ? null : device.deviceCode.trim());
 
-    // Device icon color & bg
+    // Màu biểu tượng và nền lấy theo trạng thái đã resolve.
     final (typeColor, typeBgColor) = _deviceTypeColors(
       device.deviceType,
       appColors,
@@ -95,7 +101,7 @@ class DeviceCard extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Device Icon Container
+                    // Khối biểu tượng nhận diện loại thiết bị.
                     Container(
                       width: 36,
                       height: 36,
@@ -110,7 +116,7 @@ class DeviceCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // Device Name and Code
+                    // Khối tên hiển thị và mã thiết bị.
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -376,6 +382,7 @@ class DeviceCard extends StatelessWidget {
   }
 }
 
+// Một chỉ số nhỏ trong thẻ thiết bị; label/value được giới hạn dòng để giữ chiều cao ổn định.
 class _MetricItem extends StatelessWidget {
   const _MetricItem({
     required this.icon,

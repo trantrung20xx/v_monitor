@@ -1,3 +1,5 @@
+// Giao diện quản lý thiết bị dành cho ADMIN: tách thiết bị đã đăng ký và MQTT chờ duyệt,
+// hỗ trợ tìm kiếm/lọc, chế độ gọn/chi tiết, thêm/sửa và bật/tạm khóa nhận dữ liệu.
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -10,16 +12,21 @@ import '../../../data/models/mqtt_device_sighting_model.dart';
 import '../../../domain/entities/device_status_resolver.dart';
 import '../settings_cubit.dart';
 
+// Bộ lọc chỉ áp dụng cho tab thiết bị đã đăng ký; tab chờ duyệt chưa có quyền nhận dữ liệu.
 enum _DevicePermissionFilter { all, enabled, disabled }
 
+// Chế độ gọn ưu tiên quét danh sách; chế độ chi tiết mở thêm metadata vận hành.
 enum _DeviceViewMode { compact, detailed }
 
+// Ánh xạ loại thiết bị từ API sang biểu tượng nhận diện, không dùng để suy luận trạng thái.
 IconData _deviceTypeIcon(String type) => switch (type) {
   'UAV_CONTROLLER' => Icons.flight_rounded,
   'VEHICLE' => Icons.directions_car_filled_rounded,
   _ => Icons.memory_rounded,
 };
 
+// Khối nội dung chính của mục Quản lý thiết bị. Danh sách đã đăng ký và danh sách
+// MQTT chờ duyệt được truyền từ SettingsState; widget chỉ lọc và trình bày dữ liệu đó.
 class DeviceManagementCard extends StatefulWidget {
   const DeviceManagementCard({
     super.key,
@@ -40,8 +47,11 @@ class DeviceManagementCard extends StatefulWidget {
 
 class _DeviceManagementCardState extends State<DeviceManagementCard>
     with SingleTickerProviderStateMixin {
+  // Mỗi lần chỉ dựng thêm 30 dòng để danh sách lớn không tạo toàn bộ widget cùng lúc.
   static const _pageSize = 30;
 
+  // State cục bộ chỉ điều khiển cách xem: từ khóa, bộ lọc, tab, độ chi tiết và số
+  // dòng đang hiện. Dữ liệu thiết bị thật vẫn do SettingsCubit quản lý.
   final _searchController = TextEditingController();
   _DevicePermissionFilter _permissionFilter = _DevicePermissionFilter.all;
   _DeviceViewMode _viewMode = _DeviceViewMode.compact;
@@ -54,37 +64,50 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
   @override
   void initState() {
     super.initState();
+    // Hai tab dùng chung một controller để thanh tab và pane nội dung giữ cùng index.
     _tabController = TabController(length: 2, vsync: this);
+    // Làm mới nền theo chu kỳ để tab chờ duyệt nhận mã MQTT mới mà không che danh
+    // sách hiện tại bằng loading. Cubit tự chặn khi một thao tác ghi đang chạy.
     _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      // Không đọc context sau dispose và không refresh chồng lên request đang chạy.
       if (!mounted || widget.loading || widget.operationInProgress) return;
+      // Chỉ yêu cầu Cubit làm mới nguồn; widget không tự sửa danh sách cục bộ.
       context.read<SettingsCubit>().refreshDeviceManagement();
     });
   }
 
   @override
   void dispose() {
+    // Hủy timer trước khi dispose controller để callback không dùng context đã đóng.
     _refreshTimer?.cancel();
+    // Mỗi controller do state tạo phải được giải phóng cùng vòng đời widget.
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
   void _resetVisibleCounts() {
+    // Mỗi lần đổi tìm kiếm/bộ lọc đưa phân trang hiển thị về trang đầu.
     _registeredVisible = _pageSize;
     _pendingVisible = _pageSize;
   }
 
   List<DeviceModel> get _filteredDevices {
+    // Lọc trên snapshot đã tải: quyền nhận dữ liệu trước, sau đó mã/tên/sê-ri.
     final query = _searchController.text.trim().toLowerCase();
     return widget.devices
         .where((device) {
+          // Filter permission đọc trực tiếp isEnabled do backend trả về.
           final permissionMatches = switch (_permissionFilter) {
             _DevicePermissionFilter.all => true,
             _DevicePermissionFilter.enabled => device.isEnabled,
             _DevicePermissionFilter.disabled => !device.isEnabled,
           };
+          // Loại thiết bị sai quyền trước để không chạy ba phép contains không cần thiết.
           if (!permissionMatches) return false;
+          // Từ khóa rỗng giữ toàn bộ bản ghi đã qua lọc quyền.
           if (query.isEmpty) return true;
+          // Tìm không phân biệt hoa thường trên ba trường người vận hành dễ nhận diện nhất.
           return device.deviceCode.toLowerCase().contains(query) ||
               device.name.toLowerCase().contains(query) ||
               (device.serialNumber?.toLowerCase().contains(query) ?? false);
@@ -93,8 +116,11 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
   }
 
   List<MqttDeviceSightingModel> get _filteredSightings {
+    // Thiết bị chờ chỉ có mã và topic thật do backend tổng hợp, chưa có hồ sơ mô tả.
     final query = _searchController.text.trim().toLowerCase();
+    // Không sao chép danh sách khi không tìm kiếm; widget chỉ đọc snapshot đầu vào.
     if (query.isEmpty) return widget.sightings;
+    // Sighting chưa có name/serial nên chỉ tìm trong deviceCode và lastTopic.
     return widget.sightings
         .where(
           (sighting) =>
@@ -108,6 +134,9 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
     DeviceModel? device,
     MqttDeviceSightingModel? sighting,
   }) {
+    // Cùng một form phục vụ thêm thủ công, sửa hồ sơ và đăng ký từ sighting.
+    // BlocProvider.value giữ đúng SettingsCubit khi dialog nằm ngoài cây route.
+    // barrierDismissible bị khóa khi operation đang chạy để tránh đóng form giữa request.
     return showDialog<void>(
       context: context,
       barrierDismissible: !widget.operationInProgress,
@@ -119,7 +148,11 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
   }
 
   Future<void> _setEnabled(DeviceModel device, bool enabled) async {
+    // Tắt nhận dữ liệu cần xác nhận vì ảnh hưởng pipeline telemetry; bật lại được gửi
+    // ngay. Cả hai trường hợp đều chờ backend xác nhận trước khi báo thành công.
+    // Guard bỏ thao tác lặp và bỏ request không làm thay đổi giá trị hiện tại.
     if (widget.operationInProgress || device.isEnabled == enabled) return;
+    // Chỉ nhánh tắt cần xác nhận vì nó làm backend ngừng xử lý telemetry mới.
     if (!enabled) {
       final confirmed = await showDialog<bool>(
         context: context,
@@ -141,12 +174,15 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
           ],
         ),
       );
+      // null xảy ra khi đóng dialog bằng back; false là nhấn Hủy.
       if (confirmed != true || !mounted) return;
     }
 
+    // PATCH chỉ gửi is_enabled, không ghi đè các trường hồ sơ khác.
     final error = await context.read<SettingsCubit>().updateDevice(device.id, {
       'is_enabled': enabled,
     });
+    // Chỉ hiện SnackBar thành công khi widget còn sống và Cubit không trả lỗi.
     if (!mounted || error != null) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -163,14 +199,20 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
 
   @override
   Widget build(BuildContext context) {
+    // Các số đếm lấy trực tiếp từ SettingsState. `visible*` chỉ là phần được dựng
+    // ở lượt hiện tại, không làm thay đổi tổng số hoặc dữ liệu nguồn.
     final enabledCount = widget.devices
         .where((device) => device.isEnabled)
         .length;
+    // Hai getter áp dụng cùng từ khóa nhưng quy tắc khác nhau theo nguồn dữ liệu.
     final filteredDevices = _filteredDevices;
     final filteredSightings = _filteredSightings;
+    // `take` giới hạn số item dựng trong lần render, không thay đổi danh sách đã lọc.
     final visibleDevices = filteredDevices.take(_registeredVisible).toList();
     final visibleSightings = filteredSightings.take(_pendingVisible).toList();
 
+    // Nội dung tab đã đăng ký: trạng thái rỗng, các thẻ thiết bị và nút tải thêm.
+    // Biểu thức chọn đúng một trong hai cây widget nên danh sách rỗng không vẫn dựng item.
     final registeredContent = visibleDevices.isEmpty
         ? const _DeviceEmptyState(
             key: Key('registered-device-empty'),
@@ -180,6 +222,7 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
           )
         : Column(
             children: [
+              // Spread thêm khoảng cách giữa các item nhưng không thêm sau item cuối.
               for (var index = 0; index < visibleDevices.length; index++) ...[
                 _RegisteredDeviceTile(
                   key: Key(
@@ -196,6 +239,7 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
                 if (index != visibleDevices.length - 1)
                   const SizedBox(height: 10),
               ],
+              // Nút tải thêm chỉ xuất hiện khi phần visible chưa bao phủ toàn bộ kết quả lọc.
               if (visibleDevices.length < filteredDevices.length) ...[
                 const SizedBox(height: 12),
                 SizedBox(
@@ -212,6 +256,8 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
               ],
             ],
           );
+    // Tab chờ dùng MqttDeviceSightingModel; nút Đăng ký điền trước device_code nhưng
+    // không tự cấp quyền hoạt động cho tới khi backend tạo hồ sơ thành công.
     final pendingContent = visibleSightings.isEmpty
         ? const _DeviceEmptyState(
             key: Key('mqtt-sighting-empty'),
@@ -222,6 +268,7 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
           )
         : Column(
             children: [
+              // Item sighting chỉ có hành động đăng ký, không có switch quyền hay trạng thái online.
               for (var index = 0; index < visibleSightings.length; index++) ...[
                 _MqttSightingTile(
                   key: Key(
@@ -253,10 +300,13 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
             ],
           );
 
+    // Bố cục dọc gồm card điều khiển gọn và card tab danh sách, dành phần lớn chiều
+    // cao màn hình cho các item thiết bị.
     return Column(
       key: const Key('device-management-content'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Header nhận tổng số nguồn, không nhận số sau lọc để các chỉ số luôn phản ánh toàn hệ thống.
         _DeviceManagementHeader(
           registeredCount: widget.devices.length,
           enabledCount: enabledCount,
@@ -272,6 +322,7 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
             disabledCount: widget.devices.length - enabledCount,
             showPermissionFilter: _selectedTabIndex == 0,
             pendingMode: _selectedTabIndex == 1,
+            // Mỗi ký tự tìm kiếm rebuild cục bộ và đưa giới hạn visible về trang đầu.
             onSearchChanged: (_) => setState(_resetVisibleCounts),
             onPermissionChanged: (value) {
               setState(() {
@@ -282,6 +333,7 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
           ),
         ),
         const SizedBox(height: 8),
+        // Card thứ hai nhận sẵn hai pane; bản thân nó chỉ hiển thị pane của selectedIndex.
         _DeviceTabbedContent(
           controller: _tabController,
           selectedIndex: _selectedTabIndex,
@@ -291,9 +343,11 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
           registeredContent: registeredContent,
           pendingContent: pendingContent,
           onSelected: (index) {
+            // Chạm lại tab hiện tại không cần setState/rebuild.
             if (_selectedTabIndex == index) return;
             setState(() => _selectedTabIndex = index);
           },
+          // Chế độ xem chỉ là state cục bộ, không phát request cấu hình.
           onViewModeChanged: (value) => setState(() => _viewMode = value),
         ),
       ],
@@ -301,6 +355,7 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
   }
 }
 
+// Card đầu trang gom ba chỉ số tổng quan, nút thêm và thanh tìm kiếm/lọc vào một vùng.
 class _DeviceManagementHeader extends StatelessWidget {
   const _DeviceManagementHeader({
     required this.registeredCount,
@@ -323,18 +378,24 @@ class _DeviceManagementHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appColors = context.appColors;
+    // Card này là vùng điều khiển phía trên, tách khỏi card danh sách để cuộn/quét rõ ràng.
     return Card(
       key: const Key('device-management-controls'),
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Thanh 2 px chỉ báo request ban đầu nhưng không thay chiều cao nội dung đáng kể.
           if (loading) const LinearProgressIndicator(minHeight: 2),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            // LayoutBuilder chuyển chỉ số và nút thêm sang dạng compact khi hẹp,
+            // tránh ép chữ hoặc gây overflow trên điện thoại.
             child: LayoutBuilder(
               builder: (context, constraints) {
+                // Dưới 600 px, mỗi metric bỏ nền viền và ưu tiên icon+số+nhãn hai dòng.
                 final useCompactMetrics = constraints.maxWidth < 600;
+                // Ba metric đều lấy số từ SettingsState được truyền qua widget cha.
                 final metricItems = [
                   _DeviceMetric(
                     compact: useCompactMetrics,
@@ -363,6 +424,7 @@ class _DeviceManagementHeader extends StatelessWidget {
                 ];
                 final metrics = KeyedSubtree(
                   key: const Key('device-compact-metrics'),
+                  // Mobile dùng ba cột bằng nhau; desktop dùng Wrap để co giãn tự nhiên.
                   child: useCompactMetrics
                       ? IntrinsicHeight(
                           child: Row(
@@ -382,6 +444,7 @@ class _DeviceManagementHeader extends StatelessWidget {
                         )
                       : Wrap(spacing: 8, runSpacing: 8, children: metricItems),
                 );
+                // Nút thêm chuyển từ icon-only có tooltip sang nút icon+text khi đủ rộng.
                 final addButton = useCompactMetrics
                     ? Tooltip(
                         message: 'Thêm thiết bị',
@@ -407,6 +470,7 @@ class _DeviceManagementHeader extends StatelessWidget {
                         icon: const Icon(Icons.add_rounded, size: 18),
                         label: const Text('Thêm thiết bị'),
                       );
+                // Hàng metric/nút thêm nằm trên, tìm kiếm/lọc nằm dưới divider.
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -432,6 +496,7 @@ class _DeviceManagementHeader extends StatelessWidget {
   }
 }
 
+// Một chỉ số nhỏ trong header; màu lấy từ AppThemeColors của theme hiện tại.
 class _DeviceMetric extends StatelessWidget {
   const _DeviceMetric({
     this.compact = false,
@@ -452,6 +517,7 @@ class _DeviceMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appColors = context.appColors;
+    // Nhánh compact bỏ container trang trí để dành diện tích ngang cho ba chỉ số.
     if (compact) {
       return Tooltip(
         message: '$tooltip: $value',
@@ -490,6 +556,7 @@ class _DeviceMetric extends StatelessWidget {
         ),
       );
     }
+    // Nhánh rộng dùng pill độc lập để mỗi chỉ số dễ quét bằng mắt.
     return Tooltip(
       message: tooltip,
       child: Container(
@@ -526,6 +593,7 @@ class _DeviceMetric extends StatelessWidget {
   }
 }
 
+// Thanh điều khiển: ô tìm kiếm luôn hiện, bộ lọc quyền chỉ hiện ở tab đã thêm.
 class _DeviceFilterBar extends StatelessWidget {
   const _DeviceFilterBar({
     required this.controller,
@@ -551,6 +619,8 @@ class _DeviceFilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Semantics mô tả đúng ngữ cảnh tab cho trình đọc màn hình; controller thuộc
+    // widget cha để cùng một từ khóa áp dụng nhất quán khi chuyển tab.
     final search = Semantics(
       textField: true,
       label: pendingMode
@@ -578,11 +648,13 @@ class _DeviceFilterBar extends StatelessWidget {
               minHeight: 38,
             ),
             suffixIcon: controller.text.isEmpty
+                // Không giữ chỗ nút xóa khi chưa có từ khóa để ô tìm kiếm rộng hơn.
                 ? null
                 : IconButton(
                     key: const Key('clear-device-search'),
                     tooltip: 'Xóa tìm kiếm',
                     onPressed: () {
+                      // Xóa controller và báo widget cha để danh sách được lọc lại ngay.
                       controller.clear();
                       onSearchChanged('');
                     },
@@ -596,8 +668,10 @@ class _DeviceFilterBar extends StatelessWidget {
         ),
       ),
     );
+    // Tab chờ không có is_enabled nên chỉ cần ô tìm kiếm.
     if (!showPermissionFilter) return search;
 
+    // Tab đã thêm ghép tìm kiếm và bộ lọc trên một hàng; bộ lọc tự rút gọn khi hẹp.
     return LayoutBuilder(
       builder: (context, constraints) {
         final compactFilter = constraints.maxWidth < 520;
@@ -621,6 +695,7 @@ class _DeviceFilterBar extends StatelessWidget {
   }
 }
 
+// Popup lọc trạng thái nhận dữ liệu; số lượng lấy từ danh sách thật đã tải.
 class _DevicePermissionFilterMenu extends StatelessWidget {
   const _DevicePermissionFilterMenu({
     required this.value,
@@ -641,12 +716,14 @@ class _DevicePermissionFilterMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appColors = context.appColors;
+    // Nhãn nút phản ánh cả lựa chọn và số lượng thật tương ứng.
     final selectedLabel = switch (value) {
       _DevicePermissionFilter.all => 'Tất cả ($totalCount)',
       _DevicePermissionFilter.enabled => 'Đang bật ($enabledCount)',
       _DevicePermissionFilter.disabled => 'Tạm ngừng ($disabledCount)',
     };
 
+    // Ở dạng compact, nút chỉ rộng 40 px và tooltip vẫn giữ nhãn đầy đủ.
     return SizedBox(
       width: compact ? 40 : null,
       height: 40,
@@ -704,6 +781,7 @@ class _DevicePermissionFilterMenu extends StatelessWidget {
                     : appColors.primary,
               ),
               if (!compact) ...[
+                // Text và mũi tên chỉ xuất hiện ở chiều rộng đủ lớn; icon lọc luôn hiện.
                 const SizedBox(width: 8),
                 Expanded(
                   child: Align(
@@ -736,6 +814,8 @@ class _DevicePermissionFilterMenu extends StatelessWidget {
   }
 }
 
+// Card danh sách tách hai nguồn dữ liệu thành tab Đã thêm và Chờ xác nhận; thanh tab
+// đồng thời chứa lựa chọn Gọn/Chi tiết áp dụng cho item ở cả hai tab.
 class _DeviceTabbedContent extends StatelessWidget {
   const _DeviceTabbedContent({
     required this.controller,
@@ -768,6 +848,7 @@ class _DeviceTabbedContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Thanh trên cao cố định 44 px chứa tab co giãn và menu chế độ xem.
           Container(
             decoration: BoxDecoration(
               color: appColors.surfaceSubtle,
@@ -775,12 +856,14 @@ class _DeviceTabbedContent extends StatelessWidget {
             ),
             child: LayoutBuilder(
               builder: (context, constraints) {
+                // Chỉ rút ngắn nhãn tab Chờ xác nhận; badge số lượng vẫn được giữ.
                 final compactTabs = constraints.maxWidth < 430;
                 return SizedBox(
                   height: 44,
                   child: Row(
                     children: [
                       Expanded(
+                        // Expanded cho TabBar dùng toàn bộ phần còn lại trước menu chế độ xem.
                         child: TabBar(
                           controller: controller,
                           onTap: onSelected,
@@ -822,6 +905,7 @@ class _DeviceTabbedContent extends StatelessWidget {
                           ],
                         ),
                       ),
+                      // Divider dọc phân tách điều hướng tab và tùy chọn mật độ item.
                       SizedBox(
                         height: 24,
                         child: VerticalDivider(
@@ -840,7 +924,10 @@ class _DeviceTabbedContent extends StatelessWidget {
               },
             ),
           ),
+          // Chỉ dựng pane đang chọn để không hiển thị hai danh sách cùng lúc và
+          // không tiêu tốn chiều cao cho nội dung không được xem.
           Padding(
+            // Key theo tab giúp kiểm thử và semantics xác định đúng pane đang hiển thị.
             key: Key(
               selectedIndex == 0
                   ? 'registered-devices-pane'
@@ -855,6 +942,7 @@ class _DeviceTabbedContent extends StatelessWidget {
   }
 }
 
+// Nhãn tab gồm tên ngắn và badge số bản ghi sau tìm kiếm/bộ lọc.
 class _DeviceTabLabel extends StatelessWidget {
   const _DeviceTabLabel({
     required this.label,
@@ -898,6 +986,7 @@ class _DeviceTabLabel extends StatelessWidget {
   }
 }
 
+// Menu đổi mật độ item; đây là tùy chọn hiển thị cục bộ, không ghi vào backend.
 class _DeviceViewModeMenu extends StatelessWidget {
   const _DeviceViewModeMenu({
     required this.value,
@@ -912,11 +1001,13 @@ class _DeviceViewModeMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appColors = context.appColors;
+    // Ba biến này cùng xuất phát từ enum để icon, nhãn và checked không lệch nhau.
     final isCompact = value == _DeviceViewMode.compact;
     final label = isCompact ? 'Gọn' : 'Chi tiết';
     final icon = isCompact
         ? Icons.view_agenda_outlined
         : Icons.view_day_outlined;
+    // Popup giữ hai lựa chọn luôn sẵn; child bên dưới chỉ là nút hiển thị lựa chọn hiện tại.
     return PopupMenuButton<_DeviceViewMode>(
       key: const Key('device-view-mode-menu'),
       tooltip: 'Kiểu hiển thị: $label',
@@ -981,6 +1072,8 @@ class _DeviceViewModeMenu extends StatelessWidget {
   }
 }
 
+// Dòng thiết bị đã đăng ký. Hồ sơ lấy từ DeviceModel; nhãn online/GPS/chuyển động
+// được DeviceStatusResolver tính từ latest state thật và các ngưỡng runtime.
 class _RegisteredDeviceTile extends StatelessWidget {
   const _RegisteredDeviceTile({
     super.key,
@@ -1000,6 +1093,8 @@ class _RegisteredDeviceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appColors = context.appColors;
+    // Resolver thống nhất cùng logic với dashboard, bản đồ và trang chi tiết;
+    // widget không tự đoán trạng thái từ màu hoặc text.
     final status = DeviceStatusResolver.resolve(
       isOnline: device.isOnline,
       lastSeenAt: device.lastSeenAt,
@@ -1008,6 +1103,8 @@ class _RegisteredDeviceTile extends StatelessWidget {
       baseStatus: device.status,
     );
     final statusColor = status.activity == ActivityStatus.inactive
+        // Thứ tự ưu tiên màu: tạm khóa → ngoại tuyến → dữ liệu cũ → chuyển động → dừng → online.
+        // Màu chỉ phục vụ trình bày; nhãn status vẫn là thông tin đọc được chính.
         ? appColors.offline
         : status.connectivity == ConnectivityStatus.offline
         ? appColors.offline
@@ -1018,10 +1115,12 @@ class _RegisteredDeviceTile extends StatelessWidget {
         : status.movement == MovementStatus.stopped
         ? appColors.warningStrong
         : appColors.successStrong;
+    // displayName ưu tiên tên thân thiện; mã chỉ ẩn khi hai giá trị thực sự giống nhau.
     final displayName = DeviceFormatters.displayName(device);
     final showDeviceCode =
         displayName.trim().toLowerCase() !=
         device.deviceCode.trim().toLowerCase();
+    // Cụm trái luôn giữ avatar, tên và mã; thông tin phụ thay đổi theo chế độ xem.
     final identity = Row(
       key: Key('device-identity-${device.deviceCode}'),
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1047,6 +1146,7 @@ class _RegisteredDeviceTile extends StatelessWidget {
                 ),
               ),
               if (detailed && showDeviceCode) ...[
+                // Chế độ chi tiết tách mã monospace thành dòng riêng dưới tên.
                 const SizedBox(height: 2),
                 Text(
                   device.deviceCode,
@@ -1060,6 +1160,7 @@ class _RegisteredDeviceTile extends StatelessWidget {
                 ),
               ],
               if (!detailed) ...[
+                // Chế độ gọn đặt mã, trạng thái và thời gian trong Wrap ngay dưới tên.
                 const SizedBox(height: 4),
                 Wrap(
                   spacing: 10,
@@ -1098,6 +1199,7 @@ class _RegisteredDeviceTile extends StatelessWidget {
         ),
       ],
     );
+    // Chế độ chi tiết đặt các nhãn trạng thái/type/time trong Wrap để tự xuống dòng.
     final statusLabels = Wrap(
       spacing: 6,
       runSpacing: 6,
@@ -1122,6 +1224,7 @@ class _RegisteredDeviceTile extends StatelessWidget {
           ),
       ],
     );
+    // Cụm hành động giữ nút sửa riêng và switch quyền nhận dữ liệu có tooltip rõ nghĩa.
     final editButton = IconButton.filledTonal(
       key: Key('edit-device-${device.deviceCode}'),
       tooltip: 'Chỉnh sửa ${device.deviceCode}',
@@ -1136,6 +1239,8 @@ class _RegisteredDeviceTile extends StatelessWidget {
       icon: const Icon(Icons.edit_outlined, size: 18),
     );
     Widget permissionControl({required bool showLabel}) {
+      // Label được ẩn ở chiều rộng nhỏ nhưng tooltip vẫn mô tả đầy đủ trạng thái và hành động.
+      // Switch đọc isEnabled thật và bị disable trong lúc SettingsCubit đang thao tác.
       return Container(
         key: Key('device-permission-control-${device.deviceCode}'),
         padding: EdgeInsets.only(
@@ -1181,6 +1286,7 @@ class _RegisteredDeviceTile extends StatelessWidget {
       );
     }
 
+    // Cột thông tin chi tiết tái sử dụng cho cả nhánh mobile và desktop.
     final detailedInformation = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [identity, const SizedBox(height: 10), statusLabels],
@@ -1194,6 +1300,8 @@ class _RegisteredDeviceTile extends StatelessWidget {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
+          // Bốn nhánh dưới chỉ đổi cấu trúc trình bày; cùng identity/status/action được tái sử dụng.
+          // Gọn + rộng: toàn bộ item nằm một hàng để quét nhanh nhiều thiết bị.
           if (!detailed && constraints.maxWidth >= 700) {
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
@@ -1208,6 +1316,7 @@ class _RegisteredDeviceTile extends StatelessWidget {
               ),
             );
           }
+          // Gọn + hẹp: identity ở trên, switch ở cuối để không chen giữa tên/mã.
           if (!detailed) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1235,6 +1344,7 @@ class _RegisteredDeviceTile extends StatelessWidget {
               ],
             );
           }
+          // Chi tiết + hẹp: tách vùng thông tin và hành động bằng divider.
           if (constraints.maxWidth < 620) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1257,6 +1367,7 @@ class _RegisteredDeviceTile extends StatelessWidget {
               ],
             );
           }
+          // Chi tiết + rộng: thông tin và hành động cùng một hàng, không cắt metadata.
           return Padding(
             padding: const EdgeInsets.all(13),
             child: Row(
@@ -1275,6 +1386,7 @@ class _RegisteredDeviceTile extends StatelessWidget {
   }
 }
 
+// Dải metadata chỉ hiện ở chế độ chi tiết, dùng Wrap để tự xuống dòng khi thiếu rộng.
 class _InlineDeviceMetadata extends StatelessWidget {
   const _InlineDeviceMetadata({
     super.key,
@@ -1317,6 +1429,7 @@ class _InlineDeviceMetadata extends StatelessWidget {
   }
 }
 
+// Nền biểu tượng thiết bị dùng palette theo theme; kích thước đổi theo mật độ item.
 class _DeviceAvatar extends StatelessWidget {
   const _DeviceAvatar({
     required this.icon,
@@ -1344,6 +1457,8 @@ class _DeviceAvatar extends StatelessWidget {
   }
 }
 
+// Dòng thiết bị chưa đăng ký lấy từ thống kê sighting: mã, topic, lần thấy đầu/cuối
+// và số gói. Không hiển thị online vì chưa có DeviceLatestState chính thức.
 class _MqttSightingTile extends StatelessWidget {
   const _MqttSightingTile({
     super.key,
@@ -1361,6 +1476,7 @@ class _MqttSightingTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appColors = context.appColors;
+    // Identity chỉ dùng deviceCode do backend quan sát; không gán tên hoặc loại thiết bị giả.
     final identity = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1399,6 +1515,7 @@ class _MqttSightingTile extends StatelessWidget {
         ),
       ],
     );
+    // Chế độ gọn chỉ giữ số tín hiệu và thời điểm gần nhất để quét danh sách nhanh.
     final compactMetadata = Wrap(
       spacing: 6,
       runSpacing: 6,
@@ -1415,6 +1532,7 @@ class _MqttSightingTile extends StatelessWidget {
         ),
       ],
     );
+    // Chế độ chi tiết bổ sung lần đầu và topic MQTT phục vụ chẩn đoán/đăng ký.
     final detailedInformation = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1476,6 +1594,7 @@ class _MqttSightingTile extends StatelessWidget {
         ),
       ],
     );
+    // Nút chỉ mở form điền trước mã; chưa gọi API cho tới khi xác nhận trong dialog.
     final action = FilledButton.tonalIcon(
       key: Key('register-device-${sighting.deviceCode}'),
       onPressed: operationInProgress ? null : onRegister,
@@ -1506,6 +1625,7 @@ class _MqttSightingTile extends StatelessWidget {
             ),
             child: LayoutBuilder(
               builder: (context, constraints) {
+                // Gọn+rộng: identity, metadata và hành động nằm trên một hàng.
                 if (!detailed && constraints.maxWidth >= 700) {
                   return Row(
                     children: [
@@ -1517,12 +1637,14 @@ class _MqttSightingTile extends StatelessWidget {
                     ],
                   );
                 }
+                // Gọn+hẹp: metadata/action chuyển xuống dưới identity.
                 if (!detailed) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       identity,
                       const SizedBox(height: 7),
+                      // Dưới 480 px nút tách hẳn một hàng để tránh ép metadata.
                       if (constraints.maxWidth < 480) ...[
                         compactMetadata,
                         const SizedBox(height: 7),
@@ -1539,6 +1661,7 @@ class _MqttSightingTile extends StatelessWidget {
                     ],
                   );
                 }
+                // Chi tiết+hẹp xếp nút dưới nội dung; chiều rộng lớn đặt nút bên phải.
                 if (constraints.maxWidth < 560) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1560,6 +1683,7 @@ class _MqttSightingTile extends StatelessWidget {
               },
             ),
           ),
+          // Dải màu cảnh báo ở cạnh trái giúp phân biệt sighting với thiết bị đã đăng ký.
           Positioned(
             left: 0,
             top: 0,
@@ -1573,6 +1697,7 @@ class _MqttSightingTile extends StatelessWidget {
   }
 }
 
+// Nhãn thông tin phụ có icon và một dòng chữ, dùng lại trong các item thiết bị.
 class _CompactLabel extends StatelessWidget {
   const _CompactLabel({
     required this.icon,
@@ -1623,6 +1748,7 @@ class _CompactLabel extends StatelessWidget {
   }
 }
 
+// Trạng thái rỗng dùng chung cho kết quả lọc không khớp và danh sách chờ chưa có dữ liệu.
 class _DeviceEmptyState extends StatelessWidget {
   const _DeviceEmptyState({
     super.key,
@@ -1682,6 +1808,8 @@ class _DeviceEmptyState extends StatelessWidget {
   }
 }
 
+// Form thêm/sửa/đăng ký thiết bị. Dữ liệu ban đầu đến từ DeviceModel hoặc sighting;
+// khi lưu, form gửi trường quản trị tới SettingsCubit rồi chờ backend phản hồi.
 class _DeviceEditorDialog extends StatefulWidget {
   const _DeviceEditorDialog({this.device, this.sighting});
 
@@ -1693,6 +1821,8 @@ class _DeviceEditorDialog extends StatefulWidget {
 }
 
 class _DeviceEditorDialogState extends State<_DeviceEditorDialog> {
+  // Controller giữ các trường nhập; `_saving` khóa gửi lặp và `_error` hiển thị
+  // thông báo nghiệp vụ do Cubit trả về ngay trong dialog.
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _codeController;
   late final TextEditingController _nameController;
@@ -1709,8 +1839,10 @@ class _DeviceEditorDialogState extends State<_DeviceEditorDialog> {
   @override
   void initState() {
     super.initState();
+    // Sửa dùng DeviceModel; đăng ký sighting chỉ có deviceCode; thêm thủ công bắt đầu rỗng.
     final device = widget.device;
     final discoveredCode = widget.sighting?.deviceCode ?? '';
+    // Mã sighting được điền sẵn vào cả mã và tên để form có nhãn ban đầu dễ nhận biết.
     _codeController = TextEditingController(
       text: device?.deviceCode ?? discoveredCode,
     );
@@ -1725,6 +1857,7 @@ class _DeviceEditorDialogState extends State<_DeviceEditorDialog> {
     _firmwareController = TextEditingController(
       text: device?.firmwareVersion ?? '',
     );
+    // Loại/permission lấy từ hồ sơ khi sửa; thiết bị mới mặc định OTHER và được bật.
     _type = device?.type ?? 'OTHER';
     _isEnabled = device?.isEnabled ?? true;
   }
@@ -1742,7 +1875,9 @@ class _DeviceEditorDialogState extends State<_DeviceEditorDialog> {
 
   String? _requiredText(String? value, String label) {
     final normalized = value?.trim() ?? '';
+    // Kiểm tra sau trim để chuỗi toàn khoảng trắng không vượt validation.
     if (normalized.isEmpty) return '$label không được để trống.';
+    // Dấu `/` sẽ tạo thêm cấp topic MQTT nên bị chặn ngay tại form.
     if (label == 'Mã thiết bị' && normalized.contains('/')) {
       return 'Mã thiết bị không được chứa dấu /.';
     }
@@ -1755,8 +1890,12 @@ class _DeviceEditorDialogState extends State<_DeviceEditorDialog> {
   }
 
   Future<void> _save() async {
+    // Validation xử lý lỗi nhập liệu cơ bản; backend/schema/database vẫn là lớp xác
+    // thực cuối cùng và có thể trả lỗi để hiển thị tại `_error`.
+    // Guard khóa nút khi request cũ chưa xong và dừng nếu bất kỳ field nào không hợp lệ.
     if (_saving || !(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _saving = true);
+    // Payload chỉ gồm trường hồ sơ được API cho phép; chuỗi tùy chọn rỗng đổi thành null.
     final payload = <String, dynamic>{
       'device_code': _codeController.text.trim(),
       'name': _nameController.text.trim(),
@@ -1768,20 +1907,27 @@ class _DeviceEditorDialogState extends State<_DeviceEditorDialog> {
       'is_enabled': _isEnabled,
     };
     final cubit = context.read<SettingsCubit>();
+    // Cùng payload được chuyển tới PATCH khi sửa hoặc POST khi đăng ký mới.
     final error = _isEditing
         ? await cubit.updateDevice(widget.device!.id, payload)
         : await cubit.createDevice(payload);
+    // Dialog có thể đã bị route đóng trong lúc request chạy.
     if (!mounted) return;
+    // Thành công đóng dialog; SettingsCubit đã tải lại hai danh sách nguồn.
     if (error == null) {
       Navigator.of(context).pop();
       return;
     }
+    // Lỗi mở lại thao tác để người dùng chỉnh dữ liệu và gửi lại.
     setState(() => _saving = false);
   }
 
   @override
   Widget build(BuildContext context) {
+    // AlertDialog cho phép phần form cuộn để bàn phím hoặc màn hình thấp không làm
+    // nút hành động bị overflow hay cắt khỏi vùng nhìn.
     final colors = Theme.of(context).colorScheme;
+    // SizedBox đặt chiều rộng tối đa hợp lý; AlertDialog tự co lại theo màn hình nhỏ.
     return AlertDialog(
       title: Text(_isEditing ? 'Chỉnh sửa thiết bị' : 'Đăng ký thiết bị'),
       content: SizedBox(
@@ -1843,6 +1989,7 @@ class _DeviceEditorDialogState extends State<_DeviceEditorDialog> {
                 const SizedBox(height: 14),
                 LayoutBuilder(
                   builder: (context, constraints) {
+                    // Bốn field phần cứng dùng chung danh sách để đổi giữa một và hai cột.
                     final fields = [
                       TextFormField(
                         controller: _serialController,
@@ -1869,6 +2016,7 @@ class _DeviceEditorDialogState extends State<_DeviceEditorDialog> {
                         ),
                       ),
                     ];
+                    // Mobile xếp dọc toàn bộ field, tránh mỗi ô bị quá hẹp hoặc cắt nhãn.
                     if (constraints.maxWidth < 480) {
                       return Column(
                         children: [
@@ -1884,6 +2032,7 @@ class _DeviceEditorDialogState extends State<_DeviceEditorDialog> {
                         ],
                       );
                     }
+                    // Màn rộng dùng Wrap hai cột và tự xuống hàng nếu kích thước thay đổi.
                     return Wrap(
                       spacing: 10,
                       runSpacing: 10,
@@ -1898,6 +2047,7 @@ class _DeviceEditorDialogState extends State<_DeviceEditorDialog> {
                   },
                 ),
                 const SizedBox(height: 14),
+                // Khối cuối điều khiển quyền nhận telemetry ban đầu của hồ sơ thiết bị.
                 Material(
                   color: colors.surfaceContainerLow,
                   borderRadius: BorderRadius.circular(12),

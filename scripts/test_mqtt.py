@@ -1,3 +1,5 @@
+# Công cụ kiểm tra tích hợp: đọc cấu hình MQTT giống backend rồi phát một chuỗi GPS
+# giả lập QoS 1. Tệp không được import hoặc chạy trong tiến trình production.
 import json
 import os
 import time
@@ -17,6 +19,7 @@ except ImportError:
 
 
 def create_mqtt_client(client_id: str) -> mqtt.Client:
+    # Chọn API callback phù hợp với phiên bản paho-mqtt đang cài trên máy kiểm thử.
     if _HAS_CALLBACK_API_VERSION and CallbackAPIVersion is not None:
         return mqtt.Client(
             CallbackAPIVersion.VERSION2,
@@ -26,6 +29,7 @@ def create_mqtt_client(client_id: str) -> mqtt.Client:
 
 
 def load_backend_env():
+    # Đọc .env tối giản và chỉ đặt biến chưa có để biến môi trường của shell luôn ưu tiên.
     env_path = Path(__file__).resolve().parents[1] / "backend" / ".env"
     if not env_path.exists():
         return
@@ -43,6 +47,8 @@ def load_backend_env():
 
 load_backend_env()
 
+# Broker, xác thực, topic và nhịp phát đều có thể đổi qua biến môi trường; giá trị
+# mặc định phục vụ kiểm tra cục bộ với mã UAV-100.
 BROKER = os.getenv("MQTT_HOST", "broker.emqx.io")
 PORT = int(os.getenv("MQTT_PORT", "1883"))
 USE_TLS = os.getenv("MQTT_USE_TLS", "false").lower() == "true"
@@ -56,6 +62,7 @@ INTERVAL_SECONDS = float(os.getenv("MQTT_INTERVAL_SECONDS", "1"))
 
 
 def on_connect(client, userdata, flags, reason_code, properties=None):
+    # Chỉ phát sau khi broker xác nhận kết nối; mỗi mẫu mới có message_id riêng.
     print(
         f"Connected to MQTT broker {BROKER}:{PORT} "
         f"with result code {reason_code}"
@@ -91,6 +98,7 @@ def on_connect(client, userdata, flags, reason_code, properties=None):
     client.disconnect()
 
 
+# Client test không reconnect vô hạn; kết thúc sau COUNT mẫu hoặc khi gặp lỗi.
 client = create_mqtt_client(client_id="v_monitor_test_publisher")
 client.on_connect = on_connect
 if USERNAME:

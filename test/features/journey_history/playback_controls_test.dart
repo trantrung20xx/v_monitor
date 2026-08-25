@@ -1,3 +1,4 @@
+// Xác nhận nút/timeline phát lại gọi đúng callback mà không tự sửa dữ liệu hành trình.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';

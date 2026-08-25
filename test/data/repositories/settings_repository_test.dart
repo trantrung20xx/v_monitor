@@ -1,3 +1,4 @@
+// Xác nhận repository phát đúng settings từ REST/WebSocket và xóa runtime khi đăng xuất.
 import 'dart:async';
 
 import 'package:dio/dio.dart';

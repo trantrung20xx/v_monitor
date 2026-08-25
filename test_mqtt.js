@@ -1,3 +1,5 @@
+// Công cụ Node.js phát telemetry MQTT QoS 1 để kiểm tra tích hợp thủ công.
+// Script đọc backend/.env nhưng không tham gia vào tiến trình backend production.
 const mqtt = require("mqtt");
 const { randomUUID } = require("crypto");
 const fs = require("fs");
@@ -5,6 +7,8 @@ const path = require("path");
 
 loadBackendEnv();
 
+// Nhóm cấu hình kết nối broker; biến môi trường của shell/.env thay được toàn bộ
+// endpoint, xác thực, topic, số gói và khoảng phát mà không sửa script.
 const mqttHost = process.env.MQTT_HOST || "broker.emqx.io";
 const mqttPort = process.env.MQTT_PORT || "1883";
 const mqttUseTls = String(process.env.MQTT_USE_TLS || "false").toLowerCase() === "true";
@@ -17,12 +21,14 @@ const publishIntervalMs = Number.parseInt(process.env.MQTT_INTERVAL_MS || "2000"
 const publishCount = Number.parseInt(process.env.MQTT_COUNT || "0", 10);
 
 const client = mqtt.connect(mqttUrl, {
+	// Không tự reconnect để một lần chạy test có điểm kết thúc và báo lỗi rõ ràng.
 	username: process.env.MQTT_USERNAME || undefined,
 	password: process.env.MQTT_PASSWORD || undefined,
 	reconnectPeriod: 0,
 	connectTimeout: 10000,
 });
 
+// timer quản lý nhịp phát; sent là số mẫu đã publish trong lần chạy hiện tại.
 let timer = null;
 let sent = 0;
 
@@ -35,6 +41,7 @@ client.on("connect", () => {
 		sent += 1;
 		lat += 0.00008;
 		lng += 0.0001;
+		// Mỗi mẫu nghiệp vụ mới có UUID riêng; QoS 1 phát lại nội bộ vẫn giữ payload đó.
 		const payload = {
 			message_id: randomUUID(),
 			latitude: lat,
@@ -76,6 +83,8 @@ client.on("error", (err) => {
 });
 
 function loadBackendEnv() {
+	// Parser tối giản: bỏ dòng trống/comment, bỏ nháy bao quanh và không ghi đè biến
+	// đã được truyền từ shell để cấu hình gọi lệnh luôn có mức ưu tiên cao nhất.
 	const envPath = path.join(__dirname, "backend", ".env");
 	if (!fs.existsSync(envPath)) return;
 

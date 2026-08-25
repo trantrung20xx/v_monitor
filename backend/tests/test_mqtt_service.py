@@ -1,3 +1,4 @@
+# Xác nhận topic MQTT, client id và health snapshot phản ánh đúng kết nối/subscribe.
 import os
 import sys
 import unittest

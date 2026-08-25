@@ -12,9 +12,9 @@ G_DECLARE_FINAL_TYPE(MyApplication,
 /**
  * my_application_new:
  *
- * Creates a new Flutter-based application.
+ * Tạo một ứng dụng GTK làm host cho Flutter.
  *
- * Returns: a new #MyApplication.
+ * Trả về: một instance #MyApplication mới.
  */
 MyApplication* my_application_new();
 

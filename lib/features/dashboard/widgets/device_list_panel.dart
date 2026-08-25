@@ -1,3 +1,5 @@
+// Khung danh sách thiết bị chịu trách nhiệm trạng thái rỗng/loading và điều hướng
+// sang chi tiết. Từng hàng được ủy quyền cho DeviceCard.
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -6,6 +8,8 @@ import '../../../data/models/device_model.dart';
 import '../../../domain/entities/device_query_filter.dart';
 import 'device_card.dart';
 
+// Lưới danh sách thiết bị nhận kết quả đã lọc từ DashboardState và tự chọn số cột
+// theo chiều rộng; mỗi ô là DeviceCard mở route chi tiết theo id.
 class DeviceGrid extends StatelessWidget {
   const DeviceGrid({
     super.key,
@@ -22,6 +26,8 @@ class DeviceGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // LayoutBuilder tính độ rộng card thay vì dùng kích thước màn hình cố định,
+    // giúp widget hoạt động đúng cả trong sidebar hoặc cửa sổ desktop co nhỏ.
     final appColors = context.appColors;
     final filteredDevices = DeviceQueryFilter.filter(
       devices,

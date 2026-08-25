@@ -1,3 +1,4 @@
+// Xác nhận kiểm tra tọa độ, loại outlier, khoảng cách, hướng và nội suy GPS.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:v_monitor/data/models/location_model.dart';

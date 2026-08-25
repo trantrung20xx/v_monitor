@@ -1,3 +1,4 @@
+// Xác nhận HTTP/WebSocket dùng cấu hình chung, credential, retry, heartbeat và reconnect đúng hợp đồng.
 import 'dart:async';
 import 'dart:typed_data';
 

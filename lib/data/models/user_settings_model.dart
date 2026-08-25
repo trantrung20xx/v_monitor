@@ -1,10 +1,14 @@
+// Tùy chọn cá nhân đã lưu: theme, ngôn ngữ, múi giờ, thông báo, loại bản đồ và đơn vị tốc độ.
+// Các getter chuyển chuỗi API thành enum Flutter với giá trị dự phòng an toàn.
 import 'package:flutter/material.dart';
 
 import '../../core/config/map_tile_providers.dart';
 
+// Đơn vị tốc độ trình bày; dữ liệu domain/backend luôn giữ m/s.
 enum SpeedUnit { kmh, mps }
 
 class UserSettingsModel {
+  // Cài đặt cá nhân của tài khoản; preferences chứa tùy chọn mở rộng như map_type/speed_unit.
   const UserSettingsModel({
     this.theme = 'system',
     this.language = 'vi',
@@ -38,6 +42,7 @@ class UserSettingsModel {
       preferences['speed_unit'] == 'mps' ? SpeedUnit.mps : SpeedUnit.kmh;
 
   factory UserSettingsModel.fromJson(Map<String, dynamic> json) {
+    // Sao chép preferences thành Map mới để model không giữ tham chiếu mutable từ response Dio.
     final rawPreferences = json['preferences'];
     return UserSettingsModel(
       theme: switch (json['theme']) {
@@ -55,6 +60,7 @@ class UserSettingsModel {
   }
 
   UserSettingsModel copyWith({
+    // copyWith tạo snapshot optimistic/đã xác nhận mới cho SettingsState.
     String? theme,
     String? language,
     String? timezone,

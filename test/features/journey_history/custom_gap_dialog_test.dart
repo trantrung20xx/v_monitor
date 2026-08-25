@@ -1,3 +1,4 @@
+// Xác nhận hộp chọn gap kiểm tra giới hạn và trả Duration đúng lựa chọn người dùng.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v_monitor/features/journey_history/widgets/custom_gap_dialog.dart';

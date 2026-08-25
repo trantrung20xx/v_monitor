@@ -1,9 +1,12 @@
+// Hộp thoại đổi mật khẩu của chính người dùng: kiểm tra nhập lại tại UI rồi giao
+// AuthCubit xác minh mật khẩu hiện tại và thu hồi phiên theo nghiệp vụ backend.
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/theme/app_theme_colors.dart';
 import 'auth_cubit.dart';
 
+// Dialog đổi mật khẩu của tài khoản hiện tại; AuthCubit gọi backend và xóa phiên sau thành công.
 class ChangePasswordDialog extends StatefulWidget {
   const ChangePasswordDialog({super.key});
 
@@ -12,6 +15,7 @@ class ChangePasswordDialog extends StatefulWidget {
 }
 
 class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
+  // Ba controller không rời khỏi dialog; `_submitting` ngăn nhấn gửi nhiều lần.
   final _formKey = GlobalKey<FormState>();
   final _currentController = TextEditingController();
   final _newController = TextEditingController();
@@ -28,6 +32,8 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
   }
 
   Future<void> _submit() async {
+    // Form kiểm tra trường rỗng/khớp xác nhận trước, sau đó chuyển mật khẩu hiện tại
+    // và mới tới AuthCubit. Thông báo backend được hiển thị tại `_error`.
     if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() {
       _submitting = true;
@@ -46,6 +52,7 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
 
   @override
   Widget build(BuildContext context) {
+    // SingleChildScrollView giữ đủ trường và nút hành động khi bàn phím mở trên mobile.
     return AlertDialog(
       title: const Text('Đổi mật khẩu'),
       content: SizedBox(

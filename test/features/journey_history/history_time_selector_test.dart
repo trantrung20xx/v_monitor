@@ -1,3 +1,4 @@
+// Xác nhận bộ chọn thời gian nhanh/tùy chỉnh phát đúng khoảng và thích ứng màn hình.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v_monitor/data/models/device_model.dart';

@@ -1,3 +1,4 @@
+# Xác nhận băm mật khẩu, yêu cầu secret và các claim nhận dạng/version trong JWT.
 import os
 import sys
 import unittest

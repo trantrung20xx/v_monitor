@@ -23,11 +23,13 @@ from app.schemas.auth import UserCreate
 from app.services.user_service import DuplicateAccountError, UserService
 
 
+# Hai giới hạn trùng hợp đồng schema backend để lỗi được báo trước khi mở transaction.
 MIN_PASSWORD_LENGTH = 8
 MAX_PASSWORD_LENGTH = 128
 
 
 def _arguments() -> argparse.Namespace:
+    # Khai báo tham số dòng lệnh; mật khẩu có thể bỏ trống để nhập kín.
     parser = argparse.ArgumentParser(description="Tạo tài khoản quản trị v_monitor")
     parser.add_argument("--username", required=True, help="Tên đăng nhập")
     parser.add_argument("--full-name", required=True, help="Tên hiển thị")
@@ -43,6 +45,7 @@ def _arguments() -> argparse.Namespace:
 
 
 async def _create_admin(arguments: argparse.Namespace) -> int:
+    # Xác thực đầu vào, tạo ADMIN qua đúng UserService rồi trả exit code cho shell.
     password = _read_password(arguments.password)
     if password is None:
         return 2
@@ -76,6 +79,7 @@ async def _create_admin(arguments: argparse.Namespace) -> int:
 
 
 def _password_error(password: str) -> str | None:
+    # Trả thông báo vi phạm độ dài hoặc None khi mật khẩu hợp lệ.
     if len(password) < MIN_PASSWORD_LENGTH:
         return f"Mật khẩu phải có ít nhất {MIN_PASSWORD_LENGTH} ký tự."
     if len(password) > MAX_PASSWORD_LENGTH:
@@ -84,6 +88,7 @@ def _password_error(password: str) -> str | None:
 
 
 def _read_password(provided_password: str | None) -> str | None:
+    # Dùng tham số nếu có; nếu không thì yêu cầu nhập kín và xác nhận đến khi hợp lệ.
     if provided_password is not None:
         error = _password_error(provided_password)
         if error:

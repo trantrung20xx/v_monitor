@@ -1,3 +1,4 @@
+// Xác nhận resolver suy luận online, độ mới GPS, chuyển động và hoạt động từ dữ liệu thật.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v_monitor/domain/entities/device_status_resolver.dart';

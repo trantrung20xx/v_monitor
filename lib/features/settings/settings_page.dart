@@ -1,3 +1,5 @@
+// Khung trang Cài đặt và các trang con tài khoản, giao diện, phần mềm, người dùng,
+// theo dõi và thiết bị. Điều hướng/visibility theo vai trò, dữ liệu do SettingsCubit quản lý.
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -16,6 +18,8 @@ import 'widgets/tracking_settings_card.dart';
 import 'widgets/device_management_card.dart';
 import 'widgets/user_management_card.dart';
 
+// Mỗi giá trị tương ứng một điểm đến trong menu cài đặt; enum được router dùng để
+// mở trực tiếp đúng nội dung mà không tạo trang quản lý thiết bị trùng lặp.
 enum SettingsSection {
   overview,
   personal,
@@ -26,6 +30,8 @@ enum SettingsSection {
   users,
 }
 
+// Vỏ trang Cài đặt nhận section từ route và người dùng đã xác thực từ AuthState.
+// Dữ liệu từng section được SettingsCubit tải theo nhu cầu.
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key, this.section});
 
@@ -38,6 +44,7 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  // Hai cờ tránh tải lặp danh sách quản trị khi didChangeDependencies chạy lại.
   bool _usersRequested = false;
   bool _devicesRequested = false;
 
@@ -46,17 +53,22 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   void didChangeDependencies() {
+    // Cài đặt cá nhân/hệ thống được khởi tạo cho mọi người dùng. Danh sách tài khoản
+    // và thiết bị chỉ yêu cầu khi có quyền ADMIN và section tương ứng cần hiển thị.
     super.didChangeDependencies();
     final settingsCubit = context.read<SettingsCubit>();
+    // Chỉ trạng thái initial kích hoạt lần tải cấu hình chung đầu tiên.
     if (settingsCubit.state.status == SettingsLoadStatus.initial) {
       settingsCubit.initialize();
     }
+    // Danh sách user chỉ tải khi route đang ở section users và AuthState có quyền ADMIN.
     if (!_usersRequested &&
         _requestedSection == SettingsSection.users &&
         context.read<AuthCubit>().state.hasAdminAccess) {
       _usersRequested = true;
       settingsCubit.loadUsers();
     }
+    // Thiết bị đăng ký/sighting chỉ tải khi route thực sự cần màn quản lý thiết bị.
     if (!_devicesRequested &&
         _requestedSection == SettingsSection.devices &&
         context.read<AuthCubit>().state.hasAdminAccess) {
@@ -67,15 +79,20 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   void didUpdateWidget(covariant SettingsPage oldWidget) {
+    // Route có thể đổi section trên cùng State; nạp dữ liệu quản trị đúng lúc thay vì
+    // dựng lại toàn bộ SettingsCubit hoặc tải trước các danh sách lớn.
     super.didUpdateWidget(oldWidget);
     if ((oldWidget.section ?? SettingsSection.overview) != _requestedSection) {
+      // Route đổi section cho phép hai danh sách quản trị được yêu cầu lại đúng ngữ cảnh mới.
       _usersRequested = false;
       _devicesRequested = false;
+      // Chuyển tới users tải ngay nếu session hiện tại có quyền.
       if (_requestedSection == SettingsSection.users &&
           context.read<AuthCubit>().state.hasAdminAccess) {
         _usersRequested = true;
         context.read<SettingsCubit>().loadUsers();
       }
+      // Chuyển tới devices dùng lại cùng SettingsCubit thay vì tạo trang/dữ liệu riêng.
       if (_requestedSection == SettingsSection.devices &&
           context.read<AuthCubit>().state.hasAdminAccess) {
         _devicesRequested = true;
@@ -85,12 +102,16 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _reload(bool hasAdminAccess) async {
+    // Pull-to-refresh tải lại cấu hình chung, sau đó chỉ tải dữ liệu thuộc section
+    // đang xem. Backend vẫn kiểm tra quyền độc lập với biến giao diện này.
     await context.read<SettingsCubit>().initialize();
+    // Kiểm tra mounted sau await trước khi đọc context cho request tiếp theo.
     if (_requestedSection == SettingsSection.users &&
         hasAdminAccess &&
         mounted) {
       await context.read<SettingsCubit>().loadUsers();
     }
+    // Hai if độc lập vì section chỉ có một giá trị; mỗi nhánh mô tả rõ nguồn cần refresh.
     if (_requestedSection == SettingsSection.devices &&
         hasAdminAccess &&
         mounted) {
@@ -100,16 +121,22 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    // AuthState cung cấp tài khoản/quyền; SettingsState cung cấp toàn bộ dữ liệu và
+    // cờ loading. Widget chỉ chọn section và truyền đúng lát state xuống khối con.
     final authState = context.watch<AuthCubit>().state;
     final user = authState.user;
     final hasAdminAccess = authState.hasAdminAccess;
+    // requestedSection đến từ router; visibleSection là section an toàn thực sự được dựng.
     final requestedSection = _requestedSection;
+    // Route quản trị bị truy cập trực tiếp bởi user thường được đưa về overview.
     final visibleSection = _isAdminSection(requestedSection) && !hasAdminAccess
         ? SettingsSection.overview
         : requestedSection;
+    // Scaffold cung cấp AppBar theo section và vùng body lắng nghe SettingsState.
     return Scaffold(
       appBar: AppBar(
         leading: visibleSection == SettingsSection.overview
+            // Overview là cấp gốc nên dùng leading mặc định của shell.
             ? null
             : IconButton(
                 tooltip: 'Quay lại Cài đặt',
@@ -127,14 +154,17 @@ class _SettingsPageState extends State<SettingsPage> {
         ],
       ),
       body: BlocConsumer<SettingsCubit, SettingsState>(
+        // Listener chỉ chạy khi có message mới khác trước, tránh SnackBar lặp trên rebuild.
         listenWhen: (previous, current) =>
             previous.message != current.message && current.message != null,
         listener: (context, state) {
+          // Ẩn SnackBar cũ trước để thông báo thao tác mới luôn hiện rõ.
           ScaffoldMessenger.of(context)
             ..hideCurrentSnackBar()
             ..showSnackBar(SnackBar(content: Text(state.message!)));
         },
         builder: (context, state) {
+          // Truyền lát state và quyền xuống section view; widget con không tự gọi Auth API.
           return _SettingsSectionView(
             section: visibleSection,
             state: state,
@@ -149,6 +179,7 @@ class _SettingsPageState extends State<SettingsPage> {
 }
 
 bool _isAdminSection(SettingsSection section) =>
+    // Danh sách section quản trị dùng cho cả điều hướng và chặn hiển thị trực tiếp.
     section == SettingsSection.tracking ||
     section == SettingsSection.devices ||
     section == SettingsSection.users;
@@ -163,6 +194,7 @@ String _sectionTitle(SettingsSection section) => switch (section) {
   SettingsSection.users => 'Quản lý người dùng',
 };
 
+// Khung hiển thị một section: breadcrumb/tiêu đề, thông báo lỗi và nội dung cụ thể.
 class _SettingsSectionView extends StatelessWidget {
   const _SettingsSectionView({
     required this.section,
@@ -180,14 +212,19 @@ class _SettingsSectionView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Nếu route trỏ vào section ADMIN nhưng tài khoản không có quyền, nội dung được
+    // thay bằng thông báo an toàn; đây chỉ là UX, backend vẫn là lớp bảo mật thật.
     return LayoutBuilder(
       builder: (context, constraints) {
+        // Desktop tăng padding ngoài; mobile giữ 16 px để tối đa vùng nội dung.
         final horizontalPadding = constraints.maxWidth >= 900 ? 32.0 : 16.0;
+        // Device cần toàn bộ chiều rộng cho danh sách; user giới hạn 1120; form thường 840.
         final maxWidth = switch (section) {
           SettingsSection.devices => constraints.maxWidth,
           SettingsSection.users => 1120.0,
           _ => 840.0,
         };
+        // RefreshIndicator bao ListView luôn scrollable để pull-to-refresh hoạt động cả khi ít nội dung.
         return RefreshIndicator(
           onRefresh: onRefresh,
           child: ListView(
@@ -205,12 +242,15 @@ class _SettingsSectionView extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      // Thanh mảnh cho lần tải cấu hình chung, không thay thế toàn bộ nội dung.
                       if (state.status == SettingsLoadStatus.loading)
                         const LinearProgressIndicator(minHeight: 2),
+                      // Banner chỉ xuất hiện ở trạng thái error và dùng message đã chuẩn hóa.
                       if (state.status == SettingsLoadStatus.error) ...[
                         _LoadErrorBanner(message: state.message),
                         const SizedBox(height: 16),
                       ],
+                      // Overview dựng menu đích; các section khác dựng đúng nội dung nghiệp vụ.
                       if (section == SettingsSection.overview)
                         _SettingsOverview(hasAdminAccess: hasAdminAccess)
                       else
@@ -227,6 +267,9 @@ class _SettingsSectionView extends StatelessWidget {
   }
 
   Widget _sectionContent() => switch (section) {
+    // Ánh xạ section sang widget hiện có. DeviceManagementCard được tái sử dụng cho
+    // cả menu chính Thiết bị và mục Cài đặt, không tạo hai luồng dữ liệu riêng.
+    // Mỗi nhánh chỉ nhận những field SettingsState cần cho khối đó.
     SettingsSection.personal => _PersonalSettingsCard(state: state),
     SettingsSection.account => _AccountSettingsCard(
       user: user,
@@ -253,6 +296,7 @@ class _SettingsSectionView extends StatelessWidget {
   };
 }
 
+// Trang tổng quan cài đặt trình bày các điểm đến dạng nhóm thẻ, không chứa form nghiệp vụ.
 class _SettingsOverview extends StatelessWidget {
   const _SettingsOverview({required this.hasAdminAccess});
 
@@ -260,6 +304,7 @@ class _SettingsOverview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Column chia điểm đến thành ba nhóm: cá nhân, quản trị có điều kiện và thông tin.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -285,6 +330,7 @@ class _SettingsOverview extends StatelessWidget {
         ),
         // Các widget quản trị chỉ được tạo khi AuthState đã xác thực quyền
         // ADMIN; không phải cơ chế ẩn giao diện sau khi widget đã dựng.
+        // Spread đồng thời thêm khoảng cách, tiêu đề và grid quản trị.
         if (hasAdminAccess) ...[
           const SizedBox(height: 28),
           const _SettingsGroupTitle(title: 'Quản trị'),
@@ -334,6 +380,7 @@ class _SettingsOverview extends StatelessWidget {
   }
 }
 
+// Model trình bày nội bộ mô tả icon, tiêu đề, mô tả và section đích của một ô menu.
 class _SettingsDestination {
   const _SettingsDestination({
     required this.keyName,
@@ -350,6 +397,7 @@ class _SettingsDestination {
   final IconData icon;
 }
 
+// Lưới điểm đến tự đổi số cột theo chiều rộng để không cắt chữ trên mobile/desktop.
 class _SettingsDestinationGrid extends StatelessWidget {
   const _SettingsDestinationGrid({required this.destinations});
 
@@ -359,7 +407,9 @@ class _SettingsDestinationGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        // Từ 680 px hiển thị hai thẻ mỗi hàng; thấp hơn dùng một cột không cắt chữ.
         final columns = constraints.maxWidth >= 680 ? 2 : 1;
+        // GridView không cuộn riêng vì đang nằm trong ListView của section.
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -371,11 +421,14 @@ class _SettingsDestinationGrid extends StatelessWidget {
             mainAxisExtent: 126,
           ),
           itemBuilder: (context, index) {
+            // Mỗi index ánh xạ một model đích bất biến trong danh sách được truyền vào.
             final destination = destinations[index];
+            // Card+InkWell tạo vùng bấm toàn thẻ và hiệu ứng Material đúng theme.
             return Card(
               clipBehavior: Clip.antiAlias,
               child: InkWell(
                 key: Key(destination.keyName),
+                // Điều hướng theo routeName, router quyết định SettingsSection tương ứng.
                 onTap: () => context.pushNamed(destination.routeName),
                 child: Padding(
                   padding: const EdgeInsets.all(18),
@@ -436,6 +489,7 @@ class _SettingsDestinationGrid extends StatelessWidget {
   }
 }
 
+// Tiêu đề nhỏ phân chia nhóm cá nhân, hệ thống và quản trị trong trang tổng quan.
 class _SettingsGroupTitle extends StatelessWidget {
   const _SettingsGroupTitle({required this.title});
 
@@ -452,6 +506,8 @@ class _SettingsGroupTitle extends StatelessWidget {
   }
 }
 
+// Card Giao diện và hiển thị lấy UserSettingsModel từ SettingsState và gửi từng
+// lựa chọn theme/bản đồ/đơn vị tốc độ về SettingsCubit.
 class _PersonalSettingsCard extends StatelessWidget {
   const _PersonalSettingsCard({required this.state});
 
@@ -459,6 +515,8 @@ class _PersonalSettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Các selector dùng dữ liệu đã lưu từ backend; cờ personalSaving khóa thao tác
+    // trong lúc optimistic update đang được xác nhận.
     final cubit = context.read<SettingsCubit>();
     const themeOptions = <_PersonalSettingOption<String>>[
       _PersonalSettingOption(
@@ -582,6 +640,7 @@ class _PersonalSettingsCard extends StatelessWidget {
   }
 }
 
+// Phần giới thiệu và tóm tắt giá trị hiện tại, giúp nhận biết cấu hình trước khi đổi.
 class _PersonalSettingsSummary extends StatelessWidget {
   const _PersonalSettingsSummary({required this.saving});
 
@@ -697,6 +756,7 @@ class _PersonalSettingsSummary extends StatelessWidget {
   }
 }
 
+// Chỉ báo lưu gọn: spinner khi PATCH đang chạy, trạng thái bình thường khi hoàn tất.
 class _PersonalSaveStatus extends StatelessWidget {
   const _PersonalSaveStatus({required this.saving});
 
@@ -740,6 +800,7 @@ class _PersonalSaveStatus extends StatelessWidget {
   }
 }
 
+// Dữ liệu trình bày của một lựa chọn generic: giá trị gửi, nhãn và mô tả cho người dùng.
 class _PersonalSettingOption<T> {
   const _PersonalSettingOption({
     required this.value,
@@ -756,6 +817,8 @@ class _PersonalSettingOption<T> {
 
 /// Thẻ lựa chọn vẫn dùng popup Material để bảo toàn điều hướng bàn phím,
 /// focus, semantics và hành vi lưu hiện có.
+// Bộ chọn dùng chung cho theme, loại bản đồ và đơn vị tốc độ; Wrap/Popup thích nghi
+// chiều rộng và chỉ gọi callback với giá trị option đã khai báo.
 class _PersonalSettingSelector<T> extends StatelessWidget {
   const _PersonalSettingSelector({
     super.key,
@@ -781,6 +844,7 @@ class _PersonalSettingSelector<T> extends StatelessWidget {
     final selected = options.firstWhere((option) => option.value == value);
 
     return PopupMenuButton<T>(
+      // Popup trả đúng kiểu generic T nên callback không cần ép kiểu chuỗi.
       enabled: enabled,
       tooltip: 'Chọn $title',
       constraints: const BoxConstraints(minWidth: 250, maxWidth: 340),
@@ -881,6 +945,7 @@ class _PersonalSettingSelector<T> extends StatelessWidget {
   }
 }
 
+// Trang Thông tin phần mềm kết hợp metadata package tại máy và thông tin kết nối từ AppConfig.
 class _SoftwareInformationCard extends StatefulWidget {
   const _SoftwareInformationCard();
 
@@ -890,12 +955,15 @@ class _SoftwareInformationCard extends StatefulWidget {
 }
 
 class _SoftwareInformationCardState extends State<_SoftwareInformationCard> {
+  // Future được tạo một lần để PackageInfo không bị đọc lại sau mỗi lần rebuild theme.
   // Metadata chỉ cần đọc một lần trong vòng đời của trang. Dữ liệu lấy từ gói
   // ứng dụng đã build nên luôn đồng bộ với version trong pubspec.yaml.
   late final Future<PackageInfo> _packageInfo = PackageInfo.fromPlatform();
 
   @override
   Widget build(BuildContext context) {
+    // FutureBuilder chỉ điều khiển các trường phiên bản/tên gói; cấu hình server được
+    // đọc trực tiếp từ AppConfig vì đã cố định tại thời điểm build.
     return FutureBuilder<PackageInfo>(
       future: _packageInfo,
       builder: (context, snapshot) {
@@ -980,12 +1048,14 @@ class _SoftwareInformationCardState extends State<_SoftwareInformationCard> {
   }
 
   String _metadataValue(String? value, ConnectionState connectionState) {
+    // Trong lúc plugin chưa trả kết quả, hiển thị trạng thái thay vì ký tự placeholder.
     if (connectionState == ConnectionState.waiting) return 'Đang tải…';
     final normalized = value?.trim() ?? '';
     return normalized.isEmpty ? 'Không xác định' : normalized;
   }
 }
 
+// Khối nhận diện phần mềm gồm logo, tên và mô tả; bố cục đổi hàng/cột theo chiều rộng.
 class _SoftwareBrandPanel extends StatelessWidget {
   const _SoftwareBrandPanel({required this.version});
 
@@ -1110,6 +1180,7 @@ class _SoftwareBrandPanel extends StatelessWidget {
   }
 }
 
+// Badge metadata ngắn dùng trong phần thương hiệu, màu hoàn toàn lấy từ theme.
 class _SoftwareBadge extends StatelessWidget {
   const _SoftwareBadge({
     required this.icon,
@@ -1156,6 +1227,7 @@ class _SoftwareBadge extends StatelessWidget {
   }
 }
 
+// Model trình bày của một dòng thông tin kỹ thuật, không chứa logic kết nối.
 class _SoftwareInfoEntry {
   const _SoftwareInfoEntry({
     required this.keyName,
@@ -1172,6 +1244,7 @@ class _SoftwareInfoEntry {
   final String value;
 }
 
+// Một dòng label/value có icon; value được cho phép chọn/copy và tự xuống dòng.
 class _SoftwareInfoTile extends StatelessWidget {
   const _SoftwareInfoTile({required this.entry});
 
@@ -1242,6 +1315,8 @@ class _SoftwareInfoTile extends StatelessWidget {
   }
 }
 
+// Trang Tài khoản và bảo mật lấy UserModel đã xác thực từ AuthState, hiển thị hồ sơ
+// và chuyển sửa hồ sơ/đổi mật khẩu tới AuthCubit hoặc SettingsCubit phù hợp.
 class _AccountSettingsCard extends StatelessWidget {
   const _AccountSettingsCard({
     required this.user,
@@ -1254,13 +1329,18 @@ class _AccountSettingsCard extends StatelessWidget {
   final bool operationInProgress;
 
   Future<void> _editCurrentAccount(BuildContext context) async {
+    // Mở form ở profileOnly để tài khoản không tự đổi role/is_active. Sau PATCH,
+    // `/auth/me` được tải lại để giao diện dùng dữ liệu backend đã xác nhận.
     final currentUser = user;
+    // Hiện tại endpoint sửa hồ sơ nằm trong router ADMIN nên user thường không mở form.
     if (!hasAdminAccess || currentUser == null) return;
+    // profileOnly ẩn role/is_active nhưng vẫn dùng dialog quản trị đã kiểm thử.
     final saved = await showUserEditorDialog(
       context,
       user: currentUser,
       profileOnly: true,
     );
+    // Chỉ refresh AuthState khi dialog báo lưu thành công và context còn mounted.
     if (saved != true || !context.mounted) return;
 
     // Đọc lại `/auth/me` để tên và email mới đồng bộ ở thẻ tài khoản, menu
@@ -1275,12 +1355,14 @@ class _AccountSettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // roleLabel lấy từ UserModel thật; null hiển thị trạng thái chưa xác định.
     final roleLabel = user == null
         ? 'Không xác định'
         : user!.isAdmin
         ? 'Quản trị viên'
         : 'Thành viên';
 
+    // Trang tài khoản gồm card hồ sơ và card hành động bảo mật xếp dọc.
     return Column(
       key: const Key('account-settings-content'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1307,11 +1389,13 @@ class _AccountSettingsCard extends StatelessWidget {
               const SizedBox(height: 14),
               LayoutBuilder(
                 builder: (context, constraints) {
+                  // 680 px dùng 3 cột; 460–679 dùng 2; nhỏ hơn dùng 1 để giữ giá trị đọc được.
                   final columns = constraints.maxWidth >= 680
                       ? 3
                       : constraints.maxWidth >= 460
                       ? 2
                       : 1;
+                  // Trừ tổng khoảng cách trước khi chia để Wrap không vượt maxWidth.
                   final spacing = 12.0 * (columns - 1);
                   final itemWidth = (constraints.maxWidth - spacing) / columns;
                   final fields = [
@@ -1336,6 +1420,7 @@ class _AccountSettingsCard extends StatelessWidget {
                       value: roleLabel,
                     ),
                   ];
+                  // Wrap cho phép hàng cuối có ít item mà không kéo giãn nội dung sai tỷ lệ.
                   return Wrap(
                     spacing: 12,
                     runSpacing: 12,
@@ -1399,6 +1484,7 @@ class _AccountSettingsCard extends StatelessWidget {
   }
 }
 
+// Khối nhận diện chính của tài khoản: avatar, họ tên, username và badge vai trò.
 class _AccountIdentitySummary extends StatelessWidget {
   const _AccountIdentitySummary({required this.user, required this.roleLabel});
 
@@ -1408,10 +1494,12 @@ class _AccountIdentitySummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    // Tên hiển thị ưu tiên fullName có nội dung, fallback username rồi nhãn chung.
     final displayName = user?.fullName.trim().isNotEmpty == true
         ? user!.fullName.trim()
         : user?.username ?? 'Tài khoản';
     final username = user?.username.trim() ?? '';
+    // Avatar chỉ dùng chữ đầu đã viết hoa; fallback `?` khi không có định danh.
     final initial = displayName.trim().characters.isEmpty
         ? '?'
         : displayName.trim().characters.first.toUpperCase();
@@ -1456,6 +1544,7 @@ class _AccountIdentitySummary extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+                // Username chỉ dựng khi có nội dung để không tạo dòng `@` rỗng.
                 if (username.isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(
@@ -1494,6 +1583,7 @@ class _AccountIdentitySummary extends StatelessWidget {
   }
 }
 
+// Dòng thông tin hồ sơ có icon/nhãn/giá trị, tự co giãn để email dài không overflow.
 class _AccountDetailTile extends StatelessWidget {
   const _AccountDetailTile({
     super.key,
@@ -1558,6 +1648,7 @@ class _AccountDetailTile extends StatelessWidget {
   }
 }
 
+// Nút hành động bảo mật dạng card; callback được chuyển lên AuthCubit/dialog bên ngoài.
 class _AccountSecurityAction extends StatelessWidget {
   const _AccountSecurityAction({
     required this.icon,
@@ -1609,6 +1700,7 @@ class _AccountSecurityAction extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        // Mobile đặt nút dưới mô tả với toàn chiều rộng; desktop đặt nút bên phải.
         final compact = constraints.maxWidth < 560;
         return Padding(
           padding: const EdgeInsets.all(14),
@@ -1630,6 +1722,7 @@ class _AccountSecurityAction extends StatelessWidget {
   }
 }
 
+// Vỏ card thống nhất padding, tiêu đề và màu bề mặt cho các section cài đặt.
 class _SettingsCard extends StatelessWidget {
   const _SettingsCard({
     required this.title,
@@ -1652,6 +1745,7 @@ class _SettingsCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
+              // Hàng tiêu đề giữ icon/title co giãn và trailing tùy chọn ở cuối.
               children: [
                 Icon(icon, color: Theme.of(context).colorScheme.primary),
                 const SizedBox(width: 10),
@@ -1666,6 +1760,7 @@ class _SettingsCard extends StatelessWidget {
                 if (trailing != null) ...[const SizedBox(width: 8), trailing!],
               ],
             ),
+            // Nội dung section luôn bắt đầu dưới tiêu đề với khoảng cách thống nhất.
             const SizedBox(height: 18),
             child,
           ],
@@ -1675,6 +1770,7 @@ class _SettingsCard extends StatelessWidget {
   }
 }
 
+// Banner lỗi lấy message đã được Cubit chuẩn hóa, không hiển thị raw stack/network exception.
 class _LoadErrorBanner extends StatelessWidget {
   const _LoadErrorBanner({this.message});
 
@@ -1710,6 +1806,7 @@ class _LoadErrorBanner extends StatelessWidget {
 }
 
 Future<void> _showChangePasswordDialog(BuildContext context) {
+  // Dialog nhận AuthCubit hiện tại để đổi mật khẩu và tự xóa phiên sau khi backend commit.
   return showDialog<void>(
     context: context,
     barrierDismissible: false,

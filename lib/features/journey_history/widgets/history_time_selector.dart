@@ -1,3 +1,5 @@
+// Thanh chọn nhanh khoảng thời gian và mở lựa chọn tùy chỉnh. Widget chỉ phát callback
+// với mốc thời gian; Cubit chịu trách nhiệm tải lại dữ liệu.
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -7,6 +9,7 @@ import '../../../core/widgets/app_menu.dart';
 import '../../../data/models/device_model.dart';
 import 'custom_gap_dialog.dart';
 
+// Thanh chọn thiết bị, thời gian nhanh/tùy chỉnh và gap; dữ liệu thiết bị do trang cha tải.
 class HistoryTimeSelector extends StatelessWidget {
   final List<DeviceModel> devices;
   final DeviceModel? selectedDevice;
@@ -39,6 +42,7 @@ class HistoryTimeSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // LayoutBuilder chuyển giữa hàng desktop và các khối xếp dọc mobile.
     final theme = Theme.of(context);
     final isDesktop = MediaQuery.of(context).size.width >= 800;
 
@@ -53,6 +57,7 @@ class HistoryTimeSelector extends StatelessWidget {
   }
 
   Widget _buildDesktopLayout(BuildContext context, ThemeData theme) {
+    // Desktop đặt selector và hành động cùng hàng để tiết kiệm chiều cao.
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -116,6 +121,7 @@ class HistoryTimeSelector extends StatelessWidget {
   }
 
   Widget _buildMobileLayout(BuildContext context, ThemeData theme) {
+    // Mobile xếp từng điều khiển toàn chiều rộng để nhãn không bị cắt.
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -169,6 +175,7 @@ class HistoryTimeSelector extends StatelessWidget {
   }
 
   Widget _buildDeviceDropdown(BuildContext context, ThemeData theme) {
+    // Dropdown hiển thị tên/mã từ DeviceModel và trả id thiết bị được chọn.
     return InputDecorator(
       decoration: const InputDecoration(
         labelText: 'Thiết bị',
@@ -209,6 +216,7 @@ class HistoryTimeSelector extends StatelessWidget {
     required DateTime currentValue,
     required ValueChanged<DateTime> onChanged,
   }) {
+    // Nút hiển thị mốc hiện tại và mở trình chọn ngày/giờ qua callback cha.
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: () async {
@@ -291,6 +299,7 @@ class HistoryTimeSelector extends StatelessWidget {
   }
 
   Widget _buildQuickRangesAndGapConfig(BuildContext context, ThemeData theme) {
+    // Chip preset thay khoảng thời gian; nút gap mở cấu hình tách đoạn.
     final now = DateTime.now();
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -426,6 +435,7 @@ class HistoryTimeSelector extends StatelessWidget {
   }
 
   Widget _buildQuickChip({required String label, required VoidCallback onTap}) {
+    // Chip thao tác nhỏ dùng theme chung và tự co trong Wrap.
     return ActionChip(
       label: Text(label, style: const TextStyle(fontSize: 11)),
       padding: EdgeInsets.zero,

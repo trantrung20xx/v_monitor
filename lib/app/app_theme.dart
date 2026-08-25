@@ -1,3 +1,5 @@
+// Chuyển bảng màu tập trung thành ThemeData sáng/tối của Material.
+// File chỉ cấu hình hình thức widget; màu nghiệp vụ lấy từ AppThemeColors.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -7,6 +9,8 @@ import '../core/widgets/app_menu.dart';
 /// Giao diện Material 3 dùng màu xanh thống nhất với màn hình chi tiết thiết bị.
 class AppTheme {
   static ThemeData get light {
+    // Seed light tạo ColorScheme Material; các surface/trạng thái tùy chỉnh vẫn lấy
+    // từ chính AppThemeColors.light được gắn dưới dạng ThemeExtension.
     final colorScheme = ColorScheme.fromSeed(
       seedColor: AppThemeColors.light.primary,
       brightness: Brightness.light,
@@ -15,6 +19,7 @@ class AppTheme {
   }
 
   static ThemeData get dark {
+    // Dark dùng bảng token riêng để bảo đảm tương phản, không đảo màu light tự động.
     final colorScheme = ColorScheme.fromSeed(
       seedColor: AppThemeColors.dark.primaryStrong,
       brightness: Brightness.dark,
@@ -26,6 +31,8 @@ class AppTheme {
     ColorScheme colorScheme,
     AppThemeColors appColors,
   ) {
+    // Một hàm dựng dùng chung giữ kích thước, bo góc và typography giống nhau giữa
+    // hai mode; chỉ màu thay theo colorScheme/AppThemeColors.
     final brightness = colorScheme.brightness;
     final textTheme = GoogleFonts.interTextTheme(
       brightness == Brightness.light
@@ -33,6 +40,8 @@ class AppTheme {
           : ThemeData.dark().textTheme,
     );
 
+    // ThemeData dưới đây cấu hình các widget nền tảng. Widget tùy chỉnh đọc thêm
+    // `context.appColors` để dùng token nghiệp vụ success/warning/danger.
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
@@ -95,6 +104,7 @@ class AppTheme {
               : SystemMouseCursors.click;
         }),
       ),
+      // ListTile, button và input dùng cấu hình toàn cục để form/dialog không lặp style.
       listTileTheme: ListTileThemeData(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         iconColor: colorScheme.onSurfaceVariant,
@@ -137,6 +147,7 @@ class AppTheme {
           color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
         ),
       ),
+      // NavigationRail cho desktop và NavigationBar cho mobile dùng cùng scheme.
       navigationRailTheme: NavigationRailThemeData(
         backgroundColor: colorScheme.surface,
         indicatorColor: colorScheme.primaryContainer,

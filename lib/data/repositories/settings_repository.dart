@@ -1,3 +1,5 @@
+// Cổng dữ liệu cài đặt, tài khoản và quản lý thiết bị. Giá trị runtime được cache
+// trong repository và cập nhật ngay từ SYSTEM_SETTINGS_UPDATED qua WebSocket.
 import 'dart:async';
 
 import '../../core/network/api_client.dart';
@@ -17,12 +19,16 @@ class SettingsRepository {
 
   final ApiClient _apiClient;
   final WebsocketClient _websocketClient;
+  // Controller broadcast cho phép App/theme, SettingsCubit và màn hình hành trình
+  // cùng nghe một giá trị runtime mà không tạo nhiều request riêng.
   final _userSettingsController =
       StreamController<UserSettingsModel>.broadcast();
   final _systemSettingsController =
       StreamController<SystemSettingsModel>.broadcast();
   StreamSubscription<Map<String, dynamic>>? _websocketSubscription;
 
+  // Hai snapshot mặc định tồn tại trước khi đăng nhập/tải server và được thay toàn bộ
+  // bằng response đã parse thành công.
   UserSettingsModel _userSettings = const UserSettingsModel();
   SystemSettingsModel _systemSettings = const SystemSettingsModel();
 
@@ -34,6 +40,7 @@ class SettingsRepository {
       _systemSettingsController.stream;
 
   Future<UserSettingsModel> loadUserSettings() async {
+    // Cài đặt cá nhân thuộc tài khoản đang mang Bearer token.
     final response = await _apiClient.get('/auth/settings');
     return _setUserSettings(
       UserSettingsModel.fromJson(
@@ -43,6 +50,7 @@ class SettingsRepository {
   }
 
   Future<SystemSettingsModel> loadSystemSettings() async {
+    // Cấu hình theo dõi dùng chung toàn hệ thống; quyền đọc do backend quyết định.
     final response = await _apiClient.get('/system/settings');
     return _setSystemSettings(
       SystemSettingsModel.fromJson(
@@ -54,6 +62,7 @@ class SettingsRepository {
   Future<UserSettingsModel> updateUserSettings(
     Map<String, dynamic> changes,
   ) async {
+    // Chỉ phát stream sau khi PATCH trả model đã được backend xác nhận.
     final response = await _apiClient.patch('/auth/settings', data: changes);
     return _setUserSettings(
       UserSettingsModel.fromJson(
@@ -65,6 +74,7 @@ class SettingsRepository {
   Future<SystemSettingsModel> updateSystemSettings(
     Map<String, dynamic> changes,
   ) async {
+    // Endpoint quản trị kiểm tra ADMIN; frontend không được xem là lớp bảo mật.
     final response = await _apiClient.patch('/system/settings', data: changes);
     return _setSystemSettings(
       SystemSettingsModel.fromJson(
@@ -74,6 +84,7 @@ class SettingsRepository {
   }
 
   Future<List<UserModel>> loadUsers() async {
+    // Danh sách tài khoản chỉ dùng trong quản trị và bị backend giới hạn/phân quyền.
     final response = await _apiClient.get(
       '/users/',
       queryParameters: const {'limit': 1000},
@@ -104,6 +115,7 @@ class SettingsRepository {
   }
 
   Future<List<DeviceModel>> loadManagedDevices() async {
+    // Dữ liệu tab đã đăng ký lấy từ bảng devices kèm latest state thật.
     final response = await _apiClient.get(
       '/devices/',
       queryParameters: const {'limit': 5000},
@@ -118,6 +130,7 @@ class SettingsRepository {
   }
 
   Future<List<MqttDeviceSightingModel>> loadMqttDeviceSightings() async {
+    // Dữ liệu tab chờ duyệt là thống kê mã lạ, không phải thiết bị được phép hoạt động.
     final response = await _apiClient.get(
       '/devices/mqtt-sightings',
       queryParameters: const {'limit': 5000},
@@ -150,6 +163,7 @@ class SettingsRepository {
   }
 
   void clearRuntimeValues() {
+    // Xóa snapshot khi đăng xuất và phát default để mọi consumer bỏ cấu hình phiên cũ.
     _userSettings = const UserSettingsModel();
     _systemSettings = const SystemSettingsModel();
     _userSettingsController.add(_userSettings);
@@ -157,6 +171,7 @@ class SettingsRepository {
   }
 
   UserSettingsModel _setUserSettings(UserSettingsModel value) {
+    // Gán snapshot trước rồi phát để getter và stream luôn quan sát cùng giá trị.
     _userSettings = value;
     _userSettingsController.add(value);
     return value;
@@ -169,6 +184,7 @@ class SettingsRepository {
   }
 
   void _handleSystemSettingsEvent(Map<String, dynamic> message) {
+    // Chỉ chấp nhận event có object settings; frame sai hợp đồng bị bỏ an toàn.
     final data = message['settings'];
     if (data is Map) {
       _setSystemSettings(
@@ -178,6 +194,7 @@ class SettingsRepository {
   }
 
   Future<void> dispose() async {
+    // Repository sống ở cấp ứng dụng nên chỉ dispose khi toàn cây dependency kết thúc.
     await _websocketSubscription?.cancel();
     await _userSettingsController.close();
     await _systemSettingsController.close();

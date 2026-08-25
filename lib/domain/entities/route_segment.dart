@@ -1,9 +1,13 @@
+// Chia lịch sử GPS thành các đoạn liên tục, tính khoảng cách/thời lượng và phân loại
+// di chuyển/dừng theo ngưỡng. Kết quả được journey UI dùng để vẽ và tóm tắt.
 import 'package:latlong2/latlong.dart';
 import '../../data/models/location_model.dart';
 import 'gps_validator.dart';
 
 /// Đại diện cho một phân đoạn hành trình GPS liên tục (không bị đứt quãng thời gian lớn).
 class RouteSegment {
+  // samples giữ dữ liệu nguồn của đoạn; polylinePoints là dạng tối ưu cho flutter_map;
+  // các số liệu còn lại được tính một lần khi dựng đoạn.
   final List<LocationModel> samples;
   final List<LatLng> polylinePoints;
   final double distanceM;
@@ -33,6 +37,7 @@ class RouteSegment {
     Duration gapThreshold = const Duration(minutes: 5),
     double movingThresholdMps = 0.5,
   }) {
+    // Không sửa list đầu vào. Chỉ tạo bản sao khi phát hiện thứ tự measuredAt chưa tăng dần.
     if (samples.isEmpty) return const [];
 
     final isSorted = _isChronologicallySorted(samples);
@@ -51,6 +56,8 @@ class RouteSegment {
       final diff = curr.measuredAt.difference(prev.measuredAt);
 
       if (diff > gapThreshold) {
+        // Khoảng im lặng lớn kết thúc đoạn hiện tại; không nối đường hay cộng thời
+        // lượng/quãng đường qua vùng không có dữ liệu xác nhận.
         // Hoàn thành segment hiện tại
         if (currentGroup.isNotEmpty) {
           segments.add(_buildSegment(currentGroup, movingThresholdMps));
@@ -72,6 +79,7 @@ class RouteSegment {
     List<LocationModel> items,
     double movingThresholdMps,
   ) {
+    // Một mẫu đơn lẻ tạo đoạn hợp lệ có quãng đường/thời lượng bằng 0.
     if (items.length < 2) {
       return RouteSegment(
         samples: items,
@@ -100,9 +108,12 @@ class RouteSegment {
       );
       totalDistance += dist;
 
+      // Mỗi cặp liên tiếp đóng góp quãng đường và thời lượng đúng một lần.
       final dt = p2.measuredAt.difference(p1.measuredAt).inSeconds;
       if (dt > 0) {
         final speed = (p1.speedMps ?? p2.speedMps) ?? (dist / dt);
+        // Ưu tiên tốc độ thiết bị ở hai đầu; thiếu cả hai mới dùng tốc độ suy từ
+        // khoảng cách/thời gian để phân loại moving/stopped.
         final isMoving = (p1.speedMps != null && p1.speedMps! > movingThresholdMps) ||
             (p2.speedMps != null && p2.speedMps! > movingThresholdMps) ||
             ((dist / dt) > movingThresholdMps);
@@ -134,6 +145,7 @@ class RouteSegment {
   }
 
   static bool _isChronologicallySorted(List<LocationModel> list) {
+    // Fast path O(n) tránh copy/sort khi API đã trả đúng thứ tự.
     for (var i = 1; i < list.length; i++) {
       if (list[i].measuredAt.isBefore(list[i - 1].measuredAt)) {
         return false;

@@ -1,7 +1,10 @@
+// Ảnh chụp bất biến của phiên xác thực. status mô tả vòng đời; currentUser chứa
+// quyền thật từ backend; message chỉ phục vụ phản hồi giao diện.
 import 'package:equatable/equatable.dart';
 
 import '../../data/models/user_model.dart';
 
+// Các trạng thái loại trừ nhau của vòng đời phiên đăng nhập.
 enum AuthStatus {
   checking,
   unauthenticated,
@@ -11,6 +14,7 @@ enum AuthStatus {
 }
 
 class AuthState extends Equatable {
+  // Không có copyWith vì mỗi chuyển trạng thái xác thực tạo một snapshot đầy đủ, rõ ràng.
   const AuthState({this.status = AuthStatus.checking, this.user, this.message});
 
   final AuthStatus status;

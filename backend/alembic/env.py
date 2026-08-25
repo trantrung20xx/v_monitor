@@ -11,11 +11,13 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from app.core.config import settings
 from app.models import Base  # noqa: F401 - nạp toàn bộ model vào metadata
 
+# Đối tượng config của lần chạy Alembic hiện tại, ban đầu lấy từ alembic.ini.
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+# Metadata hợp nhất của mọi model, dùng cho autogenerate và bootstrap database mới.
 target_metadata = Base.metadata
 
 
@@ -72,6 +74,7 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection):
+    # Cấu hình context trên kết nối đồng bộ do AsyncConnection chuyển giao.
     _bootstrap_empty_database(connection)
     context.configure(
         connection=connection,
@@ -95,6 +98,7 @@ async def run_async_migrations() -> None:
 
 
 def run_migrations_online() -> None:
+    # Cầu nối đồng bộ mà Alembic gọi để chạy quy trình async qua asyncio.
     asyncio.run(run_async_migrations())
 
 

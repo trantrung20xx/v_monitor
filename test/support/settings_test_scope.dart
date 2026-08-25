@@ -1,3 +1,4 @@
+// Fixture dùng chung tạo dependency/settings giả có kiểm soát cho widget test.
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';

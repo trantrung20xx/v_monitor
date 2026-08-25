@@ -1,3 +1,4 @@
+# Bảo vệ schema nghiệp vụ: bảng cần thiết, quan hệ, enum và nguyên tắc không lưu mật khẩu thô.
 import os
 import sys
 import unittest

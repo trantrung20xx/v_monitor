@@ -1,3 +1,5 @@
+# Nhật ký kiểm toán thay đổi quan trọng: ai thực hiện, hành động nào, đối tượng nào
+# và giá trị trước/sau. Dữ liệu này dùng truy vết, không dùng làm trạng thái hiện tại.
 import uuid
 from datetime import datetime
 
@@ -11,6 +13,8 @@ from app.models.base import Base, UUIDMixin
 
 
 class AuditLog(Base, UUIDMixin):
+    # actor/action/entity xác định ai làm gì với đối tượng nào; occurred_at là lúc thao tác.
+    # old/new_value lưu chênh lệch; metadata_ giữ ngữ cảnh; created_at là lúc ghi database.
     __tablename__ = "audit_logs"                              # Tên bảng lưu lịch sử thao tác
 
     actor_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
@@ -61,8 +65,11 @@ class AuditLog(Base, UUIDMixin):
         nullable=False
     )                                                         # Thời điểm bản ghi audit được tạo
 
+    # SET NULL ở actor_user_id giữ lịch sử ngay cả khi tài khoản thực hiện bị xóa.
     actor_user = relationship("UserAccount")
 
+    # Hai chỉ mục phục vụ hai hướng tra cứu chính: lịch sử theo người thực hiện và
+    # lịch sử theo đối tượng bị thay đổi, đều có thứ tự thời gian.
     __table_args__ = (
         Index(
             "ix_audit_logs_actor_occurred",

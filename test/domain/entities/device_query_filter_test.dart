@@ -1,3 +1,4 @@
+// Xác nhận tìm kiếm/bộ lọc thiết bị chỉ tạo lát cắt hiển thị và kết hợp điều kiện đúng.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v_monitor/data/models/device_model.dart';
 import 'package:v_monitor/domain/entities/device_query_filter.dart';

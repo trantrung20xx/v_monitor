@@ -1,3 +1,4 @@
+# Xác nhận WebSocket lỗi hoặc chậm bị loại mà không cản các kết nối khỏe mạnh.
 import asyncio
 import os
 import sys

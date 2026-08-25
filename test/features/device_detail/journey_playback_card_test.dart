@@ -1,3 +1,4 @@
+// Xác nhận thẻ phát lại hành trình giữ đủ bước tua, tốc độ và điều khiển chính.
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';

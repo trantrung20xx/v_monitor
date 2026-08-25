@@ -1,3 +1,4 @@
+# Xác nhận singleton settings, phân quyền ADMIN, giới hạn giá trị, audit và merge preferences.
 import os
 import sys
 import unittest

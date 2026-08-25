@@ -5,8 +5,7 @@ import XCTest
 class RunnerTests: XCTestCase {
 
   func testExample() {
-    // If you add code to the Runner application, consider adding tests here.
-    // See https://developer.apple.com/documentation/xctest for more information about using XCTest.
+    // Thêm kiểm thử XCTest tại đây khi Runner iOS có logic native riêng cần xác nhận.
   }
 
 }

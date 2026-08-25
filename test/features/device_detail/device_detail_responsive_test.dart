@@ -1,3 +1,4 @@
+// Xác nhận trang chi tiết thiết bị không overflow trên các breakpoint được hỗ trợ.
 import 'dart:async';
 
 import 'package:flutter/material.dart';

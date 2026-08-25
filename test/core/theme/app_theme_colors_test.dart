@@ -1,3 +1,4 @@
+// Xác nhận token màu light/dark được resolve đúng và giữ độ tương phản văn bản tối thiểu.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v_monitor/core/theme/app_theme_colors.dart';

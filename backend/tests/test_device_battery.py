@@ -1,3 +1,4 @@
+# Xác nhận hợp đồng pin thiết bị chỉ nhận battery_pct hợp lệ và từ chối trường cũ.
 import os
 import sys
 import unittest

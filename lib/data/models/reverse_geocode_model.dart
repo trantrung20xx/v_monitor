@@ -1,4 +1,7 @@
+// Kết quả đổi GPS thành địa chỉ. bestAddress ưu tiên chuỗi đã chuẩn hóa rồi mới
+// dùng displayName, giúp mọi màn hình hiển thị cùng một quy tắc.
 class ReverseGeocodeModel {
+  // Hợp đồng địa chỉ đã được backend chuẩn hóa, độc lập payload riêng của Photon/Nominatim.
   const ReverseGeocodeModel({
     required this.latitude,
     required this.longitude,
@@ -24,6 +27,7 @@ class ReverseGeocodeModel {
   }
 
   factory ReverseGeocodeModel.fromJson(Map<String, dynamic> json) {
+    // Ưu tiên formatted_address; display_name giữ làm fallback và thông tin chẩn đoán.
     return ReverseGeocodeModel(
       latitude: _doubleOrZero(json['latitude']),
       longitude: _doubleOrZero(json['longitude']),

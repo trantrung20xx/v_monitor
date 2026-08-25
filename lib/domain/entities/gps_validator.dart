@@ -1,3 +1,5 @@
+// Các phép toán GPS thuần: kiểm tra tọa độ, khoảng cách, hướng, nội suy và phát hiện
+// điểm nhảy theo vận tốc. Không truy cập mạng hoặc state giao diện.
 import 'dart:math' as math;
 import 'package:latlong2/latlong.dart';
 import '../../data/models/location_model.dart';

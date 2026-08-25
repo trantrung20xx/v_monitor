@@ -1,3 +1,5 @@
+// Màn hình lịch sử độc lập kết hợp bộ chọn thời gian, bản đồ, tóm tắt và playback.
+// Page phản ứng JourneyHistoryState; xử lý dữ liệu nằm trong Cubit/domain.
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -20,6 +22,7 @@ import 'widgets/point_info_popup.dart';
 import 'widgets/route_summary_band.dart';
 import '../settings/settings_cubit.dart';
 
+// Trang Hành trình độc lập cho phép chọn thiết bị và khoảng thời gian trước khi tải dữ liệu.
 class JourneyHistoryPage extends StatefulWidget {
   final String? initialDeviceId;
 
@@ -30,6 +33,8 @@ class JourneyHistoryPage extends StatefulWidget {
 }
 
 class _JourneyHistoryPageState extends State<JourneyHistoryPage> {
+  // Danh sách thiết bị lấy từ DeviceRepository; khoảng chọn và kết quả hành trình
+  // được chuyển tới JourneyHistoryCubit.
   late JourneyHistoryCubit _cubit;
   List<DeviceModel> _devices = [];
   bool _isLoadingDevices = false;
@@ -55,6 +60,7 @@ class _JourneyHistoryPageState extends State<JourneyHistoryPage> {
   }
 
   Future<void> _loadDevices() async {
+    // Tải danh mục thiết bị thật từ REST, giữ cờ riêng để selector hiển thị loading.
     setState(() => _isLoadingDevices = true);
     try {
       final devices = await context.read<DeviceRepository>().getDevices();
@@ -82,6 +88,7 @@ class _JourneyHistoryPageState extends State<JourneyHistoryPage> {
   }
 
   void _onQuery() {
+    // Chỉ gửi truy vấn khi đã chọn thiết bị và khoảng thời gian hợp lệ.
     final dev = _cubit.state.selectedDevice;
     if (dev == null) return;
 
@@ -108,6 +115,7 @@ class _JourneyHistoryPageState extends State<JourneyHistoryPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Bố cục gồm selector phía trên, dải tóm tắt và bản đồ/playback từ JourneyHistoryState.
     return BlocProvider.value(
       value: _cubit,
       child: Scaffold(
@@ -137,7 +145,7 @@ class _JourneyHistoryPageState extends State<JourneyHistoryPage> {
 
             return Column(
               children: [
-                // 1. Header chọn thiết bị & thời gian
+                // Phần đầu chọn thiết bị và khoảng thời gian.
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
                   child: HistoryTimeSelector(
@@ -160,7 +168,7 @@ class _JourneyHistoryPageState extends State<JourneyHistoryPage> {
                   ),
                 ),
 
-                // 2. Summary Band (Tổng quan quãng đường, vận tốc, mẫu GPS)
+                // Dải tóm tắt quãng đường, vận tốc và số mẫu GPS.
                 if (state.validSamples.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(
@@ -170,13 +178,13 @@ class _JourneyHistoryPageState extends State<JourneyHistoryPage> {
                     child: RouteSummaryBand(state: state),
                   ),
 
-                // 3. Map Viewport & Replay Controls
+                // Khung bản đồ và bộ điều khiển phát lại.
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
                     child: Stack(
                       children: [
-                        // Map
+                        // Bản đồ hành trình.
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
                           child: _HistoryMapView(
@@ -186,7 +194,7 @@ class _JourneyHistoryPageState extends State<JourneyHistoryPage> {
                           ),
                         ),
 
-                        // Popup chi tiết điểm GPS khi tap
+                        // Thẻ chi tiết điểm GPS khi người dùng chạm.
                         if (state.selectedPoint != null)
                           Positioned(
                             top: 16,
@@ -208,7 +216,7 @@ class _JourneyHistoryPageState extends State<JourneyHistoryPage> {
                             ),
                           ),
 
-                        // Thanh điều khiển Playback Controls (nằm ở phía dưới bản đồ)
+                        // Thanh điều khiển phát lại nằm dưới bản đồ.
                         if (state.validSamples.isNotEmpty)
                           Positioned(
                             left: isDesktop ? 16 : 8,
@@ -251,6 +259,7 @@ class _JourneyHistoryPageState extends State<JourneyHistoryPage> {
   }
 }
 
+// Bản đồ hành trình nhận samples/segments và con trỏ playback từ Cubit.
 class _HistoryMapView extends StatefulWidget {
   final JourneyHistoryState state;
   final ValueChanged<LocationModel?> onPointSelected;
@@ -262,6 +271,7 @@ class _HistoryMapView extends StatefulWidget {
 }
 
 class _HistoryMapViewState extends State<_HistoryMapView> {
+  // Version geocoding chống response cũ; camera, zoom và show labels là state giao diện.
   final MapController _mapController = MapController();
   final Map<String, String> _nodeAddresses = {};
   bool _mapReady = false;
@@ -305,6 +315,7 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
   }
 
   Future<void> _loadNodeAddresses(List<LocationModel> samples) async {
+    // Giải địa chỉ cho các nút quan trọng và chỉ áp dụng đúng phiên request.
     final nodes = HistoryMapLayers.extractRouteNodes(samples);
     if (nodes.isEmpty) return;
 
@@ -342,6 +353,7 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
   }
 
   void _fitRouteBounds(List<LocationModel> samples) {
+    // Căn camera bao trọn mọi mẫu hợp lệ sau khi FlutterMap báo sẵn sàng.
     if (samples.isEmpty || !_mapReady) return;
 
     if (samples.length == 1) {
@@ -376,6 +388,7 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
 
   @override
   Widget build(BuildContext context) {
+    // Stack gồm tile, HistoryMapLayers, popup điểm chọn và cụm điều khiển nổi.
     final theme = Theme.of(context);
     final appColors = context.appColors;
     final state = widget.state;
@@ -413,7 +426,7 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
             },
           ),
           children: [
-            // Map Tiles
+            // Lớp tile nền bản đồ.
             TileLayer(
               urlTemplate: MapTileProviders.getUrl(
                 isSatellite ? AppMapType.satellite : AppMapType.standard,
@@ -428,7 +441,7 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
               errorImage: MemoryImage(TileProvider.transparentImage),
             ),
 
-            // Polyline Layer cho lộ trình
+            // Lớp đường nối thể hiện lộ trình.
             if (state.segments.isNotEmpty)
               PolylineLayer(
                 polylines: HistoryMapLayers.buildPolylines(
@@ -459,7 +472,7 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
                 ),
               ),
 
-            // Replay Device Marker
+            // Marker thiết bị tại vị trí phát lại.
             if (state.currentPosition != null)
               MarkerLayer(
                 markers: [
@@ -506,7 +519,7 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
           ),
         ),
 
-        // Trạng thái Loading
+        // Trạng thái đang tải.
         if (state.isLoading)
           Positioned.fill(
             child: Container(
@@ -532,7 +545,7 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
             ),
           ),
 
-        // Trạng thái Empty
+        // Trạng thái không có dữ liệu.
         if (!state.isLoading && state.isEmpty)
           Positioned.fill(
             child: IgnorePointer(
@@ -607,6 +620,7 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
   }
 }
 
+// Cụm zoom/căn tuyến/bật nhãn cho bản đồ lịch sử.
 class _MapZoomControls extends StatelessWidget {
   final VoidCallback onZoomIn;
   final VoidCallback onZoomOut;

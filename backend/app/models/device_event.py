@@ -1,3 +1,5 @@
+# Bảng sự kiện nghiệp vụ của thiết bị, ví dụ bắt đầu/dừng di chuyển hoặc ngoại tuyến.
+# occurred_at là lúc sự kiện xảy ra; received_at là lúc backend tiếp nhận để đối chiếu độ trễ.
 import uuid
 from datetime import datetime, timezone
 from sqlalchemy import ForeignKey, Index, String

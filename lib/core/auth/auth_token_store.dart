@@ -1,6 +1,9 @@
+// Abstraction lưu JWT lâu dài. Interface giúp kiểm thử thay kho giả; bản thật dùng
+// secure storage của hệ điều hành để token không nằm trong SharedPreferences thuần.
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 abstract interface class AuthTokenStore {
+  // Ba thao tác tối thiểu tách AuthCubit khỏi plugin/lưu trữ nền tảng cụ thể.
   Future<String?> readToken();
   Future<void> writeToken(String token);
   Future<void> clearToken();
@@ -10,6 +13,7 @@ class SecureAuthTokenStore implements AuthTokenStore {
   SecureAuthTokenStore({FlutterSecureStorage? storage})
     : _storage = storage ?? const FlutterSecureStorage();
 
+  // Một khóa cố định dùng chung cho đọc/ghi/xóa cùng credential.
   static const _tokenKey = 'v_monitor_access_token';
   final FlutterSecureStorage _storage;
 
