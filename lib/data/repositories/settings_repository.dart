@@ -162,6 +162,11 @@ class SettingsRepository {
     );
   }
 
+  Future<void> deleteDevice(String deviceId) async {
+    // DELETE trả 204 không có body; hoàn tất Future nghĩa backend đã commit giao dịch.
+    await _apiClient.delete('/devices/$deviceId');
+  }
+
   void clearRuntimeValues() {
     // Xóa snapshot khi đăng xuất và phát default để mọi consumer bỏ cấu hình phiên cũ.
     _userSettings = const UserSettingsModel();

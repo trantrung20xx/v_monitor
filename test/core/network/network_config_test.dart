@@ -65,6 +65,15 @@ void main() {
       throwsA(isA<DioException>()),
     );
     expect(adapter.requestCount, 1);
+
+    adapter
+      ..requestCount = 0
+      ..remainingFailures = 1;
+    await expectLater(
+      client.delete('/devices/device-1'),
+      throwsA(isA<DioException>()),
+    );
+    expect(adapter.requestCount, 1);
   });
 
   test('WebsocketClient uses AppConfig WebSocket URL', () {

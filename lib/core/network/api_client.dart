@@ -90,6 +90,10 @@ class ApiClient {
     return _dio.patch(path, data: data);
   }
 
+  Future<Response> delete(String path, {dynamic data}) async {
+    return _dio.delete(path, data: data);
+  }
+
   Future<Response> _getWithRetry(
     String path, {
     Map<String, dynamic>? queryParameters,

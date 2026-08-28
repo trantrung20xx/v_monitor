@@ -3,7 +3,7 @@
 import uuid
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -125,3 +125,40 @@ async def update_device(
         {"type": "DEVICE_UPDATE", "device": updated}
     )
     return updated
+
+
+@router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_device(
+    device_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_admin_if_enabled),
+):
+    # Chỉ ADMIN được xóa. Service chịu trách nhiệm dọn toàn bộ dữ liệu phụ thuộc và
+    # ghi audit trong một transaction trước khi thông báo realtime cho các client.
+    try:
+        deleted = await DeviceService.delete_device(
+            db,
+            device_id,
+            actor_user_id=current_user.id if current_user else None,
+        )
+    except IntegrityError as exc:
+        # Một tham chiếu phát sinh đồng thời phải hủy toàn bộ transaction và trả lỗi
+        # nghiệp vụ có thể thử lại, không để session lỗi tiếp tục được tái sử dụng.
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Thiết bị đang có dữ liệu được xử lý, vui lòng thử lại",
+        ) from exc
+    if deleted is None:
+        raise HTTPException(status_code=404, detail="Không tìm thấy thiết bị")
+
+    # Broadcast sau commit để dashboard/bản đồ chỉ loại thiết bị khi database đã xóa
+    # thành công. REST vẫn là nguồn khôi phục đúng nếu một client bỏ lỡ bản tin này.
+    await realtime_service.broadcast_telemetry(
+        {
+            "type": "DEVICE_DELETED",
+            "device_id": deleted["id"],
+            "device_code": deleted["device_code"],
+        }
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

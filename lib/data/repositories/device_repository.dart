@@ -60,6 +60,19 @@ class DeviceRepository {
         .map((data) => DeviceModel.fromJson(data['device']));
   }
 
+  /// Lắng nghe thiết bị đã bị quản trị viên xóa sau khi database commit.
+  Stream<String> get deviceDeletions {
+    // Chỉ phát ID chuỗi hợp lệ; frame thiếu/sai kiểu bị bỏ để không làm hỏng consumer.
+    return _websocketClient.messages
+        .where(
+          (data) =>
+              data['type'] == 'DEVICE_DELETED' &&
+              data['device_id'] is String &&
+              (data['device_id'] as String).trim().isNotEmpty,
+        )
+        .map((data) => (data['device_id'] as String).trim());
+  }
+
   /// Lắng nghe các sự kiện realtime phát sinh từ thiết bị qua WebSocket
   Stream<DeviceEventModel> get deviceEvents {
     // Stream này chỉ chuyển kiểu dữ liệu, không tự thêm/suy luận sự kiện ở client.

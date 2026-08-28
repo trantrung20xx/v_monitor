@@ -22,6 +22,7 @@ class DashboardCubit extends Cubit<DashboardState> {
     // Repository phát DeviceModel đã parse từ DEVICE_UPDATE; thay đổi system settings
     // yêu cầu tính lại trạng thái từ cùng danh sách dù không có telemetry mới.
     _deviceUpdatesSub = deviceRepo.deviceUpdates.listen(_onDeviceUpdated);
+    _deviceDeletionsSub = deviceRepo.deviceDeletions.listen(_onDeviceDeleted);
     _settingsSub = settingsRepo.systemSettingsChanges.listen((_) {
       // Không emit state rỗng khi dashboard chưa tải lần đầu; danh sách hiện có mới
       // cần resolve lại theo ngưỡng hệ thống vừa thay đổi.
@@ -37,6 +38,7 @@ class DashboardCubit extends Cubit<DashboardState> {
   final Map<String, String> _addressCache = {};
   final Map<String, String> _deviceAddressKeys = {};
   StreamSubscription<DeviceModel>? _deviceUpdatesSub;
+  StreamSubscription<String>? _deviceDeletionsSub;
   StreamSubscription<SystemSettingsModel>? _settingsSub;
 
   /// Tải snapshot REST ban đầu; cập nhật sau đó được hợp nhất từ WebSocket.
@@ -76,6 +78,19 @@ class DashboardCubit extends Cubit<DashboardState> {
     }
     // Tính lại bộ đếm và địa chỉ từ danh sách sau hợp nhất.
     _updateDevices(updatedDevices);
+  }
+
+  void _onDeviceDeleted(String deviceId) {
+    // Client khác có thể xóa thiết bị trong khi dashboard/bản đồ đang mở. Loại đúng
+    // ID và dọn khóa địa chỉ để một phản hồi geocoding chậm không làm dữ liệu quay lại.
+    if (!state.devices.any((device) => device.id == deviceId)) return;
+    _deviceAddressKeys.remove(deviceId);
+    final addresses = Map<String, String>.from(state.deviceAddresses)
+      ..remove(deviceId);
+    emit(state.copyWith(deviceAddresses: addresses));
+    _updateDevices(
+      state.devices.where((device) => device.id != deviceId).toList(),
+    );
   }
 
   void _updateDevices(List<DeviceModel> devices) {
@@ -202,6 +217,7 @@ class DashboardCubit extends Cubit<DashboardState> {
   Future<void> close() async {
     // Hủy subscription để repository dùng chung không gọi Cubit sau khi rời màn hình.
     await _deviceUpdatesSub?.cancel();
+    await _deviceDeletionsSub?.cancel();
     await _settingsSub?.cancel();
     await super.close();
   }

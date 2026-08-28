@@ -1229,6 +1229,95 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'ADMIN must confirm permanent device deletion and duplicate taps stay blocked',
+    (tester) async {
+      final deletion = Completer<void>();
+      final harness = await _pumpSettings(
+        tester,
+        role: 'ADMIN',
+        size: const Size(1280, 900),
+        section: SettingsSection.devices,
+        configureRepository: (repository) {
+          repository.pendingDeviceDelete = deletion;
+        },
+      );
+
+      final deleteButton = find.byKey(const Key('delete-device-CAR-01'));
+      await tester.ensureVisible(deleteButton);
+      await tester.tap(deleteButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Xóa thiết bị?'), findsOneWidget);
+      expect(
+        find.textContaining(
+          'Toàn bộ vị trí, hành trình, sự kiện và dữ liệu telemetry',
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.widgetWithText(TextButton, 'Hủy'));
+      await tester.pumpAndSettle();
+      expect(harness.repository.lastDeletedDeviceId, isNull);
+      expect(find.byKey(const Key('registered-device-CAR-01')), findsOneWidget);
+
+      await tester.tap(deleteButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('confirm-delete-device-CAR-01')));
+      await tester.pump();
+
+      expect(harness.repository.deviceDeleteCount, 1);
+      expect(harness.repository.lastDeletedDeviceId, 'device-1');
+      expect(tester.widget<IconButton>(deleteButton).onPressed, isNull);
+      await tester.tap(deleteButton, warnIfMissed: false);
+      await tester.pump();
+      expect(harness.repository.deviceDeleteCount, 1);
+
+      deletion.complete();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('registered-device-CAR-01')), findsNothing);
+      expect(find.text('Đã xóa thiết bị CAR-01.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('failed device deletion keeps the registered device visible', (
+    tester,
+  ) async {
+    final harness = await _pumpSettings(
+      tester,
+      role: 'ADMIN',
+      size: const Size(390, 844),
+      section: SettingsSection.devices,
+      configureRepository: (repository) {
+        repository.deviceDeleteError = DioException(
+          requestOptions: RequestOptions(path: '/devices/device-1'),
+          response: Response(
+            requestOptions: RequestOptions(path: '/devices/device-1'),
+            statusCode: 409,
+            data: const {
+              'detail': 'Thiết bị đang được xử lý, vui lòng thử lại.',
+            },
+          ),
+        );
+      },
+    );
+
+    final deleteButton = find.byKey(const Key('delete-device-CAR-01'));
+    await tester.ensureVisible(deleteButton);
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-delete-device-CAR-01')));
+    await tester.pumpAndSettle();
+
+    expect(harness.repository.deviceDeleteCount, 1);
+    expect(find.byKey(const Key('registered-device-CAR-01')), findsOneWidget);
+    expect(
+      find.text('Thiết bị đang được xử lý, vui lòng thử lại.'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('subpages do not render redundant introduction blocks', (
     tester,
   ) async {
@@ -1516,12 +1605,16 @@ class _FakeSettingsRepository extends SettingsRepository {
   int loadMqttSightingsCount = 0;
   Completer<void>? pendingUserUpdate;
   Completer<void>? pendingSystemUpdate;
+  Completer<void>? pendingDeviceDelete;
   Object? systemUpdateError;
+  Object? deviceDeleteError;
   String? lastUpdatedUserId;
   Map<String, dynamic>? lastUserUpdate;
   Map<String, dynamic>? lastDeviceCreate;
   String? lastUpdatedDeviceId;
   Map<String, dynamic>? lastDeviceUpdate;
+  int deviceDeleteCount = 0;
+  String? lastDeletedDeviceId;
   String? lastResetUserId;
   String? lastResetPassword;
 
@@ -1705,6 +1798,20 @@ class _FakeSettingsRepository extends SettingsRepository {
     );
     _devices[index] = updated;
     return updated;
+  }
+
+  @override
+  Future<void> deleteDevice(String deviceId) async {
+    deviceDeleteCount++;
+    lastDeletedDeviceId = deviceId;
+    final pending = pendingDeviceDelete;
+    if (pending != null) {
+      await pending.future;
+      pendingDeviceDelete = null;
+    }
+    final error = deviceDeleteError;
+    if (error != null) throw error;
+    _devices.removeWhere((device) => device.id == deviceId);
   }
 
   @override

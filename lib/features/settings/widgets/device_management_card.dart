@@ -197,6 +197,52 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
       );
   }
 
+  Future<void> _deleteDevice(DeviceModel device) async {
+    // Xóa là thao tác không thể hoàn tác và kéo theo toàn bộ lịch sử của thiết bị,
+    // vì vậy luôn yêu cầu xác nhận rõ đối tượng trước khi gọi backend.
+    if (widget.operationInProgress) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        final appColors = dialogContext.appColors;
+        return AlertDialog(
+          title: const Text('Xóa thiết bị?'),
+          content: Text(
+            'Bạn sắp xóa vĩnh viễn ${device.name} (${device.deviceCode}). '
+            'Toàn bộ vị trí, hành trình, sự kiện và dữ liệu telemetry đã lưu của '
+            'thiết bị này cũng sẽ bị xóa và không thể khôi phục.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Hủy'),
+            ),
+            FilledButton.icon(
+              key: Key('confirm-delete-device-${device.deviceCode}'),
+              style: FilledButton.styleFrom(
+                backgroundColor: appColors.dangerStrong,
+                foregroundColor: Theme.of(dialogContext).colorScheme.onError,
+              ),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              icon: const Icon(Icons.delete_outline_rounded),
+              label: const Text('Xóa thiết bị'),
+            ),
+          ],
+        );
+      },
+    );
+    // null là đóng bằng back/click ngoài; cả null và false đều không thay đổi dữ liệu.
+    if (confirmed != true || !mounted) return;
+
+    final error = await context.read<SettingsCubit>().deleteDevice(device.id);
+    if (!mounted || error != null) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text('Đã xóa thiết bị ${device.deviceCode}.')),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Các số đếm lấy trực tiếp từ SettingsState. `visible*` chỉ là phần được dựng
@@ -233,6 +279,7 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
                   operationInProgress: widget.operationInProgress,
                   onEdit: () =>
                       _openDeviceDialog(device: visibleDevices[index]),
+                  onDelete: () => _deleteDevice(visibleDevices[index]),
                   onEnabledChanged: (value) =>
                       _setEnabled(visibleDevices[index], value),
                 ),
@@ -1081,6 +1128,7 @@ class _RegisteredDeviceTile extends StatelessWidget {
     required this.detailed,
     required this.operationInProgress,
     required this.onEdit,
+    required this.onDelete,
     required this.onEnabledChanged,
   });
 
@@ -1088,6 +1136,7 @@ class _RegisteredDeviceTile extends StatelessWidget {
   final bool detailed;
   final bool operationInProgress;
   final VoidCallback onEdit;
+  final VoidCallback onDelete;
   final ValueChanged<bool> onEnabledChanged;
 
   @override
@@ -1224,7 +1273,7 @@ class _RegisteredDeviceTile extends StatelessWidget {
           ),
       ],
     );
-    // Cụm hành động giữ nút sửa riêng và switch quyền nhận dữ liệu có tooltip rõ nghĩa.
+    // Cụm hành động giữ nút sửa/xóa riêng và switch quyền nhận dữ liệu có tooltip rõ nghĩa.
     final editButton = IconButton.filledTonal(
       key: Key('edit-device-${device.deviceCode}'),
       tooltip: 'Chỉnh sửa ${device.deviceCode}',
@@ -1237,6 +1286,23 @@ class _RegisteredDeviceTile extends StatelessWidget {
         backgroundColor: appColors.primarySoft,
       ),
       icon: const Icon(Icons.edit_outlined, size: 18),
+    );
+    final deleteButton = IconButton.filledTonal(
+      key: Key('delete-device-${device.deviceCode}'),
+      tooltip: 'Xóa ${device.deviceCode}',
+      onPressed: operationInProgress ? null : onDelete,
+      style: IconButton.styleFrom(
+        minimumSize: const Size.square(36),
+        maximumSize: const Size.square(36),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        foregroundColor: appColors.dangerStrong,
+        backgroundColor: appColors.dangerSoft,
+      ),
+      icon: const Icon(Icons.delete_outline_rounded, size: 18),
+    );
+    final actionButtons = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [editButton, const SizedBox(width: 5), deleteButton],
     );
     Widget permissionControl({required bool showLabel}) {
       // Label được ẩn ở chiều rộng nhỏ nhưng tooltip vẫn mô tả đầy đủ trạng thái và hành động.
@@ -1311,7 +1377,7 @@ class _RegisteredDeviceTile extends StatelessWidget {
                   const SizedBox(width: 12),
                   permissionControl(showLabel: constraints.maxWidth >= 900),
                   const SizedBox(width: 5),
-                  editButton,
+                  actionButtons,
                 ],
               ),
             );
@@ -1328,7 +1394,7 @@ class _RegisteredDeviceTile extends StatelessWidget {
                     children: [
                       Expanded(child: identity),
                       const SizedBox(width: 8),
-                      editButton,
+                      actionButtons,
                     ],
                   ),
                 ),
@@ -1360,7 +1426,7 @@ class _RegisteredDeviceTile extends StatelessWidget {
                     children: [
                       Expanded(child: permissionControl(showLabel: true)),
                       const SizedBox(width: 6),
-                      editButton,
+                      actionButtons,
                     ],
                   ),
                 ),
@@ -1376,7 +1442,7 @@ class _RegisteredDeviceTile extends StatelessWidget {
                 const SizedBox(width: 12),
                 permissionControl(showLabel: true),
                 const SizedBox(width: 5),
-                editButton,
+                actionButtons,
               ],
             ),
           );

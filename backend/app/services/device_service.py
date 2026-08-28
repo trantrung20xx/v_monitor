@@ -10,8 +10,11 @@ from sqlalchemy.orm import selectinload
 
 from app.models.device import Device
 from app.models.audit_log import AuditLog
+from app.models.device_event import DeviceEvent
 from app.models.device_latest_state import DeviceLatestState
+from app.models.location_sample import LocationSample
 from app.models.mqtt_device_sighting import MqttDeviceSighting
+from app.models.telemetry_message import TelemetryMessage
 from app.schemas.device import DeviceCreate, DeviceUpdate
 
 
@@ -222,6 +225,76 @@ class DeviceService:
         await db.commit()
         await db.refresh(device)
         return DeviceService._format_device(device)
+
+    @staticmethod
+    async def delete_device(
+        db: AsyncSession,
+        device_id: uuid.UUID,
+        *,
+        actor_user_id: uuid.UUID | None = None,
+    ) -> Optional[dict]:
+        # Khóa hồ sơ trước khi xóa để không tranh chấp với một PATCH đồng thời và để
+        # audit luôn ghi đúng snapshot cuối cùng của thiết bị.
+        result = await db.execute(
+            select(Device).where(Device.id == device_id).with_for_update()
+        )
+        device = result.scalar_one_or_none()
+        if device is None:
+            return None
+
+        old_value = {
+            "device_code": device.device_code,
+            "name": device.name,
+            "device_type": device.device_type.value,
+            "serial_number": device.serial_number,
+            "manufacturer": device.manufacturer,
+            "model": device.model,
+            "firmware_version": device.firmware_version,
+            "status": device.status.value,
+            "is_enabled": device.is_enabled,
+            "metadata_json": device.metadata_json,
+        }
+
+        # Các bảng lịch sử dùng khóa ngoại bắt buộc và chủ đích không CASCADE ở schema.
+        # Xóa theo thứ tự phụ thuộc trong cùng transaction để không để lại dữ liệu mồ
+        # côi và cũng không thể có trạng thái "đã xóa một phần" nếu commit thất bại.
+        await db.execute(
+            delete(DeviceEvent).where(DeviceEvent.device_id == device_id)
+        )
+        await db.execute(
+            delete(DeviceLatestState).where(
+                DeviceLatestState.device_id == device_id
+            )
+        )
+        await db.execute(
+            delete(LocationSample).where(LocationSample.device_id == device_id)
+        )
+        await db.execute(
+            delete(TelemetryMessage).where(
+                TelemetryMessage.device_id == device_id
+            )
+        )
+        await db.execute(delete(Device).where(Device.id == device_id))
+
+        # Audit không có khóa ngoại tới devices nên vẫn giữ được bằng chứng sau khi
+        # hồ sơ và toàn bộ dữ liệu vận hành của thiết bị đã bị xóa vĩnh viễn.
+        db.add(
+            AuditLog(
+                actor_user_id=actor_user_id,
+                action="DEVICE_DELETED",
+                entity_type="device",
+                entity_id=device_id,
+                occurred_at=datetime.now(timezone.utc),
+                old_value=old_value,
+                new_value=None,
+            )
+        )
+        await db.commit()
+        return {
+            "id": str(device_id),
+            "device_code": device.device_code,
+            "name": device.name,
+        }
 
     @staticmethod
     async def get_mqtt_sightings(

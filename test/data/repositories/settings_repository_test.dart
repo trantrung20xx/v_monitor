@@ -24,6 +24,7 @@ void main() {
         'preferences': {'journey_node_label_mode': 'date_time_only'},
       });
       await repository.updateSystemSettings({'offline_timeout_seconds': 600});
+      await repository.deleteDevice('device-1');
 
       expect(personal.theme, 'dark');
       expect(personal.preferences['existing_key'], 'keep');
@@ -41,6 +42,7 @@ void main() {
         'GET /system/settings',
         'PATCH /auth/settings',
         'PATCH /system/settings',
+        'DELETE /devices/device-1',
       ]);
     },
   );
@@ -136,6 +138,15 @@ class _FakeApiClient extends ApiClient {
               'movement_threshold_mps': 0.5,
               'default_gap_threshold_seconds': 300,
             },
+    );
+  }
+
+  @override
+  Future<Response> delete(String path, {dynamic data}) async {
+    calls.add('DELETE $path');
+    return Response(
+      requestOptions: RequestOptions(path: path),
+      statusCode: 204,
     );
   }
 }

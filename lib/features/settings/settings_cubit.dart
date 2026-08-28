@@ -298,19 +298,28 @@ class SettingsCubit extends Cubit<SettingsState> {
     return _runDeviceOperation(() => _repository.updateDevice(deviceId, data));
   }
 
+  Future<String?> deleteDevice(String deviceId) {
+    // Chỉ tải lại danh sách sau khi DELETE đã được backend commit thành công.
+    return _runDeviceOperation(
+      () => _repository.deleteDevice(deviceId),
+      failureMessage: 'Không thể xóa thiết bị.',
+    );
+  }
+
   Future<String?> _runDeviceOperation(
-    Future<dynamic> Function() operation,
-  ) async {
-    // Một runner chung đảm bảo create/update dùng cùng cơ chế khóa và báo lỗi.
+    Future<dynamic> Function() operation, {
+    String failureMessage = 'Không thể cập nhật thiết bị.',
+  }) async {
+    // Một runner chung đảm bảo create/update/delete dùng cùng cơ chế khóa và báo lỗi.
     if (state.deviceOperationInProgress) {
       return 'Một thao tác thiết bị khác đang được thực hiện.';
     }
     emit(state.copyWith(deviceOperationInProgress: true, clearMessage: true));
     try {
-      // operation là callback repository cụ thể được truyền từ createDevice/updateDevice.
+      // operation là callback repository cụ thể được truyền từ thao tác quản lý thiết bị.
       await operation();
-      // Luôn đọc lại nguồn thật sau create/update vì backend có thể chuẩn hóa dữ liệu
-      // và việc đăng ký một mã sẽ đồng thời xóa mã đó khỏi danh sách chờ.
+      // Luôn đọc lại nguồn thật sau thao tác vì backend có thể chuẩn hóa dữ liệu; đăng
+      // ký hoặc xóa trong lúc thiết bị phát MQTT cũng có thể đổi danh sách chờ.
       final results = await Future.wait([
         _repository.loadManagedDevices(),
         _repository.loadMqttDeviceSightings(),
@@ -325,7 +334,7 @@ class SettingsCubit extends Cubit<SettingsState> {
       );
       return null;
     } catch (error) {
-      final message = _errorMessage(error, 'Không thể cập nhật thiết bị.');
+      final message = _errorMessage(error, failureMessage);
       emit(state.copyWith(deviceOperationInProgress: false, message: message));
       return message;
     }
