@@ -218,6 +218,7 @@ void main() {
       expect(find.byTooltip('Chọn Giao diện'), findsOneWidget);
       expect(find.byTooltip('Chọn Loại bản đồ'), findsOneWidget);
       expect(find.byTooltip('Chọn Đơn vị tốc độ'), findsOneWidget);
+      expect(find.byTooltip('Chọn Nhãn hành trình'), findsOneWidget);
       expect(
         find.byKey(const Key('personal-settings-content')),
         findsOneWidget,
@@ -268,7 +269,30 @@ void main() {
       expect(harness.repository.userSettings.speedUnit, SpeedUnit.mps);
       expect(find.text('m/s'), findsOneWidget);
       expect(find.text('Mét mỗi giây'), findsOneWidget);
-      expect(harness.repository.userUpdateCount, 2);
+
+      final journeyLabelSetting = find.byKey(
+        const Key('journey-node-label-setting'),
+      );
+      await tester.drag(find.byType(ListView).first, const Offset(0, -500));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(journeyLabelSetting);
+      await tester.pumpAndSettle();
+      await tester.tap(journeyLabelSetting);
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+      await tester.tap(find.text('Ngày giờ').last);
+      await tester.pumpAndSettle();
+
+      expect(
+        harness.repository.userSettings.journeyNodeLabelMode,
+        JourneyNodeLabelMode.dateTimeOnly,
+      );
+      expect(
+        harness.repository.userSettings.preferences['journey_node_label_mode'],
+        'date_time_only',
+      );
+      expect(find.text('Chỉ hiển thị dd/MM/yyyy · HH:mm:ss'), findsOneWidget);
+      expect(harness.repository.userUpdateCount, 3);
       expect(tester.takeException(), isNull);
     },
   );

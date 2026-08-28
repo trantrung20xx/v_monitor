@@ -172,6 +172,15 @@ class UserSettingsUpdate(BaseSchema):
         # Đơn vị tốc độ chỉ ảnh hưởng cách trình bày, dữ liệu backend vẫn lưu m/s.
         if speed_unit is not None and speed_unit not in {"kmh", "mps"}:
             raise ValueError("speed_unit phải là kmh hoặc mps")
+        journey_node_label_mode = value.get("journey_node_label_mode")
+        if journey_node_label_mode is not None and journey_node_label_mode not in {
+            "date_time_only",
+            "date_time_and_address",
+        }:
+            raise ValueError(
+                "journey_node_label_mode phải là date_time_only hoặc "
+                "date_time_and_address"
+            )
         return value
 
     @field_validator("language")

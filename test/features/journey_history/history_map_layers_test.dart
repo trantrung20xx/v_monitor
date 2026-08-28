@@ -344,6 +344,14 @@ void main() {
       );
 
       expect(markers.length, nodes.length);
+      expect(
+        markers.where((marker) => marker.width == 260 && marker.height == 170),
+        hasLength(2),
+      );
+      expect(
+        markers.where((marker) => marker.width == 250 && marker.height == 170),
+        hasLength(nodes.length - 2),
+      );
       for (final address in addresses.values) {
         final label = find.text(address);
         expect(label, findsOneWidget);
@@ -405,7 +413,99 @@ void main() {
       expect(find.text('Điểm kết thúc'), findsNothing);
     });
 
-    test('buildSamplePoints generates Start and End pins and Park markers', () {
+    testWidgets(
+      'date-time-only route labels keep timestamps and hide every address',
+      (tester) async {
+        final samples = List.generate(25, (index) {
+          return LocationModel(
+            id: '$index',
+            deviceId: 'dev-1',
+            measuredAt: DateTime(
+              2026,
+              8,
+              28,
+              10,
+              9,
+              35,
+            ).add(Duration(minutes: index * 2)),
+            latitude: 21 + index * 0.0006,
+            longitude: 105 + index * 0.0002,
+          );
+        });
+        final nodes = HistoryMapLayers.extractRouteNodes(samples);
+        final addresses = {
+          for (final node in nodes)
+            HistoryMapLayers.routeNodeKey(node.sample):
+                'Ngõ 6 Phố Kim Mã Thượng, Ngọc Hà, Hà Nội',
+        };
+        final markers = HistoryMapLayers.buildSamplePoints(
+          validSamples: samples,
+          nodeAddresses: addresses,
+          showAddresses: false,
+          onPointSelected: (_) {},
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: Column(
+                  children: markers.map((marker) => marker.child).toList(),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        expect(markers, hasLength(nodes.length));
+        expect(
+          markers.where(
+            (marker) => marker.width == 170 && marker.height == 112,
+          ),
+          hasLength(2),
+        );
+        expect(
+          markers.where((marker) => marker.width == 164 && marker.height == 86),
+          hasLength(
+            nodes
+                .where((node) => node.type == JourneyRouteNodeType.place)
+                .length,
+          ),
+        );
+        final compactPlaceLabel = find
+            .byKey(const Key('journey-place-node-label'))
+            .first;
+        final compactPlaceTimestamp = find
+            .descendant(of: compactPlaceLabel, matching: find.byType(Text))
+            .first;
+        final labelWidth = tester.getSize(compactPlaceLabel).width;
+        final timestampWidth = tester.getSize(compactPlaceTimestamp).width;
+        // Khung co theo nội dung, không còn phần trống lớn do bị ép kín canvas.
+        expect(labelWidth - timestampWidth, inInclusiveRange(0, 20));
+        expect(labelWidth, lessThan(152));
+        for (final label
+            in find
+                .byKey(const Key('journey-start-end-node-label'))
+                .evaluate()) {
+          expect(
+            tester.getSize(find.byElementPredicate((e) => e == label)).width,
+            lessThan(158),
+          );
+        }
+        expect(find.textContaining('28/08/2026 · '), findsWidgets);
+        expect(
+          find.text('Ngõ 6 Phố Kim Mã Thượng, Ngọc Hà, Hà Nội'),
+          findsNothing,
+        );
+        expect(find.text('BẮT ĐẦU'), findsOneWidget);
+        expect(find.text('KẾT THÚC'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('compact route geometry fits Start, End, and Park markers', (
+      tester,
+    ) async {
       final baseTime = DateTime(2026, 8, 19, 8, 0, 0);
 
       final samples = [
@@ -466,8 +566,35 @@ void main() {
         onPointSelected: (_) {},
       );
 
+      final compactMarkers = HistoryMapLayers.buildSamplePoints(
+        validSamples: samples,
+        showAddresses: false,
+        onPointSelected: (_) {},
+      );
+
       // Ít nhất có Start Pin, End Pin, và Park Pin [P]
       expect(markers.length, greaterThanOrEqualTo(3));
+      expect(
+        compactMarkers.any(
+          (marker) => marker.width == 226 && marker.height == 90,
+        ),
+        isTrue,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: Column(
+                children: compactMarkers.map((marker) => marker.child).toList(),
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(find.textContaining('ĐỖ '), findsWidgets);
+      final compactParkLabel = find.byKey(const Key('journey-park-node-label'));
+      expect(tester.getSize(compactParkLabel).width, lessThan(214));
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('replay marker is compact and only labels current speed', (

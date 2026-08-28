@@ -9,6 +9,7 @@ import '../../core/config/map_tile_providers.dart';
 import '../../core/theme/app_theme_colors.dart';
 import '../../data/models/device_model.dart';
 import '../../data/models/location_model.dart';
+import '../../data/models/user_settings_model.dart';
 import '../../data/repositories/device_repository.dart';
 import '../../data/repositories/geocoding_repository.dart';
 import '../../data/repositories/settings_repository.dart';
@@ -392,8 +393,12 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
     final theme = Theme.of(context);
     final appColors = context.appColors;
     final state = widget.state;
-    final mapType = context.watch<SettingsCubit>().state.userSettings.mapType;
+    final userSettings = context.watch<SettingsCubit>().state.userSettings;
+    final mapType = userSettings.mapType;
     final isSatellite = mapType == AppMapType.satellite;
+    final showNodeAddresses =
+        userSettings.journeyNodeLabelMode ==
+        JourneyNodeLabelMode.dateTimeAndAddress;
 
     final initialCenter = state.validSamples.isNotEmpty
         ? LatLng(
@@ -468,6 +473,7 @@ class _HistoryMapViewState extends State<_HistoryMapView> {
                   onPointSelected: widget.onPointSelected,
                   nodeAddresses: _nodeAddresses,
                   showLabels: _showRouteLabels,
+                  showAddresses: showNodeAddresses,
                   colors: appColors,
                 ),
               ),

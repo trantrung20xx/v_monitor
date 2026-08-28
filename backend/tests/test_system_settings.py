@@ -151,6 +151,27 @@ class SystemSettingsServiceTest(unittest.IsolatedAsyncioTestCase):
 
 
 class UserSettingsMergeTest(unittest.IsolatedAsyncioTestCase):
+    def test_journey_node_label_mode_accepts_only_supported_values(self):
+        compact = UserSettingsUpdate(
+            preferences={"journey_node_label_mode": "date_time_only"}
+        )
+        detailed = UserSettingsUpdate(
+            preferences={"journey_node_label_mode": "date_time_and_address"}
+        )
+
+        self.assertEqual(
+            compact.preferences["journey_node_label_mode"],
+            "date_time_only",
+        )
+        self.assertEqual(
+            detailed.preferences["journey_node_label_mode"],
+            "date_time_and_address",
+        )
+        with self.assertRaises(ValidationError):
+            UserSettingsUpdate(
+                preferences={"journey_node_label_mode": "unsupported"}
+            )
+
     async def test_preferences_patch_keeps_unrelated_keys(self):
         user = _account(UserRole.USER)
         settings = UserSetting(

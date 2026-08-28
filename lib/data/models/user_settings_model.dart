@@ -7,6 +7,10 @@ import '../../core/config/map_tile_providers.dart';
 // Đơn vị tốc độ trình bày; dữ liệu domain/backend luôn giữ m/s.
 enum SpeedUnit { kmh, mps }
 
+// Nội dung hiển thị trong bong bóng của các node trên bản đồ hành trình.
+// Giá trị mặc định giữ nguyên giao diện đầy đủ của các tài khoản hiện có.
+enum JourneyNodeLabelMode { dateTimeOnly, dateTimeAndAddress }
+
 class UserSettingsModel {
   // Cài đặt cá nhân của tài khoản; preferences chứa tùy chọn mở rộng như map_type/speed_unit.
   const UserSettingsModel({
@@ -40,6 +44,11 @@ class UserSettingsModel {
 
   SpeedUnit get speedUnit =>
       preferences['speed_unit'] == 'mps' ? SpeedUnit.mps : SpeedUnit.kmh;
+
+  JourneyNodeLabelMode get journeyNodeLabelMode =>
+      preferences['journey_node_label_mode'] == 'date_time_only'
+      ? JourneyNodeLabelMode.dateTimeOnly
+      : JourneyNodeLabelMode.dateTimeAndAddress;
 
   factory UserSettingsModel.fromJson(Map<String, dynamic> json) {
     // Sao chép preferences thành Map mới để model không giữ tham chiếu mutable từ response Dio.

@@ -113,6 +113,23 @@ class SettingsCubit extends Cubit<SettingsState> {
     );
   }
 
+  Future<String?> updateJourneyNodeLabelMode(JourneyNodeLabelMode mode) {
+    final value = mode == JourneyNodeLabelMode.dateTimeOnly
+        ? 'date_time_only'
+        : 'date_time_and_address';
+    return _updatePersonal(
+      optimistic: state.userSettings.copyWith(
+        preferences: {
+          ...state.userSettings.preferences,
+          'journey_node_label_mode': value,
+        },
+      ),
+      changes: {
+        'preferences': {'journey_node_label_mode': value},
+      },
+    );
+  }
+
   Future<String?> _updatePersonal({
     required UserSettingsModel optimistic,
     required Map<String, dynamic> changes,

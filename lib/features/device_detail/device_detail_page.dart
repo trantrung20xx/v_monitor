@@ -17,6 +17,7 @@ import '../../core/utils/device_formatters.dart';
 import '../../data/models/device_model.dart';
 import '../../data/models/device_event_model.dart';
 import '../../data/models/location_model.dart';
+import '../../data/models/user_settings_model.dart';
 import '../../domain/entities/device_status_resolver.dart';
 import '../../domain/entities/gps_validator.dart';
 import '../../domain/entities/route_segment.dart';
@@ -5542,8 +5543,12 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
     // Stack nhưng không thay đổi samples nguồn.
     final theme = Theme.of(context);
     final state = widget.state;
-    final mapType = context.watch<SettingsCubit>().state.userSettings.mapType;
+    final userSettings = context.watch<SettingsCubit>().state.userSettings;
+    final mapType = userSettings.mapType;
     final isSatellite = mapType == AppMapType.satellite;
+    final showNodeAddresses =
+        userSettings.journeyNodeLabelMode ==
+        JourneyNodeLabelMode.dateTimeAndAddress;
 
     final initialCenter = state.validSamples.isNotEmpty
         ? LatLng(
@@ -5632,6 +5637,7 @@ class _DeviceJourneyMapViewState extends State<_DeviceJourneyMapView> {
                   onPointSelected: widget.onPointSelected,
                   nodeAddresses: _nodeAddresses,
                   showLabels: _showRouteLabels,
+                  showAddresses: showNodeAddresses,
                   colors: context.appColors,
                 ),
               ),

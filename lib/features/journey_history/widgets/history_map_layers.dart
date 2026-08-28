@@ -569,6 +569,7 @@ class HistoryMapLayers {
     required ValueChanged<LocationModel> onPointSelected,
     Map<String, String> nodeAddresses = const {},
     bool showLabels = true,
+    bool showAddresses = true,
     AppThemeColors colors = AppThemeColors.light,
   }) {
     if (validSamples.isEmpty) return const [];
@@ -578,6 +579,24 @@ class HistoryMapLayers {
     final parkMarkers = <Marker>[];
     final topMarkers = <Marker>[];
     final dateTimeFormat = DateFormat('dd/MM/yyyy · HH:mm:ss');
+    // Marker đầy đủ giữ nguyên canvas cũ. Khi chỉ hiện thời gian, canvas co theo
+    // đúng lượng nội dung của từng loại node để bong bóng không kéo ngang làm
+    // chắn màn hình.
+    final startEndMarkerSize = !showLabels
+        ? const Size.square(24)
+        : showAddresses
+        ? const Size(260, 170)
+        : const Size(170, 112);
+    final parkMarkerSize = !showLabels
+        ? const Size.square(24)
+        : showAddresses
+        ? const Size(250, 170)
+        : const Size(226, 90);
+    final placeMarkerSize = !showLabels
+        ? const Size.square(24)
+        : showAddresses
+        ? const Size(250, 170)
+        : const Size(164, 86);
     final nodes = extractRouteNodes(validSamples);
     final startNode = nodes.firstWhere(
       (node) => node.type == JourneyRouteNodeType.start,
@@ -588,8 +607,8 @@ class HistoryMapLayers {
     topMarkers.add(
       Marker(
         point: LatLng(start.latitude, start.longitude),
-        width: showLabels ? 260 : 24,
-        height: showLabels ? 170 : 24,
+        width: startEndMarkerSize.width,
+        height: startEndMarkerSize.height,
         alignment: Alignment.center,
         child: GestureDetector(
           onTap: () => onPointSelected(start),
@@ -597,6 +616,7 @@ class HistoryMapLayers {
             title: 'BẮT ĐẦU',
             dateTimeText: dateTimeFormat.format(startDt),
             addressText: _nodeAddress(start, nodeAddresses),
+            showAddress: showAddresses,
             color: colors.success,
             icon: Icons.play_arrow_rounded,
             showLabel: showLabels,
@@ -615,8 +635,8 @@ class HistoryMapLayers {
       topMarkers.add(
         Marker(
           point: LatLng(end.latitude, end.longitude),
-          width: showLabels ? 260 : 24,
-          height: showLabels ? 170 : 24,
+          width: startEndMarkerSize.width,
+          height: startEndMarkerSize.height,
           alignment: Alignment.center,
           child: GestureDetector(
             onTap: () => onPointSelected(end),
@@ -624,6 +644,7 @@ class HistoryMapLayers {
               title: 'KẾT THÚC',
               dateTimeText: dateTimeFormat.format(endDt),
               addressText: _nodeAddress(end, nodeAddresses),
+              showAddress: showAddresses,
               color: colors.danger,
               icon: Icons.flag_rounded,
               showLabel: showLabels,
@@ -642,8 +663,8 @@ class HistoryMapLayers {
       parkMarkers.add(
         Marker(
           point: stopCoord,
-          width: showLabels ? 250 : 24,
-          height: showLabels ? 170 : 24,
+          width: parkMarkerSize.width,
+          height: parkMarkerSize.height,
           alignment: Alignment.center,
           child: GestureDetector(
             onTap: () => onPointSelected(stop.sample),
@@ -651,6 +672,7 @@ class HistoryMapLayers {
               durationText: stop.compactDurationLabel,
               dateTimeText: dateTimeFormat.format(stopDt),
               addressText: _nodeAddress(stop.sample, nodeAddresses),
+              showAddress: showAddresses,
               showLabel: showLabels,
               colors: colors,
             ),
@@ -666,14 +688,15 @@ class HistoryMapLayers {
       placeMarkers.add(
         Marker(
           point: LatLng(sample.latitude, sample.longitude),
-          width: showLabels ? 250 : 24,
-          height: showLabels ? 170 : 24,
+          width: placeMarkerSize.width,
+          height: placeMarkerSize.height,
           alignment: Alignment.center,
           child: GestureDetector(
             onTap: () => onPointSelected(sample),
             child: _buildPlaceNodeWidget(
               dateTimeText: dateTimeFormat.format(sample.measuredAt.toLocal()),
               addressText: _nodeAddress(sample, nodeAddresses),
+              showAddress: showAddresses,
               showLabel: showLabels,
               colors: colors,
             ),
@@ -697,11 +720,13 @@ class HistoryMapLayers {
   static Widget _buildPlaceNodeWidget({
     required String dateTimeText,
     required String addressText,
+    required bool showAddress,
     required bool showLabel,
     required AppThemeColors colors,
   }) {
     return _buildRouteNodeMarker(
       showLabel: showLabel,
+      shrinkLabelWidth: !showAddress,
       bubbleFillColor: colors.surface,
       bubbleBorderColor: colors.primaryBorder,
       nodeColor: colors.primaryStrong,
@@ -714,6 +739,7 @@ class HistoryMapLayers {
         ),
       ),
       label: Container(
+        key: const Key('journey-place-node-label'),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: colors.surface,
@@ -740,16 +766,18 @@ class HistoryMapLayers {
                 letterSpacing: 0.1,
               ),
             ),
-            const SizedBox(height: 2),
-            Text(
-              addressText,
-              style: TextStyle(
-                color: colors.textPrimary,
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-                height: 1.2,
+            if (showAddress) ...[
+              const SizedBox(height: 2),
+              Text(
+                addressText,
+                style: TextStyle(
+                  color: colors.textPrimary,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                  height: 1.2,
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),
@@ -761,12 +789,14 @@ class HistoryMapLayers {
     required String durationText,
     required String dateTimeText,
     required String addressText,
+    required bool showAddress,
     required bool showLabel,
     required AppThemeColors colors,
   }) {
     final color = colors.orange;
     return _buildRouteNodeMarker(
       showLabel: showLabel,
+      shrinkLabelWidth: !showAddress,
       bubbleFillColor: color,
       bubbleBorderColor: AppPalette.onAccent,
       nodeColor: color,
@@ -780,6 +810,7 @@ class HistoryMapLayers {
         ),
       ),
       label: Container(
+        key: const Key('journey-park-node-label'),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: color,
@@ -798,6 +829,7 @@ class HistoryMapLayers {
           mainAxisSize: MainAxisSize.min,
           children: [
             Row(
+              mainAxisSize: showAddress ? MainAxisSize.max : MainAxisSize.min,
               children: [
                 const Icon(
                   Icons.local_parking_rounded,
@@ -805,8 +837,19 @@ class HistoryMapLayers {
                   color: AppPalette.onAccent,
                 ),
                 const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
+                if (showAddress)
+                  Expanded(
+                    child: Text(
+                      'ĐỖ $durationText · $dateTimeText',
+                      style: const TextStyle(
+                        color: AppPalette.onAccent,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  )
+                else
+                  Text(
                     'ĐỖ $durationText · $dateTimeText',
                     style: const TextStyle(
                       color: AppPalette.onAccent,
@@ -814,19 +857,20 @@ class HistoryMapLayers {
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                ),
               ],
             ),
-            const SizedBox(height: 2),
-            Text(
-              addressText,
-              style: const TextStyle(
-                color: AppPalette.onAccent,
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-                height: 1.2,
+            if (showAddress) ...[
+              const SizedBox(height: 2),
+              Text(
+                addressText,
+                style: const TextStyle(
+                  color: AppPalette.onAccent,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                  height: 1.2,
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),
@@ -838,17 +882,20 @@ class HistoryMapLayers {
     required String title,
     required String dateTimeText,
     required String addressText,
+    required bool showAddress,
     required Color color,
     required IconData icon,
     required bool showLabel,
   }) {
     return _buildRouteNodeMarker(
       showLabel: showLabel,
+      shrinkLabelWidth: !showAddress,
       bubbleFillColor: color,
       bubbleBorderColor: AppPalette.onAccent,
       nodeColor: color,
       nodeChild: Icon(icon, size: 10, color: AppPalette.onAccent),
       label: Container(
+        key: const Key('journey-start-end-node-label'),
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
         decoration: BoxDecoration(
           color: color,
@@ -875,6 +922,7 @@ class HistoryMapLayers {
           mainAxisSize: MainAxisSize.min,
           children: [
             Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(icon, size: 12, color: AppPalette.onAccent),
                 const SizedBox(width: 4),
@@ -898,16 +946,18 @@ class HistoryMapLayers {
                 fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: 2),
-            Text(
-              addressText,
-              style: const TextStyle(
-                color: AppPalette.onAccent,
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-                height: 1.2,
+            if (showAddress) ...[
+              const SizedBox(height: 2),
+              Text(
+                addressText,
+                style: const TextStyle(
+                  color: AppPalette.onAccent,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                  height: 1.2,
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),
@@ -916,6 +966,7 @@ class HistoryMapLayers {
 
   static Widget _buildRouteNodeMarker({
     required bool showLabel,
+    required bool shrinkLabelWidth,
     required Widget label,
     required Color bubbleFillColor,
     required Color bubbleBorderColor,
@@ -936,7 +987,9 @@ class HistoryMapLayers {
                 left: 6,
                 right: 6,
                 bottom: centerOffset + nodeSize / 2 + tailHeight,
-                child: label,
+                child: shrinkLabelWidth
+                    ? Align(alignment: Alignment.center, child: label)
+                    : label,
               ),
             if (showLabel)
               Positioned(

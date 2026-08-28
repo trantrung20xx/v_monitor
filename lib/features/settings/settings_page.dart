@@ -507,7 +507,7 @@ class _SettingsGroupTitle extends StatelessWidget {
 }
 
 // Card Giao diện và hiển thị lấy UserSettingsModel từ SettingsState và gửi từng
-// lựa chọn theme/bản đồ/đơn vị tốc độ về SettingsCubit.
+// lựa chọn theme/bản đồ/đơn vị tốc độ/nội dung nhãn hành trình về SettingsCubit.
 class _PersonalSettingsCard extends StatelessWidget {
   const _PersonalSettingsCard({required this.state});
 
@@ -566,6 +566,20 @@ class _PersonalSettingsCard extends StatelessWidget {
         icon: Icons.straighten_rounded,
       ),
     ];
+    const journeyLabelOptions = <_PersonalSettingOption<JourneyNodeLabelMode>>[
+      _PersonalSettingOption(
+        value: JourneyNodeLabelMode.dateTimeOnly,
+        label: 'Ngày giờ',
+        description: 'Chỉ hiển thị dd/MM/yyyy · HH:mm:ss',
+        icon: Icons.schedule_rounded,
+      ),
+      _PersonalSettingOption(
+        value: JourneyNodeLabelMode.dateTimeAndAddress,
+        label: 'Ngày giờ & địa chỉ',
+        description: 'Hiển thị đầy đủ thời gian và địa chỉ',
+        icon: Icons.location_on_outlined,
+      ),
+    ];
     final selectors = <Widget>[
       _PersonalSettingSelector<String>(
         key: const Key('theme-setting'),
@@ -594,6 +608,15 @@ class _PersonalSettingsCard extends StatelessWidget {
         enabled: !state.personalSaving,
         onSelected: cubit.updateSpeedUnit,
       ),
+      _PersonalSettingSelector<JourneyNodeLabelMode>(
+        key: const Key('journey-node-label-setting'),
+        title: 'Nhãn hành trình',
+        icon: Icons.label_outline_rounded,
+        value: state.userSettings.journeyNodeLabelMode,
+        options: journeyLabelOptions,
+        enabled: !state.personalSaving,
+        onSelected: cubit.updateJourneyNodeLabelMode,
+      ),
     ];
 
     return Column(
@@ -617,6 +640,22 @@ class _PersonalSettingsCard extends StatelessWidget {
                         const SizedBox(height: 12),
                     ],
                   ],
+                );
+              }
+
+              // Bốn selector cần hai cột ở chiều rộng trung bình để phần mô tả
+              // không bị ép hẹp; màn hình rộng vẫn giữ một hàng như style cũ.
+              if (constraints.maxWidth < 1120) {
+                final itemWidth = (constraints.maxWidth - 12) / 2;
+                return Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: selectors
+                      .map(
+                        (selector) =>
+                            SizedBox(width: itemWidth, child: selector),
+                      )
+                      .toList(growable: false),
                 );
               }
 

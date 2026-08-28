@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v_monitor/core/network/api_client.dart';
 import 'package:v_monitor/core/network/websocket_client.dart';
+import 'package:v_monitor/data/models/user_settings_model.dart';
 import 'package:v_monitor/data/repositories/settings_repository.dart';
 
 void main() {
@@ -19,13 +20,21 @@ void main() {
 
       final personal = await repository.loadUserSettings();
       final system = await repository.loadSystemSettings();
-      await repository.updateUserSettings({
-        'preferences': {'map_type': 'satellite'},
+      final updatedPersonal = await repository.updateUserSettings({
+        'preferences': {'journey_node_label_mode': 'date_time_only'},
       });
       await repository.updateSystemSettings({'offline_timeout_seconds': 600});
 
       expect(personal.theme, 'dark');
       expect(personal.preferences['existing_key'], 'keep');
+      expect(
+        personal.journeyNodeLabelMode,
+        JourneyNodeLabelMode.dateTimeAndAddress,
+      );
+      expect(
+        updatedPersonal.journeyNodeLabelMode,
+        JourneyNodeLabelMode.dateTimeOnly,
+      );
       expect(system.movementThresholdMps, 0.5);
       expect(api.calls, [
         'GET /auth/settings',
@@ -118,6 +127,7 @@ class _FakeApiClient extends ApiClient {
               'preferences': {
                 'map_type': 'satellite',
                 'speed_unit': 'kmh',
+                'journey_node_label_mode': 'date_time_only',
                 'existing_key': 'keep',
               },
             }
