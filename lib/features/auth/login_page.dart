@@ -31,7 +31,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _submit() {
-    // Validation cục bộ chặn trường rỗng; AuthCubit chịu trách nhiệm gọi API, lưu token
+    // AuthCubit chịu trách nhiệm gọi API, lưu token
     // và ánh xạ lỗi đăng nhập thành state cho giao diện.
     if (!(_formKey.currentState?.validate() ?? false)) return;
     context.read<AuthCubit>().login(

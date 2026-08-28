@@ -59,13 +59,12 @@ def create_access_token(user: UserAccount) -> str:
     # Thời điểm ký dùng UTC; PyJWT chuyển datetime thành NumericDate chuẩn JWT.
     now = datetime.now(timezone.utc)
     payload: dict[str, Any] = {
-        # `sub` định danh tài khoản; `ver` là phiên bản quyền dùng để thu hồi token.
+        # `sub` định danh (id) tài khoản; `ver` là phiên bản token, dùng để thu hồi token cũ.
         "sub": str(user.id),
         "ver": user.token_version,
-        # `iss` và `aud` ngăn token hợp lệ của hệ thống khác được dùng nhầm tại đây.
-        "iss": settings.jwt_issuer,
-        "aud": settings.jwt_audience,
-        # `iat` ghi lúc phát hành; `nbf` không cho dùng token trước thời điểm phát hành.
+        "iss": settings.jwt_issuer, # hệ thống phát hành token
+        "aud": settings.jwt_audience, # hệ thống được phép sử dụng token
+        # `iat` ghi vào thời điểm phát hành; `nbf` không cho dùng token trước thời điểm phát hành.
         "iat": now,
         "nbf": now,
     }

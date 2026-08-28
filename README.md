@@ -9,6 +9,29 @@ flutter pub get
 flutter run -d windows --dart-define-from-file=config/development.json
 ```
 
+### Build và phân phối Windows
+
+Flutter Windows không tạo một file EXE độc lập. `v_monitor.exe` phải chạy cạnh
+`flutter_windows.dll`, toàn bộ DLL native plugin và thư mục `data`; chỉ sao chép
+riêng file EXE sang máy khác sẽ gây lỗi thiếu DLL. Dùng script đóng gói của dự án
+để build, kiểm tra dependency, bổ sung Visual C++ runtime và tạo ZIP hoàn chỉnh:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/package_windows_release.ps1 `
+  -Config config/production.json
+```
+
+Kết quả nằm trong `build/distributions/`. Chỉ phân phối file ZIP do script tạo;
+trên máy nhận phải giải nén toàn bộ ZIP vào cùng một thư mục rồi mới chạy
+`v_monitor.exe`. Không kéo riêng EXE ra Desktop. Khi cần kiểm tra nhanh bundle đã
+build sẵn mà không build lại, thêm `-SkipBuild`.
+
+Script từ chối tạo gói nếu thiếu engine, AOT data, asset, DLL plugin đang đăng ký
+hoặc Visual C++ x64 runtime, sau đó chạy smoke test từ chính thư mục đóng gói và
+kiểm tra lại nội dung ZIP. Cách đóng gói này chỉ dành cho Windows x64; các nền
+tảng khác phải dùng artifact riêng (`flutter build apk`, `flutter build web`,
+`flutter build linux` hoặc `flutter build macos`) và không dùng file EXE Windows.
+
 ### Cấu hình kết nối frontend
 
 Flutter nhận cấu hình tại thời điểm build bằng `--dart-define-from-file`. Ba

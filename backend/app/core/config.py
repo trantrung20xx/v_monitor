@@ -257,7 +257,7 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    # Chỉ tạo một Settings cho mỗi tiến trình để mọi module dùng cùng ảnh chụp cấu hình.
+    # Chỉ tạo một Settings cho mỗi tiến trình để mọi module dùng cùng một cấu hình đồng bộ.
     return Settings()
 
 
