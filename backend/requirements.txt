@@ -1,5 +1,3 @@
-# Giữ mỗi thư viện trong cùng major version để nhận bản vá tương thích nhưng
-# không tự động kéo API phá vỡ hành vi khi cài trên một máy mới.
 # Framework HTTP API và dependency injection.
 fastapi>=0.100.0,<1.0.0
 # ASGI server chạy FastAPI.

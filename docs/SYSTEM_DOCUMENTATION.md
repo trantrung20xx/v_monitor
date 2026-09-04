@@ -12,27 +12,76 @@ VMonitor tiếp nhận vị trí từ thiết bị qua MQTT hoặc REST, lưu d�
 
 ## 2. Kiến trúc và luồng dữ liệu
 
-```text
-Thiết bị GPS
-    │ MQTT: <MQTT_TOPIC_PREFIX>/<device_code>
-    ▼
-FastAPI ─────► PostgreSQL + PostGIS
-    │                 │
-    │ WebSocket       │ REST API
-    └────────────┬────┘
-                 ▼
-             Flutter App
+### 2.1. Sơ đồ kiến trúc production
+
+```mermaid
+flowchart LR
+    Device["Thiết bị GPS / IoT"]
+    Broker["MQTT Broker<br/>Dịch vụ bên ngoài"]
+    Client["Trình duyệt / Flutter Desktop"]
+    Geocoding["Dịch vụ geocoding<br/>Photon hoặc Nominatim"]
+
+    subgraph Server["Máy chủ Docker"]
+        direction LR
+        Caddy["web<br/>Caddy + Flutter Web<br/>Cổng 80 / 443"]
+        Backend["backend<br/>FastAPI + MQTT worker<br/>REST + WebSocket"]
+        Database[("db<br/>PostgreSQL 16 + PostGIS")]
+        Volume[("postgres_data<br/>Dữ liệu bền vững")]
+
+        Caddy <-->|"/api/* · /health · WebSocket"| Backend
+        Backend <-->|"SQL bất đồng bộ"| Database
+        Database --- Volume
+    end
+
+    Device -->|"Publish: &lt;MQTT_TOPIC_PREFIX&gt;/&lt;device_code&gt;"| Broker
+    Broker -->|"Subscribe: &lt;MQTT_TOPIC_PREFIX&gt;/#"| Backend
+    Client <-->|"HTTPS / WSS"| Caddy
+    Backend -->|"Reverse geocoding"| Geocoding
 ```
 
-Thành phần production trong Docker:
+MQTT Broker và dịch vụ geocoding không nằm trong `compose.yaml`. Địa chỉ kết nối được khai báo qua `.env.docker`.
 
-| Service | Vai trò | Truy cập ngoài server |
+### 2.2. Vai trò của từng service
+
+| Service | Vai trò | Phạm vi truy cập |
 |---|---|---|
-| `db` | PostgreSQL 16 và PostGIS | Không public cổng |
-| `backend` | FastAPI, MQTT worker, WebSocket, Alembic | Không public cổng `8000` |
-| `web` | Caddy, Flutter Web, HTTPS, reverse proxy | TCP `80`, `443` |
+| `web` | Phục vụ Flutter Web, kết thúc HTTPS và chuyển tiếp API/WebSocket | Public cổng `80`, `443` |
+| `backend` | Xử lý REST, WebSocket, MQTT, xác thực và nghiệp vụ | Chỉ trong mạng Docker, cổng `8000` |
+| `db` | Lưu dữ liệu nghiệp vụ và tọa độ không gian | Chỉ trong mạng Docker, cổng `5432` |
+| `postgres_data` | Giữ dữ liệu PostgreSQL khi container được tạo lại | Docker volume, không public |
 
-Caddy tự cấp chứng chỉ HTTPS khi DNS và firewall đúng. REST, WebSocket và Flutter Web dùng chung domain.
+Caddy là điểm truy cập public duy nhất. REST, WebSocket và Flutter Web sử dụng chung `${DOMAIN}`; backend và database không mở cổng trực tiếp ra Internet.
+
+### 2.3. Luồng tiếp nhận telemetry
+
+1. Thiết bị publish bản tin đến `<MQTT_TOPIC_PREFIX>/<device_code>` trên MQTT Broker.
+2. MQTT worker của backend đăng ký `<MQTT_TOPIC_PREFIX>/#` và nhận bản tin từ Broker.
+3. Backend kiểm tra topic, payload, thiết bị, quyền nhận dữ liệu và `message_id` chống trùng.
+4. Dữ liệu hợp lệ được lưu vào `telemetry_messages`, `location_samples`, `device_latest_state` và có thể tạo `device_events`.
+5. Backend phát `DEVICE_UPDATE` hoặc `DEVICE_EVENT` qua WebSocket.
+6. Flutter cập nhật giao diện theo thời gian thực; dữ liệu lịch sử được tải qua REST API.
+
+```text
+Thiết bị → MQTT Broker → Backend → PostgreSQL/PostGIS
+                              └──→ WebSocket → Flutter
+```
+
+### 2.4. Luồng truy cập từ Flutter
+
+| Yêu cầu | Đường đi | Kết quả |
+|---|---|---|
+| Mở ứng dụng web | Client → Caddy → tệp Flutter Web | Tải giao diện |
+| Đăng nhập, xem thiết bị và lịch sử | Flutter → Caddy → FastAPI → PostgreSQL | Trả dữ liệu JSON |
+| Nhận cập nhật trực tiếp | Flutter ⇄ Caddy ⇄ FastAPI WebSocket | Cập nhật trạng thái không cần tải lại |
+| Tra cứu địa chỉ | Flutter → FastAPI → dịch vụ geocoding | Trả địa chỉ từ tọa độ |
+
+### 2.5. Thứ tự khởi động Docker
+
+1. `db` khởi động và vượt qua healthcheck PostgreSQL.
+2. `backend` chạy `alembic upgrade head`, khởi động FastAPI và kết nối MQTT Broker.
+3. `web` khởi động sau khi backend healthy; Caddy phục vụ Flutter Web và reverse proxy.
+
+Caddy tự cấp chứng chỉ HTTPS khi DNS trỏ đúng về server và firewall cho phép cổng `80`, `443`.
 
 ## 3. Cấu trúc mã nguồn
 
@@ -353,14 +402,3 @@ Phân phối Windows bằng toàn bộ thư mục `build/windows/x64/runner/Rele
 | Thiết bị hiển thị offline | `last_seen_at`, timeout presence, đồng hồ server và kết nối MQTT |
 | Địa chỉ không hiển thị | cấu hình geocoding, internet, hạn mức nhà cung cấp |
 | Windows báo thiếu DLL | phân phối toàn bộ thư mục Release, không sao chép riêng EXE |
-
-## 13. Danh sách bàn giao
-
-- Source code và lịch sử Git ở revision đã kiểm thử.
-- Domain, DNS và thông tin server được ghi trong hồ sơ vận hành riêng.
-- `.env.docker` hoặc `backend/.env` được chuyển qua kênh bí mật, không đưa vào repository.
-- Mật khẩu database, MQTT và JWT secret được lưu trong kho bí mật của công ty.
-- Tài khoản `ADMIN` đầu tiên đăng nhập thành công và đã đổi mật khẩu.
-- MQTT production nhận được ít nhất một gói thật và cập nhật frontend qua WebSocket.
-- Sao lưu PostgreSQL được tạo và thử quy trình phục hồi trên môi trường riêng.
-- Các lệnh kiểm thử tại mục 11 đạt trước khi phát hành.
