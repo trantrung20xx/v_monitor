@@ -1,5 +1,5 @@
 name: v_monitor
-description: "A new Flutter project."
+description: "Ứng dụng giám sát thiết bị và lịch sử hành trình VMonitor."
 # Ứng dụng nội bộ nên không phát hành nhầm thành package công khai trên pub.dev.
 publish_to: "none" # Chỉ bỏ giá trị này khi có chủ đích phát hành lên pub.dev.
 
@@ -19,7 +19,7 @@ dependencies:
     flutter:
         sdk: flutter
 
-    # Bộ biểu tượng theo phong cách iOS dùng cho các thành phần cần tương thích Cupertino.
+    # Font biểu tượng cho nhánh Cupertino của các điều khiển thích ứng như Switch.adaptive.
     cupertino_icons: ^1.0.8
     # Quản lý state theo Cubit/BLoC và rebuild đúng vùng giao diện đang lắng nghe state.
     flutter_bloc: ^9.1.1
@@ -35,10 +35,6 @@ dependencies:
     intl: ^0.20.2
     # Nạp và áp dụng font Google theo cấu hình giao diện hiện tại.
     google_fonts: ^6.2.1
-    # Lấy thư mục dữ liệu phù hợp với từng hệ điều hành.
-    path_provider: ^2.1.6
-    # Ghép, tách và chuẩn hóa đường dẫn tệp theo đúng nền tảng.
-    path: ^1.9.1
     # HTTP client dùng cho REST API, timeout, interceptor và xử lý lỗi mạng.
     dio: ^5.11.0
     # Kết nối WebSocket đa nền tảng để nhận cập nhật thiết bị theo thời gian thực.

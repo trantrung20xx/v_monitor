@@ -20,10 +20,36 @@ if config.config_file_name is not None:
 # Metadata hợp nhất của mọi model, dùng cho autogenerate và bootstrap database mới.
 target_metadata = Base.metadata
 
+# Tên bảng thuộc extension được nạp khi chạy online để không bị xem là schema ứng dụng.
+extension_table_names: set[str] = set()
+
+
+def _extension_tables(connection) -> set[str]:
+    rows = connection.execute(
+        sa.text(
+            """
+            SELECT relation.relname
+            FROM pg_depend AS dependency
+            JOIN pg_extension AS extension
+              ON extension.oid = dependency.refobjid
+            JOIN pg_class AS relation
+              ON relation.oid = dependency.objid
+            WHERE dependency.classid = 'pg_class'::regclass
+              AND dependency.refclassid = 'pg_extension'::regclass
+              AND dependency.deptype = 'e'
+              AND relation.relkind IN ('r', 'p')
+            """
+        )
+    )
+    return set(rows.scalars())
+
 
 def include_object(object_, name, type_, reflected, compare_to):
     """Bỏ qua hạ tầng do PostGIS quản lý khi Alembic so sánh schema."""
-    if type_ == "table" and name == "spatial_ref_sys":
+    if type_ == "table" and name in extension_table_names | {"spatial_ref_sys"}:
+        return False
+    parent_table = getattr(object_, "table", None)
+    if reflected and getattr(parent_table, "name", None) in extension_table_names:
         return False
     return True
 
@@ -40,7 +66,11 @@ def _bootstrap_empty_database(connection) -> None:
     """Khởi tạo schema khi database PostGIS hoàn toàn chưa có bảng nghiệp vụ."""
     if not _is_upgrade_command():
         return
-    infrastructure_tables = {"alembic_version", "spatial_ref_sys"}
+    infrastructure_tables = {
+        "alembic_version",
+        "spatial_ref_sys",
+        *extension_table_names,
+    }
     application_tables = set(sa.inspect(connection).get_table_names()) - infrastructure_tables
     if not application_tables:
         # Kiểu geography của các bảng vị trí do PostGIS cung cấp. Extension phải
@@ -74,6 +104,8 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection):
+    global extension_table_names
+    extension_table_names = _extension_tables(connection)
     # Cấu hình context trên kết nối đồng bộ do AsyncConnection chuyển giao.
     _bootstrap_empty_database(connection)
     context.configure(

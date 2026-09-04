@@ -1,0 +1,15 @@
+.git
+.idea
+.ruff_cache
+.vscode
+.dart_tool
+.venv
+build
+coverage
+node_modules
+backend/.env
+.env
+.env.docker
+*.log
+*.pyc
+__pycache__

@@ -1,0 +1,102 @@
+name: v-monitor
+
+services:
+  db:
+    image: postgis/postgis:16-3.5-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_INITDB_ARGS: --data-checksums
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - test "$$(cat /proc/1/comm)" = postgres && pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    restart: unless-stopped
+    init: true
+    environment:
+      APP_ENV: production
+      API_PREFIX: /api/v1
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      API_RELOAD: "false"
+      # Backend không public cổng 8000; chỉ tin proxy Caddy trong Docker network.
+      FORWARDED_ALLOW_IPS: "*"
+      CORS_ORIGINS: https://${DOMAIN:?DOMAIN is required}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      MQTT_HOST: ${MQTT_HOST:?MQTT_HOST is required}
+      MQTT_PORT: ${MQTT_PORT:-1883}
+      MQTT_CLIENT_ID: ${MQTT_CLIENT_ID:-}
+      MQTT_USERNAME: ${MQTT_USERNAME:-}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:-}
+      MQTT_USE_TLS: ${MQTT_USE_TLS:-false}
+      MQTT_TOPIC_PREFIX: ${MQTT_TOPIC_PREFIX:-v_monitor/telemetry}
+      GEOCODING_PROVIDER: ${GEOCODING_PROVIDER:-photon}
+      GEOCODING_BASE_URL: ${GEOCODING_BASE_URL:-https://photon.komoot.io}
+      GEOCODING_USER_AGENT: ${GEOCODING_USER_AGENT:-v_monitor/1.0}
+      AUTH_REQUIRED: "true"
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)
+      interval: 15s
+      timeout: 6s
+      retries: 5
+      start_period: 30s
+    stop_grace_period: 30s
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+      args:
+        DOMAIN: ${DOMAIN}
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN}
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:

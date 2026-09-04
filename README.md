@@ -1,168 +1,129 @@
-# v_monitor
+# VMonitor
 
-Ứng dụng đa nền tảng phục vụ giám sát thiết bị và lịch sử di chuyển.
+VMonitor là hệ thống giám sát vị trí thiết bị theo thời gian thực, xem lịch sử hành trình và quản trị thiết bị, tài khoản. Hệ thống gồm Flutter, FastAPI, PostgreSQL/PostGIS, MQTT và WebSocket.
 
-## Flutter
+Tài liệu kiến trúc, cấu hình, API, vận hành và bàn giao đầy đủ nằm tại [docs/SYSTEM_DOCUMENTATION.md](docs/SYSTEM_DOCUMENTATION.md).
+
+## Cách chạy khuyến nghị: Docker trên Ubuntu Server
+
+### 1. Chuẩn bị
+
+- Ubuntu Server có Docker Engine và Docker Compose v2.
+- Domain có bản ghi DNS `A` trỏ về IP server.
+- Firewall mở TCP `80` và `443`.
+- Source code được đặt trên server.
+
+### 2. Cấu hình
+
+Chạy tại thư mục gốc dự án:
+
+```bash
+cp .env.docker.example .env.docker
+openssl rand -hex 24
+openssl rand -hex 32
+nano .env.docker
+```
+
+Điền các giá trị sau trong `.env.docker`:
+
+- `DOMAIN`: tên miền, không thêm `https://` và không thêm dấu `/` cuối.
+- `POSTGRES_PASSWORD`: kết quả của `openssl rand -hex 24`.
+- `JWT_SECRET`: kết quả của `openssl rand -hex 32`.
+- `MQTT_*`: thông tin broker MQTT production.
+
+Không commit hoặc bàn giao `.env.docker` qua Git. Broker công cộng trong file mẫu chỉ dùng để thử kết nối; production cần broker riêng có tài khoản và TLS.
+
+### 3. Khởi động
+
+```bash
+docker compose --env-file .env.docker up -d --build
+docker compose --env-file .env.docker ps
+```
+
+Kiểm tra `https://<DOMAIN>/health`. Kết quả hợp lệ có HTTP `200` và trạng thái hệ thống trong JSON.
+
+Tạo tài khoản quản trị đầu tiên:
+
+```bash
+docker compose --env-file .env.docker exec backend \
+  python scripts/create_admin.py --username admin --full-name "Quản trị viên"
+```
+
+Mật khẩu được nhập ẩn tại terminal. Sau đó mở `https://<DOMAIN>` và đăng nhập.
+
+### 4. Xem log và cập nhật
+
+```bash
+docker compose --env-file .env.docker logs -f --tail=100
+```
+
+```bash
+git pull
+docker compose --env-file .env.docker up -d --build
+```
+
+Migration Alembic tự chạy trước khi backend khởi động. Các service có chính sách `restart: unless-stopped`; dữ liệu PostgreSQL và chứng chỉ HTTPS nằm trong Docker volume.
+
+## Chạy môi trường phát triển trên Windows
+
+### 1. Yêu cầu
+
+- Flutter `3.44.6` hoặc phiên bản tương thích với Dart `^3.12.2`.
+- Python `3.12` trở lên.
+- PostgreSQL có PostGIS.
+- Broker MQTT có thể truy cập từ máy chạy backend.
+
+### 2. Backend
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+Copy-Item backend\.env.example backend\.env
+```
+
+Sửa `backend/.env`, tối thiểu gồm `DATABASE_URL`, `MQTT_*`, `JWT_SECRET` và `CORS_ORIGINS`. Sau đó chạy:
+
+```powershell
+.\run_backend.bat
+```
+
+Script tự chạy `alembic upgrade head` rồi mở API theo `API_HOST` và `API_PORT`. Alembic chỉ bootstrap schema khi database không có bảng nghiệp vụ.
+
+### 3. Flutter
+
+Mở terminal khác tại thư mục gốc:
 
 ```powershell
 flutter pub get
 flutter run -d windows --dart-define-from-file=config/development.json
 ```
 
-### Build và phân phối Windows
+`API_BASE_URL` trong `config/development.json` phải truy cập được backend và phải chứa `/api/v1`.
 
-Flutter Windows không tạo một file EXE độc lập. `v_monitor.exe` phải chạy cạnh
-`flutter_windows.dll`, toàn bộ DLL native plugin và thư mục `data`; chỉ sao chép
-riêng file EXE sang máy khác sẽ gây lỗi thiếu DLL. Dùng script đóng gói của dự án
-để build, kiểm tra dependency, bổ sung Visual C++ runtime và tạo ZIP hoàn chỉnh:
+## Kiểm tra trước khi phát hành
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/package_windows_release.ps1 `
-  -Config config/production.json
+flutter analyze
+flutter test
+flutter build web --release --dart-define-from-file=config/production.json
+flutter build windows --release --dart-define-from-file=config/production.json
+.\.venv\Scripts\python.exe -m unittest discover -s backend\tests -v
+docker compose --env-file .env.docker.example config --quiet
 ```
 
-Kết quả nằm trong `build/distributions/`. Chỉ phân phối file ZIP do script tạo;
-trên máy nhận phải giải nén toàn bộ ZIP vào cùng một thư mục rồi mới chạy
-`v_monitor.exe`. Không kéo riêng EXE ra Desktop. Khi cần kiểm tra nhanh bundle đã
-build sẵn mà không build lại, thêm `-SkipBuild`.
+Bản Windows phải phân phối toàn bộ thư mục `build/windows/x64/runner/Release`; không phân phối riêng `v_monitor.exe`.
 
-Script từ chối tạo gói nếu thiếu engine, AOT data, asset, DLL plugin đang đăng ký
-hoặc Visual C++ x64 runtime, sau đó chạy smoke test từ chính thư mục đóng gói và
-kiểm tra lại nội dung ZIP. Cách đóng gói này chỉ dành cho Windows x64; các nền
-tảng khác phải dùng artifact riêng (`flutter build apk`, `flutter build web`,
-`flutter build linux` hoặc `flutter build macos`) và không dùng file EXE Windows.
+## Cấu trúc chính
 
-### Cấu hình kết nối frontend
-
-Flutter nhận cấu hình tại thời điểm build bằng `--dart-define-from-file`. Ba
-hồ sơ mẫu nằm trong `config/`:
-
-- `development.json`: backend chạy trên chính máy phát triển.
-- `cloudflare.json`: backend được public qua Cloudflare Tunnel.
-- `production.json`: domain API của máy chủ doanh nghiệp.
-
-Trong trường hợp REST API và WebSocket cùng một domain, chỉ cần thay
-`API_BASE_URL`. Ứng dụng tự đổi `https` thành `wss` và dùng `WS_PATH` để tạo URL
-WebSocket. Chỉ khai báo thêm `WS_BASE_URL` khi WebSocket thật sự nằm trên domain
-khác.
-
-Ví dụ build web với Cloudflare:
-
-```powershell
-flutter build web --release --dart-define-from-file=config/cloudflare.json
+```text
+backend/                 FastAPI, Alembic, model, service và test backend
+lib/                     mã nguồn Flutter
+test/                    test Flutter
+config/                  cấu hình frontend theo môi trường build
+docker/                  Dockerfile và Caddy
+scripts/test_mqtt.py     công cụ gửi dữ liệu MQTT thử nghiệm
+compose.yaml             PostGIS, backend và web production
 ```
 
-Thiết bị vật lý không thể dùng `127.0.0.1` để gọi backend trên máy phát triển.
-Khi chạy Android, iOS hoặc một máy khác, đặt `API_BASE_URL` thành địa chỉ HTTPS
-của Cloudflare hoặc địa chỉ LAN mà thiết bị truy cập được. Bản triển khai thật
-nên dùng HTTPS/WSS để tương thích chính sách mạng của Android và iOS.
-
-### Public backend bằng Cloudflare Tunnel
-
-Tạo một published application route trỏ domain công khai tới dịch vụ cục bộ,
-ví dụ `http://127.0.0.1:8000`. REST API và WebSocket dùng chung route; frontend
-chỉ cần một `API_BASE_URL`, ví dụ:
-
-```json
-{
-  "APP_ENV": "cloudflare",
-  "API_BASE_URL": "https://monitor-api.example.com/api/v1",
-  "WS_PATH": "/api/v1/ws"
-}
-```
-
-Đồng thời đặt origin của frontend trong `backend/.env`:
-
-```ini
-CORS_ORIGINS=https://monitor.example.com
-API_RELOAD=false
-```
-
-WebSocket client đã gửi heartbeat và tự kết nối lại với backoff tăng dần. Không
-cần tạo URL hoặc tiến trình WebSocket riêng khi Cloudflare route cùng backend.
-
-## Cấu hình backend
-
-Thiết lập một lần trên máy Windows mới từ thư mục gốc dự án:
-
-```powershell
-py -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
-Copy-Item backend\.env.example backend\.env
-```
-
-Trên macOS hoặc Linux, tạo môi trường bằng `python3 -m venv .venv`, cài bằng
-`.venv/bin/python -m pip install -r backend/requirements.txt`, sau đó chạy backend
-từ thư mục `backend` bằng `../.venv/bin/python -m app.server`.
-
-Thay các nhóm cấu hình PostgreSQL, MQTT, API và geocoding trong `backend/.env`.
-Mọi giá trị kết nối được đọc từ tệp này; không cần sửa source code khi đổi server.
-
-- `DATABASE_URL`: chuỗi kết nối PostgreSQL sử dụng `postgresql+asyncpg://`.
-- `DATABASE_POOL_*`: giới hạn pool theo tài nguyên và giới hạn kết nối của DB.
-- `MQTT_HOST`, `MQTT_PORT`, `MQTT_USERNAME`, `MQTT_PASSWORD`: broker đang dùng.
-- `MQTT_CLIENT_ID`: có thể để trống để backend tự sinh id riêng cho mỗi máy.
-- `MQTT_RECONNECT_*`: khoảng chờ reconnect tăng dần khi broker gián đoạn.
-- `API_HOST`, `API_PORT`, `API_RELOAD`: địa chỉ và chế độ chạy Uvicorn.
-
-Khởi động trên Windows bằng `run_backend.bat`. Script chạy Alembic rồi gọi
-`app.server`; host, port và reload đều lấy trực tiếp từ `backend/.env`.
-
-## Cơ sở dữ liệu
-
-Backend sử dụng PostgreSQL, PostGIS và Alembic. Schema nghiệp vụ hiện gồm:
-
-- `devices`
-- `device_latest_state`
-- `location_samples`
-- `telemetry_messages`
-- `device_events`
-- `audit_logs`
-- `user_accounts`
-- `user_settings`
-
-`user_accounts.role` dùng enum `userrole` với hai vai trò `ADMIN` và `USER`.
-Tài khoản chỉ dùng để xác thực người xem nội bộ và phân quyền quản trị, hoàn
-toàn không liên kết với thiết bị, lộ trình hay người vận hành. Không có API
-đăng ký công khai và không lưu mật khẩu thô; mật khẩu được băm Argon2 trong
-`password_hash`.
-
-`alembic_version` và các đối tượng do PostGIS quản lý như `spatial_ref_sys`
-là hạ tầng, không phải bảng nghiệp vụ.
-
-Sau khi cấu hình `backend/.env`, chạy migration từ thư mục `backend`:
-
-```powershell
-alembic upgrade head
-```
-
-Tạo tài khoản quản trị đầu tiên bằng dòng lệnh (mật khẩu được nhập kín):
-
-```powershell
-python scripts/create_admin.py --username admin --full-name "Quản trị viên"
-```
-
-Frontend đã yêu cầu đăng nhập trước khi mở màn hình giám sát. Giữ
-`AUTH_REQUIRED=true` và cấu hình `JWT_SECRET` ngẫu nhiên có ít nhất 32 ký tự.
-Khóa đăng nhập không tự hết hạn, được lưu trong kho bảo mật của hệ điều hành và
-được thu hồi bằng `user_accounts.token_version` khi đổi mật khẩu, reset mật khẩu,
-đổi quyền hoặc vô hiệu hóa tài khoản. Kiến trúc không dùng refresh token, bảng
-phiên đăng nhập hay blacklist token.
-
-Backend nhận MQTT qua hàng đợi hữu hạn với nhiều worker, chống xử lý trùng bằng
-`message_id`, không cho gói đến trễ ghi đè trạng thái hiện tại và hỗ trợ trả tối
-đa 5.000 thiết bị cho giao diện theo cấu hình `DEVICE_LIST_MAX_LIMIT`.
-
-Với cơ sở dữ liệu cũ đã có bảng nghiệp vụ nhưng `alembic_version` đang rỗng,
-hãy sao lưu và thử trên bản sao trước. Sau khi xác nhận đúng là schema cũ của
-dự án, đánh dấu revision lịch sử rồi mới chạy migration mới; cách này tránh
-chạy lại migration xóa pin cũ vốn đã tồn tại trong lịch sử:
-
-```powershell
-alembic stamp c7d8e9f1a2b3
-alembic upgrade head
-alembic check
-```
-
-Không dùng quy trình `stamp` trên cơ sở dữ liệu mới hoặc cơ sở dữ liệu đã có
-revision Alembic.
+Không sửa trực tiếp migration cũ đã chạy trên production. Không đưa `backend/.env`, `.env.docker`, mật khẩu database, MQTT hoặc JWT secret vào Git.

@@ -2,9 +2,11 @@
 *.class
 *.log
 *.pyc
+*.pyo
 *.swp
 .DS_Store
 .env
+.env.docker
 .env.local
 .env.*.local
 !.env.example
@@ -22,6 +24,10 @@ migrate_working_dir/
 *.ipr
 *.iws
 .idea/
+.ruff_cache/
+.venv/
+node_modules/
+**/__pycache__/
 
 # The .vscode folder contains launch configuration and tasks you configure in
 # VS Code which you may wish to be included in version control, so this line

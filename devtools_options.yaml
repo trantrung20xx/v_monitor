@@ -1,6 +1,0 @@
-# Tệp metadata cho Dart/Flutter DevTools; hiện không bật extension tùy chỉnh nào.
-description: This file stores settings for Dart & Flutter DevTools.
-# Liên kết tài liệu giải thích cấu trúc và cách bật extension DevTools.
-documentation: https://docs.flutter.dev/tools/devtools/extensions#configure-extension-enablement-states
-# Danh sách cấu hình extension để trống nghĩa là dùng hành vi mặc định của DevTools.
-extensions:
