@@ -712,7 +712,7 @@ class _PersonalSettingsSummary extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Trải nghiệm theo cách bạn làm việc',
+                'Trải nghiệm phù hợp với công việc',
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w800,
                   color: colors.onSurface,

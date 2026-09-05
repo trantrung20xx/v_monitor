@@ -106,7 +106,7 @@ def run_migrations_offline() -> None:
 def do_run_migrations(connection):
     global extension_table_names
     extension_table_names = _extension_tables(connection)
-    # Cấu hình context trên kết nối đồng bộ do AsyncConnection chuyển giao.
+    # Cấu hình context trên kết nối đồng bộ do AsyncConnection cung cấp.
     _bootstrap_empty_database(connection)
     context.configure(
         connection=connection,

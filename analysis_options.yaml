@@ -1,0 +1,12 @@
+# Cấu hình bộ phân tích tĩnh của Dart. Lỗi, cảnh báo và vi phạm quy ước xuất hiện
+# trong IDE hoặc khi chạy `flutter analyze`; tệp này không thay đổi logic lúc chạy.
+# Kế thừa bộ quy tắc Flutter khuyến nghị làm nền cho toàn dự án.
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  # Chỉ thêm ngoại lệ hoặc quy tắc riêng khi có lý do rõ ràng. Có thể bỏ qua cục bộ
+  # bằng `// ignore: ten_quy_tac` hoặc `// ignore_for_file: ten_quy_tac` để không
+  # làm suy yếu kiểm tra của toàn dự án.
+  rules:
+    # avoid_print: false  # Ví dụ: tắt quy tắc cấm print cho toàn dự án.
+    # prefer_single_quotes: true  # Ví dụ: bắt buộc dùng dấu nháy đơn.

@@ -259,6 +259,8 @@ docker compose version
 git --version
 ```
 
+`docker version` phải hiển thị cả `Client` và `Server`. Chỉ có phần `Client` nghĩa là Docker daemon chưa chạy.
+
 Yêu cầu DNS `A` trỏ về server và firewall cho phép TCP `80`, `443`.
 
 ### 9.2 Tạo cấu hình
@@ -269,6 +271,16 @@ openssl rand -hex 24
 openssl rand -hex 32
 nano .env.docker
 ```
+
+Các giá trị bắt buộc:
+
+- `DOMAIN`: domain thật đã trỏ DNS về server; phải thay giá trị mẫu `monitor.example.com`.
+- `POSTGRES_DB`, `POSTGRES_USER`: tên database và tài khoản PostgreSQL.
+- `POSTGRES_PASSWORD`: kết quả `openssl rand -hex 24`.
+- `JWT_SECRET`: kết quả `openssl rand -hex 32`.
+- `MQTT_*`: host, cổng, xác thực, TLS và topic prefix của broker production.
+
+`DOMAIN` chỉ chứa hostname, không có `http://`, `https://`, đường dẫn hoặc dấu `/` cuối. Mật khẩu PostgreSQL trong cấu hình hiện tại chỉ nên chứa chữ và số vì được ghép trực tiếp vào `DATABASE_URL`.
 
 Kiểm tra cấu hình trước khi chạy:
 
@@ -287,9 +299,11 @@ docker compose --env-file .env.docker logs backend --tail=100
 Kiểm tra lần lượt:
 
 1. Service `db`, `backend`, `web` ở trạng thái chạy; `db` và `backend` đạt `healthy`.
-2. `https://<DOMAIN>/health` trả HTTP `200`.
+2. `https://<DOMAIN>/health` trả HTTP `200`, `"status":"ok"`, `"database":"connected"`, `mqtt.connected: true` và `mqtt.subscribed: true`.
 3. Trang `https://<DOMAIN>` tải được giao diện đăng nhập.
 4. Log backend không có lỗi migration, database hoặc MQTT lặp liên tục.
+
+Endpoint `/health` vẫn có thể trả HTTP `200` khi `"status":"degraded"`; trạng thái này chỉ xác nhận API còn phản hồi, chưa xác nhận pipeline database và MQTT đã sẵn sàng đầy đủ.
 
 Tạo quản trị viên đầu tiên:
 
@@ -327,6 +341,79 @@ docker compose --env-file .env.docker down
 
 Lệnh trên giữ nguyên volume dữ liệu. Không thêm `--volumes` trên production nếu không có kế hoạch xóa toàn bộ database và chứng chỉ.
 
+### 9.7 Chạy thử Docker trên Windows
+
+Quy trình này chạy Flutter Web, FastAPI và PostgreSQL/PostGIS bằng Docker Desktop. Docker Desktop phải dùng Linux containers và hiển thị `Engine running`.
+
+Kiểm tra Docker:
+
+```powershell
+docker version
+docker compose version
+```
+
+`docker version` phải có cả `Client` và `Server`. Lỗi đường dẫn `dockerDesktopLinuxEngine` hoặc `The system cannot find the file specified` nghĩa là Docker Engine chưa chạy. Khôi phục theo thứ tự:
+
+```powershell
+wsl --shutdown
+```
+
+Sau đó mở lại Docker Desktop, chờ `Engine running` và kiểm tra lại `docker version`.
+
+Tạo cấu hình local tại thư mục gốc:
+
+```powershell
+Copy-Item .env.docker.example .env.docker
+[guid]::NewGuid().ToString("N")
+[guid]::NewGuid().ToString("N") + [guid]::NewGuid().ToString("N")
+notepad .env.docker
+```
+
+Thay các giá trị sau và giữ nguyên các biến còn lại:
+
+```env
+DOMAIN=localhost
+POSTGRES_PASSWORD=<kết quả lệnh tạo chuỗi thứ nhất>
+JWT_SECRET=<kết quả lệnh tạo chuỗi thứ hai>
+MQTT_HOST=broker.emqx.io
+MQTT_PORT=1883
+MQTT_USE_TLS=false
+MQTT_TOPIC_PREFIX=v_monitor/windows_test
+```
+
+Khởi động:
+
+```powershell
+docker compose --env-file .env.docker config --quiet
+docker compose --env-file .env.docker up -d --build
+docker compose --env-file .env.docker ps
+```
+
+Ba container `v-monitor-db-1`, `v-monitor-backend-1`, `v-monitor-web-1` phải xuất hiện; `db` và `backend` phải đạt `healthy`.
+
+Kiểm tra bằng URL thô, không thêm dấu `[]` hoặc `()`:
+
+```powershell
+curl.exe -k https://localhost/health
+```
+
+Kết quả sẵn sàng phải có `"status":"ok"`. Caddy dùng chứng chỉ HTTPS nội bộ cho `localhost`, vì vậy trình duyệt có thể hiển thị cảnh báo chứng chỉ trong môi trường thử nghiệm.
+
+Tạo tài khoản quản trị và mở giao diện:
+
+```powershell
+docker compose --env-file .env.docker exec backend python scripts/create_admin.py --username admin --full-name "Quản trị viên"
+Start-Process https://localhost
+```
+
+Dừng nhưng giữ dữ liệu:
+
+```powershell
+docker compose --env-file .env.docker down
+```
+
+`docker compose --env-file .env.docker down -v` xóa database, tài khoản, lịch sử và chứng chỉ local; chỉ dùng khi cần tạo lại toàn bộ môi trường thử nghiệm.
+
 ## 10. Chạy cục bộ
 
 ### 10.1 Windows
@@ -349,6 +436,12 @@ Mở terminal khác:
 ```powershell
 flutter pub get
 flutter run -d windows --dart-define-from-file=config/development.json
+```
+
+Tạo tài khoản quản trị cục bộ sau khi backend và database đã khởi động:
+
+```powershell
+.\.venv\Scripts\python.exe backend\scripts\create_admin.py --username admin --full-name "Quản trị viên"
 ```
 
 ### 10.2 Linux hoặc macOS
@@ -383,10 +476,14 @@ docker compose --env-file .env.docker.example config --quiet
 
 Build production:
 
+Trước khi build Flutter độc lập, thay `API_BASE_URL` trong `config/production.json` bằng `https://<DOMAIN>/api/v1`. Giá trị trong file mẫu `https://api.example.com/api/v1` không phải endpoint sử dụng thật.
+
 ```powershell
 flutter build web --release --dart-define-from-file=config/production.json
 flutter build windows --release --dart-define-from-file=config/production.json
 ```
+
+Docker Web không đọc `config/production.json`; `docker/web.Dockerfile` tạo `API_BASE_URL` từ `DOMAIN` trong `.env.docker` khi build image.
 
 Phân phối Windows bằng toàn bộ thư mục `build/windows/x64/runner/Release`. File `v_monitor.exe` không chạy độc lập nếu thiếu DLL, plugin và thư mục `data` đi kèm.
 
@@ -394,6 +491,11 @@ Phân phối Windows bằng toàn bộ thư mục `build/windows/x64/runner/Rele
 
 | Hiện tượng | Kiểm tra |
 |---|---|
+| Docker chỉ hiện `Client`, không có `Server` | Docker Desktop phải ở trạng thái `Engine running`; chạy `wsl --shutdown`, sau đó mở lại Docker Desktop |
+| Lỗi `dockerDesktopLinuxEngine` hoặc thiếu named pipe | Docker Desktop chưa chạy Linux Engine; chưa chạy lệnh Compose cho tới khi `docker version` có phần `Server` |
+| Caddy xin chứng chỉ cho `monitor.example.com` | `.env.docker` vẫn dùng domain mẫu; production thay domain thật, local Windows đặt `DOMAIN=localhost`, sau đó build lại `web` |
+| `/health` trả `status: degraded` | Xem riêng `database`, `mqtt.connected`, `mqtt.subscribed` và log backend |
+| `curl` local báo lỗi chứng chỉ | Dùng đúng `curl.exe -k https://localhost/health`; URL không chứa định dạng Markdown `[]()` |
 | Backend không khởi động | `DATABASE_URL`, PostGIS, `JWT_SECRET`, log Alembic |
 | Web mở được nhưng API lỗi | DNS, HTTPS, `DOMAIN`, trạng thái backend, log Caddy |
 | Flutter không kết nối | `API_BASE_URL` phải gồm `/api/v1`; build lại sau khi sửa JSON |

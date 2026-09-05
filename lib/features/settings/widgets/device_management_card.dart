@@ -208,7 +208,7 @@ class _DeviceManagementCardState extends State<DeviceManagementCard>
         return AlertDialog(
           title: const Text('Xóa thiết bị?'),
           content: Text(
-            'Bạn sắp xóa vĩnh viễn ${device.name} (${device.deviceCode}). '
+            'Thiết bị ${device.name} (${device.deviceCode}) sắp bị xóa vĩnh viễn. '
             'Toàn bộ vị trí, hành trình, sự kiện và dữ liệu telemetry đã lưu của '
             'thiết bị này cũng sẽ bị xóa và không thể khôi phục.',
           ),

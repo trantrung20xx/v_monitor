@@ -1,95 +1,144 @@
+# Tên Docker Compose project. Docker dùng tiền tố này để đặt tên container,
+# network nội bộ (`v-monitor_default`) và các resource liên quan.
 name: v-monitor
 
 services:
+  # PostgreSQL kèm PostGIS: lưu tài khoản, thiết bị, telemetry, lịch sử vị trí
+  # và dữ liệu không gian. Service này không khai báo `ports`, vì chỉ backend
+  # được phép kết nối qua network nội bộ của Docker Compose.
   db:
+    # PostgreSQL 16 có sẵn extension PostGIS; alpine giúp image gọn hơn.
     image: postgis/postgis:16-3.5-alpine
+    # Khởi động lại sau khi Docker daemon hoặc máy chủ khởi động lại; không tự
+    # khởi động lại khi container đã được dừng thủ công.
     restart: unless-stopped
     environment:
+      # Dấu `:?` dừng Docker Compose ngay khi biến bắt buộc chưa được khai báo
+      # trong `.env.docker`, tránh tạo database bằng cấu hình rỗng.
       POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      # Bật checksum dữ liệu khi khởi tạo database mới để tăng khả năng phát hiện
+      # hỏng dữ liệu vật lý. Thay đổi này không tác động database đã tồn tại.
       POSTGRES_INITDB_ARGS: --data-checksums
     volumes:
+      # Named volume giữ dữ liệu PostgreSQL bên ngoài vòng đời container.
+      # `docker compose down` không xóa volume; `docker compose down -v` sẽ xóa.
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
+      # Kiểm tra tiến trình chính đã là PostgreSQL thật và database đã nhận kết
+      # nối. `$$` giữ ký tự `$` cho shell chạy bên trong container.
       test:
         - CMD-SHELL
         - test "$$(cat /proc/1/comm)" = postgres && pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"
+      # Kiểm tra mỗi 10 giây; một lần kiểm tra tối đa 5 giây; sau 10 lần lỗi
+      # service được đánh dấu unhealthy. 20 giây đầu dành cho lần khởi tạo đầu.
       interval: 10s
       timeout: 5s
       retries: 10
       start_period: 20s
     logging:
       options:
+        # Xoay log theo dung lượng để log container không chiếm toàn bộ ổ đĩa.
         max-size: 10m
         max-file: "3"
 
+  # FastAPI xử lý REST API, WebSocket, MQTT, xác thực và nghiệp vụ. Image được
+  # build từ source backend hiện tại, không lấy image backend dựng sẵn từ Internet.
   backend:
     build:
+      # Build context là thư mục gốc để Dockerfile có thể copy `backend/...`.
       context: .
       dockerfile: docker/backend.Dockerfile
     restart: unless-stopped
+    # Tạo tiến trình init nhỏ trong container để thu gom tiến trình con đúng cách.
     init: true
     environment:
+      # Cấu hình chạy production; reload bị tắt để tránh tạo process phát triển.
       APP_ENV: production
       API_PREFIX: /api/v1
       API_HOST: 0.0.0.0
       API_PORT: 8000
       API_RELOAD: "false"
-      # Backend không public cổng 8000; chỉ tin proxy Caddy trong Docker network.
+      # Backend không public cổng 8000; Caddy là reverse proxy trong Docker network.
+      # `*` cho phép nhận header Forwarded/X-Forwarded từ Caddy cùng network.
       FORWARDED_ALLOW_IPS: "*"
+      # Chỉ origin HTTPS cùng DOMAIN được phép gọi API từ trình duyệt.
       CORS_ORIGINS: https://${DOMAIN:?DOMAIN is required}
+      # Host `db` là DNS service nội bộ Docker Compose, không phải localhost.
+      # Driver asyncpg được SQLAlchemy sử dụng cho kết nối PostgreSQL bất đồng bộ.
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # MQTT Broker nằm ngoài Docker Compose. `:?` yêu cầu khai báo host rõ ràng;
+      # `:-` lấy giá trị mặc định khi biến tùy chọn không có trong `.env.docker`.
       MQTT_HOST: ${MQTT_HOST:?MQTT_HOST is required}
       MQTT_PORT: ${MQTT_PORT:-1883}
       MQTT_CLIENT_ID: ${MQTT_CLIENT_ID:-}
       MQTT_USERNAME: ${MQTT_USERNAME:-}
       MQTT_PASSWORD: ${MQTT_PASSWORD:-}
       MQTT_USE_TLS: ${MQTT_USE_TLS:-false}
+      # Backend subscribe `<prefix>/#`; thiết bị publish `<prefix>/<device_code>`.
       MQTT_TOPIC_PREFIX: ${MQTT_TOPIC_PREFIX:-v_monitor/telemetry}
+      # Dịch vụ đổi tọa độ sang địa chỉ. Có thể thay endpoint nội bộ hoặc nhà cung cấp khác.
       GEOCODING_PROVIDER: ${GEOCODING_PROVIDER:-photon}
       GEOCODING_BASE_URL: ${GEOCODING_BASE_URL:-https://photon.komoot.io}
       GEOCODING_USER_AGENT: ${GEOCODING_USER_AGENT:-v_monitor/1.0}
+      # Production luôn yêu cầu JWT; secret không được để trống và không nằm trong Git.
       AUTH_REQUIRED: "true"
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     depends_on:
       db:
+        # Backend chỉ bắt đầu sau khi healthcheck PostgreSQL thành công.
         condition: service_healthy
     expose:
+      # Công bố cổng cho các service cùng network nhưng không map cổng ra máy host.
       - "8000"
     healthcheck:
+      # Gọi endpoint nội bộ để Docker biết tiến trình FastAPI còn phản hồi HTTP.
       test:
         - CMD
         - python
         - -c
         - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)
+      # Backend có thời gian khởi tạo dài hơn vì Alembic chạy migration trước FastAPI.
       interval: 15s
       timeout: 6s
       retries: 5
       start_period: 30s
+    # Dành tối đa 30 giây cho worker MQTT xử lý hàng đợi trước khi container bị dừng.
     stop_grace_period: 30s
     logging:
       options:
         max-size: 10m
         max-file: "3"
 
+  # Public gateway của hệ thống: Caddy phục vụ file Flutter Web, tự quản lý HTTPS
+  # theo DOMAIN và chuyển `/api/*`, `/health`, WebSocket sang service backend.
   web:
     build:
       context: .
       dockerfile: docker/web.Dockerfile
       args:
+        # DOMAIN được nhúng vào Flutter Web khi build để tạo API_BASE_URL production.
+        # Đổi DOMAIN bắt buộc build lại web; thay file `.env.docker` đơn thuần chưa đủ.
         DOMAIN: ${DOMAIN}
     restart: unless-stopped
     environment:
+      # Caddyfile đọc DOMAIN khi container khởi động để chọn hostname và chứng chỉ TLS.
       DOMAIN: ${DOMAIN}
     depends_on:
       backend:
+        # Chỉ public web sau khi backend phản hồi healthcheck.
         condition: service_healthy
     ports:
+      # Hai cổng duy nhất mở ra máy host/Internet. Caddy chuyển HTTP cổng 80 sang
+      # HTTPS cổng 443 và giữ backend/database không lộ trực tiếp.
       - "80:80"
       - "443:443"
     volumes:
+      # Caddy lưu chứng chỉ, khóa và trạng thái ACME tại đây để không xin lại sau
+      # mỗi lần tạo container mới.
       - caddy_data:/data
+      # Caddy lưu cấu hình runtime đã được chuyển đổi; tách riêng khỏi dữ liệu TLS.
       - caddy_config:/config
     logging:
       options:
@@ -97,6 +146,9 @@ services:
         max-file: "3"
 
 volumes:
+  # Volume database: chỉ xóa bằng `docker compose down -v` hoặc lệnh Docker volume.
   postgres_data:
+  # Volume chứng chỉ và dữ liệu TLS của Caddy.
   caddy_data:
+  # Volume cấu hình runtime của Caddy.
   caddy_config:
