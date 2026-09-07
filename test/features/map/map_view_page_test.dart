@@ -13,10 +13,61 @@ import 'package:v_monitor/data/models/device_model.dart';
 import 'package:v_monitor/data/repositories/device_repository.dart';
 import 'package:v_monitor/data/repositories/geocoding_repository.dart';
 import 'package:v_monitor/features/map/map_view_page.dart';
+import 'package:v_monitor/features/map/widgets/device_list_overlay.dart';
 
 import '../../support/settings_test_scope.dart';
 
 void main() {
+  testWidgets('cluster zoom and list work with 5000 devices on a narrow map', (
+    tester,
+  ) async {
+    final repo = _FakeDeviceRepository()..many = true;
+    addTearDown(repo.dispose);
+    tester.view.physicalSize = const Size(320, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    await tester.pumpWidget(
+      SettingsTestScope(
+        child: MultiRepositoryProvider(
+          providers: [
+            RepositoryProvider<DeviceRepository>.value(value: repo),
+            RepositoryProvider<GeocodingRepository>.value(
+              value: _FakeGeocodingRepository(),
+            ),
+          ],
+          child: MaterialApp(theme: AppTheme.light, home: const MapViewPage()),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    final cluster = find.descendant(
+      of: find.byType(MarkerLayer),
+      matching: find.text('5000'),
+    );
+    expect(cluster, findsOneWidget);
+    await tester.tap(cluster);
+    await tester.pump();
+    expect(
+      tester
+          .widget<FlutterMap>(find.byType(FlutterMap))
+          .mapController!
+          .camera
+          .zoom,
+      18,
+    );
+    await tester.tap(cluster);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.byType(DeviceListOverlay), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
+
   testWidgets('MapViewPage renders map controls and handles taps safely', (
     tester,
   ) async {
@@ -97,6 +148,7 @@ void main() {
 
 class _FakeDeviceRepository extends DeviceRepository {
   _FakeDeviceRepository() : super(ApiClient(), WebsocketClient());
+  bool many = false;
 
   final _updates = StreamController<DeviceModel>.broadcast();
 
@@ -106,6 +158,20 @@ class _FakeDeviceRepository extends DeviceRepository {
   @override
   Future<List<DeviceModel>> getDevices() async {
     final now = DateTime.now();
+    if (many) {
+      return List.generate(
+        5000,
+        (id) => DeviceModel(
+          id: '$id',
+          deviceCode: 'GPS-$id',
+          name: 'Thiết bị mô phỏng $id',
+          type: 'VEHICLE',
+          status: 'ACTIVE',
+          latitude: 21.0322,
+          longitude: 105.80776,
+        ),
+      );
+    }
     return [
       DeviceModel(
         id: 'device-map-1',

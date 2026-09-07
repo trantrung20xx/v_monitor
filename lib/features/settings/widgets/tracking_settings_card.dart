@@ -30,6 +30,7 @@ class _TrackingSettingsCardState extends State<TrackingSettingsCard> {
   late final TextEditingController _offlineController;
   late final TextEditingController _movementController;
   late final TextEditingController _gapController;
+  late final TextEditingController _dashboardController;
   bool _dirty = false;
 
   @override
@@ -39,6 +40,7 @@ class _TrackingSettingsCardState extends State<TrackingSettingsCard> {
     _offlineController = TextEditingController();
     _movementController = TextEditingController();
     _gapController = TextEditingController();
+    _dashboardController = TextEditingController();
     _synchronizeControllers(widget.settings);
   }
 
@@ -58,6 +60,7 @@ class _TrackingSettingsCardState extends State<TrackingSettingsCard> {
     _offlineController.dispose();
     _movementController.dispose();
     _gapController.dispose();
+    _dashboardController.dispose();
     super.dispose();
   }
 
@@ -67,6 +70,7 @@ class _TrackingSettingsCardState extends State<TrackingSettingsCard> {
     _offlineController.text = settings.offlineTimeoutSeconds.toString();
     _movementController.text = settings.movementThresholdMps.toString();
     _gapController.text = settings.defaultGapThresholdSeconds.toString();
+    _dashboardController.text = settings.dashboardUpdateIntervalMs.toString();
   }
 
   Future<void> _save() async {
@@ -81,6 +85,7 @@ class _TrackingSettingsCardState extends State<TrackingSettingsCard> {
         _movementController.text.trim().replaceFirst(',', '.'),
       ),
       defaultGapThresholdSeconds: int.parse(_gapController.text.trim()),
+      dashboardUpdateIntervalMs: int.parse(_dashboardController.text.trim()),
     );
     // Cubit trả null khi backend đã commit; chuỗi khác null là lỗi nghiệp vụ.
     final error = await context.read<SettingsCubit>().saveSystemSettings(value);
@@ -195,6 +200,23 @@ class _TrackingSettingsCardState extends State<TrackingSettingsCard> {
                     ),
                   );
                 },
+              ),
+              const SizedBox(height: 16),
+              _TrackingSettingPanel(
+                key: const Key('dashboard-update-setting-panel'),
+                icon: Icons.update_rounded,
+                title: 'Nhịp cập nhật giao diện',
+                description:
+                    'Gộp thay đổi trên dashboard và bản đồ theo nhịp này. Lịch sử GPS vẫn được lưu đầy đủ.',
+                rangeLabel: 'Phạm vi: 250–1000 mili giây',
+                field: _IntegerSettingField(
+                  key: const Key('dashboard-update-interval-field'),
+                  controller: _dashboardController,
+                  label: 'Giá trị',
+                  suffix: 'ms',
+                  minimum: 250,
+                  maximum: 1000,
+                ),
               ),
               const SizedBox(height: 16),
               // Save panel nhận dirty/saving để mô tả đúng trạng thái form và khóa nút.

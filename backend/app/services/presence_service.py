@@ -12,6 +12,7 @@ from app.models.device_event import DeviceEvent
 from app.models.device_latest_state import DeviceLatestState
 from app.services.realtime_service import realtime_service
 from app.services.system_settings_service import system_settings_service
+from app.services.realtime_outbox_service import stage_device_events
 
 
 logger = logging.getLogger(__name__)
@@ -91,22 +92,11 @@ class PresenceService:
                 # Không commit khi không có thay đổi để tránh transaction ghi dư.
                 return 0
             # Commit toàn bộ cờ offline và event trước khi phát WebSocket.
+            stage_device_events(db, events)
             await db.commit()
-            # Phát từng event sau commit; REST vẫn có trạng thái đúng nếu socket bỏ lỡ.
-            for event in events:
-                await realtime_service.broadcast_telemetry(
-                    {
-                        "type": "DEVICE_EVENT",
-                        "event": {
-                            "id": str(event.id),
-                            "device_id": str(event.device_id),
-                            "event_type": event.event_type,
-                            "occurred_at": event.occurred_at.isoformat(),
-                            "source": event.source,
-                            "description": event.description,
-                        },
-                    }
-                )
+            # Đánh dấu snapshot cần cập nhật; bộ phát riêng đọc sự kiện trong outbox.
+            for state in states:
+                realtime_service.notify_device(state.device_id)
             return len(states)
 
     async def _run(self) -> None:

@@ -28,6 +28,7 @@ class RuntimeSystemSettings:
     offline_timeout_seconds: int
     movement_threshold_mps: float
     default_gap_threshold_seconds: int
+    dashboard_update_interval_ms: int = 500
 
     @classmethod
     def from_model(cls, model: SystemSetting) -> "RuntimeSystemSettings":
@@ -36,6 +37,7 @@ class RuntimeSystemSettings:
             offline_timeout_seconds=model.offline_timeout_seconds,
             movement_threshold_mps=model.movement_threshold_mps,
             default_gap_threshold_seconds=model.default_gap_threshold_seconds,
+            dashboard_update_interval_ms=model.dashboard_update_interval_ms or 500,
         )
 
 
@@ -57,6 +59,7 @@ class SystemSettingsService:
             offline_timeout_seconds=settings.device_offline_timeout_seconds,
             movement_threshold_mps=0.5,
             default_gap_threshold_seconds=settings.tracking_gap_threshold_seconds,
+            dashboard_update_interval_ms=500,
         )
 
     async def _get_or_create(

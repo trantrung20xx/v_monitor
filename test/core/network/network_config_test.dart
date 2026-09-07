@@ -173,6 +173,43 @@ void main() {
     },
   );
 
+  test(
+    'WebsocketClient expands batches and requests snapshots after auth or overflow',
+    () async {
+      final channel = _FakeWebSocketChannel();
+      final client = WebsocketClient(
+        channelFactory: (_) => channel,
+        heartbeatInterval: Duration.zero,
+      );
+      client.setAccessToken('test-token');
+      final messages = <Map<String, dynamic>>[];
+      var snapshots = 0;
+      final sub = client.messages.listen(messages.add);
+      final resync = client.resyncRequests.listen((_) => snapshots++);
+      client.connect();
+      channel.receiveFromServer('{"type":"AUTH_OK"}');
+      channel.receiveFromServer(
+        '{"type":"DEVICE_UPDATES","devices":[{"id":"1"},{"id":"2"}]}',
+      );
+      channel.receiveFromServer(
+        '{"type":"REALTIME_BATCH","messages":[{"type":"DEVICE_EVENT","event":{"id":"event-1"}}]}',
+      );
+      channel.receiveFromServer('{"type":"RESYNC_REQUIRED"}');
+      await Future<void>.delayed(Duration.zero);
+      expect(snapshots, 2);
+      expect(messages.map((m) => m['type']), [
+        'DEVICE_UPDATE',
+        'DEVICE_UPDATE',
+        'DEVICE_EVENT',
+      ]);
+      expect(messages[1]['device']['id'], '2');
+      await sub.cancel();
+      await resync.cancel();
+      client.dispose();
+      channel.closeFromServer();
+    },
+  );
+
   for (final closeCode in [4401, 4403]) {
     test(
       'WebsocketClient sends credential and stops after close $closeCode',

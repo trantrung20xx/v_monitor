@@ -11,15 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.auth_dependencies import require_admin_if_enabled, require_viewer_if_enabled
 from app.core.database import get_db
 from app.models.device import Device
-from app.schemas.device import DeviceResponse
+from app.services.device_service import DeviceService
 from app.schemas.tracking import (
     DeviceEventResponse,
     LocationHistoryResponse,
     LocationSampleCreate,
     LocationSampleResponse,
 )
-from app.services.device_service import DeviceService
-from app.services.realtime_service import realtime_service
 from app.services.tracking_service import DeviceNotFoundError, TrackingService
 
 
@@ -50,25 +48,11 @@ async def add_location(
     # Endpoint này dành cho nhập GPS có kiểm soát ngoài MQTT. Cả hai đường đều gọi
     # TrackingService nên dùng chung quy tắc latest state và sinh sự kiện.
     try:
-        result, generated_events = await TrackingService.add_location(db, location)
+        result, _ = await TrackingService.add_location(db, location)
     except DeviceNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
 
-    # Đọc lại snapshot sau commit để frontend nhận đúng trạng thái vừa được lưu.
-    device = await DeviceService.get_device(db, location.device_id)
-    # Trường hợp hiếm thiết bị bị xóa sau commit được bỏ qua broadcast thay vì phát payload rỗng.
-    if device:
-        await realtime_service.broadcast_telemetry(
-            {
-                "type": "DEVICE_UPDATE",
-                "device": DeviceResponse.model_validate(device).model_dump(mode="json"),
-            }
-        )
-    # Mỗi cạnh ONLINE/MOVEMENT tạo một event độc lập cho timeline frontend.
-    for event in generated_events:
-        await realtime_service.broadcast_telemetry(
-            {"type": "DEVICE_EVENT", "event": _event_payload(event)}
-        )
+    # Mẫu GPS đã commit; bộ phát riêng sẽ gửi snapshot mới nhất.
     return result
 
 

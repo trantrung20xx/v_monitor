@@ -173,6 +173,9 @@ class _DesktopLayout extends StatelessWidget {
                   // ── Device grid ──
                   Expanded(
                     child: DeviceGrid(
+                      onDeviceVisibilityChanged: context
+                          .read<DashboardCubit>()
+                          .setDeviceVisible,
                       devices: state.devices,
                       searchQuery: state.searchQuery,
                       statusFilter: state.statusFilter,
@@ -275,6 +278,9 @@ class _MobileLayout extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: DeviceGrid(
+                onDeviceVisibilityChanged: context
+                    .read<DashboardCubit>()
+                    .setDeviceVisible,
                 devices: state.devices,
                 searchQuery: state.searchQuery,
                 statusFilter: state.statusFilter,

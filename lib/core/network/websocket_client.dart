@@ -49,6 +49,8 @@ class WebsocketClient {
   // Broadcast stream cho phép nhiều repository lọc cùng một kết nối realtime.
   final _messageController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get messages => _messageController.stream;
+  final _resyncController = StreamController<void>.broadcast();
+  Stream<void> get resyncRequests => _resyncController.stream;
 
   Uri get connectionUri => _connectionUri;
 
@@ -78,6 +80,15 @@ class WebsocketClient {
       final channel = _channelFactory(_connectionUri);
       // Gán channel trước listen để callback đồng bộ có thể đối chiếu đúng source.
       _channel = channel;
+      if (_accessToken == null) {
+        channel.ready
+            .then((_) {
+              if (!_disposed && identical(_channel, channel)) {
+                _resyncController.add(null);
+              }
+            })
+            .catchError((Object _) {});
+      }
       _channelSubscription = channel.stream.listen(
         // `source` đi kèm callback để sự kiện đến muộn của socket cũ bị nhận diện.
         (message) => _handleMessage(message, source: channel),
@@ -93,7 +104,17 @@ class WebsocketClient {
       if (token != null) {
         // Bản tin AUTH được gửi ngay sau khi mở socket để khóa đăng nhập không
         // xuất hiện trong URL, access log hoặc lịch sử của reverse proxy.
-        channel.sink.add(jsonEncode({'type': 'AUTH', 'access_token': token}));
+        channel.sink.add(
+          jsonEncode({
+            'type': 'AUTH',
+            'access_token': token,
+            'realtime_batches': true,
+          }),
+        );
+      } else {
+        channel.sink.add(
+          jsonEncode({'type': 'CLIENT_CAPABILITIES', 'realtime_batches': true}),
+        );
       }
       // Heartbeat bắt đầu cho chính instance channel vừa tạo.
       _startHeartbeat(channel);
@@ -132,10 +153,28 @@ class WebsocketClient {
         // DEVICE_UPDATE, DEVICE_EVENT và SYSTEM_SETTINGS_UPDATED vẫn được giữ nguyên.
         final type = decoded['type'];
         // Trả sớm để heartbeat không làm repository rebuild hoặc làm đầy log debug.
-        if (type == 'PONG' || type == 'AUTH_OK') return;
+        if (type == 'PONG') return;
+        if (type == 'AUTH_OK' || type == 'RESYNC_REQUIRED') {
+          _resyncController.add(null);
+          return;
+        }
+        if (type == 'DEVICE_UPDATES' && decoded['devices'] is List) {
+          for (final device in (decoded['devices'] as List).whereType<Map>()) {
+            _messageController.add({
+              'type': 'DEVICE_UPDATE',
+              'device': Map<String, dynamic>.from(device),
+            });
+          }
+          return;
+        }
+        if (type == 'REALTIME_BATCH' && decoded['messages'] is List) {
+          for (final item in (decoded['messages'] as List).whereType<Map>()) {
+            _messageController.add(Map<String, dynamic>.from(item));
+          }
+          return;
+        }
 
         // Chỉ log ở debug; release không in payload telemetry liên tục.
-        if (kDebugMode) debugPrint('WS received: $message');
         // Broadcast event đã parse cho các repository đang lắng nghe.
         _messageController.add(decoded);
       } else if (kDebugMode) {
@@ -273,5 +312,6 @@ class WebsocketClient {
     if (!_messageController.isClosed) {
       _messageController.close();
     }
+    if (!_resyncController.isClosed) _resyncController.close();
   }
 }

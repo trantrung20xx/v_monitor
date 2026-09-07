@@ -26,6 +26,7 @@ class DataModelTest(unittest.TestCase):
                 "devices",
                 "location_samples",
                 "mqtt_device_sightings",
+                "realtime_outbox",
                 "system_settings",
                 "telemetry_messages",
                 "user_accounts",

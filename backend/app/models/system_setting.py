@@ -46,6 +46,9 @@ class SystemSetting(Base, TimestampMixin):
         ForeignKey("user_accounts.id", ondelete="SET NULL"),
         nullable=True,
     )
+    dashboard_update_interval_ms: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=500, server_default="500"
+    )
 
     # Quan hệ tùy chọn tới ADMIN sửa gần nhất, phục vụ truy vết giao diện/audit.
     updater = relationship("UserAccount")
@@ -53,6 +56,10 @@ class SystemSetting(Base, TimestampMixin):
     # Constraint lặp lại biên Pydantic tại database để bảo vệ mọi đường ghi dữ liệu.
     __table_args__ = (
         CheckConstraint("id = 1", name="ck_system_settings_singleton"),
+        CheckConstraint(
+            "dashboard_update_interval_ms BETWEEN 250 AND 1000",
+            name="ck_system_settings_dashboard_interval",
+        ),
         CheckConstraint(
             "offline_timeout_seconds BETWEEN 30 AND 86400",
             name="ck_system_settings_offline_timeout",

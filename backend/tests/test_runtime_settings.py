@@ -14,6 +14,7 @@ os.environ.setdefault(
 )
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from app.models.realtime_outbox import RealtimeOutbox
 from app.models.device_event import DeviceEvent  # noqa: E402
 from app.models.device_latest_state import DeviceLatestState  # noqa: E402
 from app.schemas.tracking import LocationSampleCreate  # noqa: E402
@@ -254,7 +255,10 @@ class PresenceRuntimeSettingsTest(unittest.IsolatedAsyncioTestCase):
             len([value for value in session.added if isinstance(value, DeviceEvent)]),
             1,
         )
-        broadcast.assert_awaited_once()
+        broadcast.assert_not_awaited()
+        notifications = [row for row in session.added if isinstance(row, RealtimeOutbox)]
+        self.assertEqual(len(notifications), 1)
+        self.assertEqual(notifications[0].payload["event"]["event_type"], "OFFLINE")
 
     async def test_changed_timeout_is_used_without_restart(self):
         now = datetime(2026, 8, 21, 5, 0, tzinfo=timezone.utc)

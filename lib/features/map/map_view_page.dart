@@ -20,6 +20,7 @@ import '../dashboard/dashboard_cubit.dart';
 import '../dashboard/dashboard_state.dart';
 import '../settings/settings_cubit.dart';
 import 'widgets/device_list_overlay.dart';
+import 'widgets/device_cluster_layer.dart';
 
 /// Trang Bản đồ toàn màn hình hiển thị toàn bộ thiết bị.
 class MapViewPage extends StatefulWidget {
@@ -99,6 +100,8 @@ class _MapViewBodyState extends State<_MapViewBody> {
   ) {
     // Mobile dùng bottom sheet kéo được để danh sách không che bản đồ vĩnh viễn;
     // dữ liệu thiết bị/địa chỉ là snapshot hiện tại từ DashboardState.
+    final dashboard = context.read<DashboardCubit>();
+    final allowedIds = devices.map((device) => device.id).toSet();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -113,15 +116,21 @@ class _MapViewBodyState extends State<_MapViewBody> {
           snap: true,
           snapSizes: const [0.35, 0.65, 0.92],
           builder: (context, scrollController) {
-            return DeviceListOverlay(
-              devices: devices,
-              addresses: addresses,
-              scrollController: scrollController,
-              isMobileSheet: true,
-              onDeviceSelected: (d) {
-                Navigator.pop(context);
-                _onDeviceSelected(context, d);
-              },
+            return BlocBuilder<DashboardCubit, DashboardState>(
+              bloc: dashboard,
+              builder: (context, live) => DeviceListOverlay(
+                onDeviceVisibilityChanged: dashboard.setDeviceVisible,
+                devices: live.devices
+                    .where((device) => allowedIds.contains(device.id))
+                    .toList(),
+                addresses: live.deviceAddresses,
+                scrollController: scrollController,
+                isMobileSheet: true,
+                onDeviceSelected: (d) {
+                  Navigator.pop(context);
+                  _onDeviceSelected(context, d);
+                },
+              ),
             );
           },
         );
@@ -370,10 +379,29 @@ class _MapViewBodyState extends State<_MapViewBody> {
                         ),
                         // Marker được dựng từ danh sách đã lọc tọa độ, mỗi marker mở
                         // route chi tiết theo id database của thiết bị.
-                        MarkerLayer(
-                          markers: located
-                              .map((device) => _buildMarker(context, device))
-                              .toList(),
+                        DeviceClusterLayer(
+                          devices: located,
+                          markerBuilder: _buildMarker,
+                          onClusterTap: (devices) {
+                            if (_mapController.camera.zoom >= _maxZoom - 0.1) {
+                              _openMobileList(
+                                context,
+                                devices,
+                                state.deviceAddresses,
+                              );
+                            } else {
+                              final points = devices
+                                  .map((d) => LatLng(d.latitude!, d.longitude!))
+                                  .toList();
+                              _mapController.fitCamera(
+                                CameraFit.bounds(
+                                  bounds: LatLngBounds.fromPoints(points),
+                                  padding: const EdgeInsets.all(80),
+                                  maxZoom: _maxZoom,
+                                ),
+                              );
+                            }
+                          },
                         ),
                       ],
                     ),
@@ -502,6 +530,9 @@ class _MapViewBodyState extends State<_MapViewBody> {
                     right: 16,
                     bottom: 16,
                     child: DeviceListOverlay(
+                      onDeviceVisibilityChanged: context
+                          .read<DashboardCubit>()
+                          .setDeviceVisible,
                       devices: state.devices,
                       addresses: state.deviceAddresses,
                       onDeviceSelected: (d) => _onDeviceSelected(context, d),
@@ -549,7 +580,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
     return Marker(
       point: LatLng(device.latitude!, device.longitude!),
       width: 140,
-      height: 52,
+      height: 52 * MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 3.0),
       child: GestureDetector(
         onTap: () => context.pushNamed(
           'device-detail',

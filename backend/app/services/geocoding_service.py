@@ -1,11 +1,13 @@
 # Dịch vụ reverse geocoding có cache theo tọa độ làm tròn, gộp request đồng thời,
 # giới hạn request tuần tự và retry lỗi mạng tạm thời trước khi báo không khả dụng.
 import asyncio
-import json
+from collections import OrderedDict
+import time
+
+import httpx
 import logging
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
 
 from app.core.config import settings
 
@@ -28,7 +30,8 @@ class GeocodingService:
     ):
         # cache lưu kết quả thành công theo tọa độ làm tròn; pending gộp các request
         # trùng đang chạy; lock giới hạn toàn tiến trình chỉ gọi provider tuần tự.
-        self._cache: dict[str, dict[str, str | None]] = {}
+        self._cache: OrderedDict[str, tuple[float, dict[str, str | None]]] = OrderedDict()
+        self._http_client: httpx.AsyncClient | None = None
         self._pending: dict[str, asyncio.Task[dict[str, str | None]]] = {}
         self._provider_request_lock = asyncio.Lock()
         self._retry_attempts = retry_attempts or settings.geocoding_retry_attempts
@@ -43,28 +46,45 @@ class GeocodingService:
         # giữ địa chỉ có ý nghĩa ở quy mô đường/phố.
         cache_key = f"{latitude:.5f},{longitude:.5f}"
         cached = self._cache.get(cache_key)
-        # Cache hit không gọi mạng và trả cùng cấu trúc đã chuẩn hóa.
         if cached is not None:
-            return cached
-
+            expires_at, value = cached
+            if expires_at > time.monotonic():
+                self._cache.move_to_end(cache_key)
+                return value
+            self._cache.pop(cache_key, None)
         pending = self._pending.get(cache_key)
-        # Chỉ request đầu tiên cho một tọa độ tạo task provider mới.
         if pending is None:
-            # Request đầu tiên sở hữu task; các request sau cùng tọa độ chỉ await task đó.
-            pending = asyncio.create_task(
-                self._resolve_uncached(cache_key, latitude, longitude)
-            )
+            if len(self._pending) >= settings.geocoding_max_pending:
+                raise GeocodingUnavailableError("Geocoding queue is busy")
+            pending = asyncio.create_task(self._resolve_with_deadline(cache_key, latitude, longitude))
             self._pending[cache_key] = pending
+            pending.add_done_callback(lambda task: self._completed(cache_key, task))
+        return await asyncio.shield(pending)
 
+    def _completed(self, key, task):
+        if self._pending.get(key) is task:
+            self._pending.pop(key, None)
+        if not task.cancelled():
+            task.exception()  # Thu hồi lỗi kể cả khi mọi HTTP caller đã hủy.
+
+    async def _resolve_with_deadline(self, key, latitude, longitude):
         try:
-            # shield ngăn một HTTP request client bị hủy kéo theo việc hủy lookup dùng
-            # chung mà các request khác vẫn đang chờ.
-            # Mọi caller cùng cache_key nhận kết quả hoặc exception từ cùng một task.
-            return await asyncio.shield(pending)
-        finally:
-            # Chỉ task đang được map giữ quyền xóa, tránh xóa nhầm task mới cùng khóa.
-            if pending.done() and self._pending.get(cache_key) is pending:
-                self._pending.pop(cache_key, None)
+            return await asyncio.wait_for(
+                self._resolve_uncached(key, latitude, longitude),
+                settings.geocoding_request_timeout_seconds,
+            )
+        except asyncio.TimeoutError as exc:
+            raise GeocodingUnavailableError("Geocoding request deadline exceeded") from exc
+
+    async def close(self):
+        pending = list(self._pending.values())
+        for task in pending:
+            task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
+        self._pending.clear()
+        if self._http_client is not None:
+            await self._http_client.aclose()
+            self._http_client = None
 
     async def _resolve_uncached(
         self,
@@ -77,20 +97,19 @@ class GeocodingService:
         last_error: Exception | None = None
         for attempt in range(1, self._retry_attempts + 1):
             try:
-                # Lock tuần tự hóa lời gọi provider để tuân thủ giới hạn dịch vụ công cộng.
+                # Giới hạn số request đồng thời; hạn mức theo giây phụ thuộc provider.
                 async with self._provider_request_lock:
-                    # urllib là API blocking nên chạy trong thread, không chặn event loop FastAPI.
-                    provider, payload = await asyncio.to_thread(
-                        self._fetch_reverse_geocode,
-                        latitude,
-                        longitude,
-                    )
+                    # HTTP bất đồng bộ có thể hủy khi hết deadline, không giữ thread nền.
+                    provider, payload = await self._fetch_reverse_geocode(latitude, longitude)
                 result = self._build_result(provider, payload)
                 # Chỉ cache địa chỉ có nội dung; kết quả rỗng được phép thử lại lần sau.
                 if result["formatted_address"] or result["display_name"]:
-                    self._cache[cache_key] = result
+                    self._cache[cache_key] = (time.monotonic() + settings.geocoding_cache_ttl_seconds, result)
+                    self._cache.move_to_end(cache_key)
+                    while len(self._cache) > settings.geocoding_cache_size:
+                        self._cache.popitem(last=False)
                 return result
-            except (HTTPError, URLError, TimeoutError, OSError, ValueError) as exc:
+            except (httpx.HTTPError, HTTPError, URLError, TimeoutError, OSError, ValueError) as exc:
                 # Đây là lỗi mạng/payload có thể phục hồi nên tiếp tục retry theo cấu hình.
                 last_error = exc
                 logger.warning(
@@ -137,12 +156,12 @@ class GeocodingService:
             "provider": provider,
         }
 
-    def _fetch_reverse_geocode(
+    async def _fetch_reverse_geocode(
         self,
         latitude: float,
         longitude: float,
     ) -> tuple[str, dict]:
-        # Hàm blocking này luôn được gọi qua asyncio.to_thread. base_url và User-Agent
+        # HTTP client dùng chung theo tiến trình. base_url và User-Agent
         # lấy từ Settings để đổi provider/server mà không sửa source code.
         provider = settings.geocoding_provider
         base_url = settings.geocoding_base_url.rstrip("/")
@@ -175,15 +194,14 @@ class GeocodingService:
         if provider == "nominatim":
             headers["Accept-Language"] = "vi,en;q=0.8"
         # URL hoàn chỉnh được tạo từ base URL đã kiểm tra và query đã encode.
-        request = Request(f"{base_url}/reverse?{query}", headers=headers)
-        # Timeout mạng lấy từ cấu hình để request lỗi không giữ thread vô hạn.
-        with urlopen(  # noqa: S310 - base URL is controlled by backend settings.
-            request,
-            timeout=settings.geocoding_timeout_seconds,
-        ) as response:
-            raw = response.read().decode("utf-8")
-        # JSON hợp lệ nhưng không phải object vẫn sai hợp đồng provider.
-        parsed = json.loads(raw)
+        if self._http_client is None:
+            self._http_client = httpx.AsyncClient(
+                timeout=settings.geocoding_timeout_seconds,
+                limits=httpx.Limits(max_connections=1, max_keepalive_connections=1),
+            )
+        response = await self._http_client.get(f"{base_url}/reverse?{query}", headers=headers)
+        response.raise_for_status()
+        parsed = response.json()
         if not isinstance(parsed, dict):
             raise ValueError("Reverse geocoding provider returned invalid JSON")
         return provider, parsed

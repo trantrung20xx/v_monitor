@@ -10,3 +10,4 @@ from app.models.audit_log import AuditLog
 from app.models.user_account import UserAccount, UserSetting
 from app.models.system_setting import SystemSetting
 from app.models.mqtt_device_sighting import MqttDeviceSighting
+from app.models.realtime_outbox import RealtimeOutbox

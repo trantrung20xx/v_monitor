@@ -1,9 +1,9 @@
-// Tổng hợp danh sách thiết bị cho dashboard: tải REST, nhận cập nhật realtime,
-// resolve trạng thái, đếm thống kê và tra địa chỉ theo tọa độ mới nhất.
+// Gom thay đổi theo ID; chỉ lấy địa chỉ cho các thẻ đang hiển thị.
 import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/config/app_config.dart';
 import '../../data/models/device_model.dart';
 import '../../data/models/system_settings_model.dart';
 import '../../data/repositories/device_repository.dart';
@@ -19,206 +19,285 @@ class DashboardCubit extends Cubit<DashboardState> {
     required this.geocodingRepo,
     required this.settingsRepo,
   }) : super(const DashboardState()) {
-    // Repository phát DeviceModel đã parse từ DEVICE_UPDATE; thay đổi system settings
-    // yêu cầu tính lại trạng thái từ cùng danh sách dù không có telemetry mới.
     _deviceUpdatesSub = deviceRepo.deviceUpdates.listen(_onDeviceUpdated);
     _deviceDeletionsSub = deviceRepo.deviceDeletions.listen(_onDeviceDeleted);
-    _settingsSub = settingsRepo.systemSettingsChanges.listen((_) {
-      // Không emit state rỗng khi dashboard chưa tải lần đầu; danh sách hiện có mới
-      // cần resolve lại theo ngưỡng hệ thống vừa thay đổi.
-      if (state.devices.isNotEmpty) _updateDevices(state.devices);
+    _resyncSub = deviceRepo.resyncRequests.listen((_) {
+      _needsResync = true;
+      unawaited(loadDashboard(background: true));
     });
+    _settingsSub = settingsRepo.systemSettingsChanges.listen((_) {
+      if (_closing || isClosed) return;
+      _flushTimer?.cancel();
+      _flushTimer = null;
+      _refreshStatuses();
+      _scheduleFlush();
+    });
+    _statusTimer = Timer.periodic(
+      Duration(seconds: AppConfig.dashboardStatusRefreshSeconds.clamp(1, 60)),
+      (_) {
+        if (_closing || isClosed) return;
+        if (_needsResync) unawaited(loadDashboard(background: true));
+        _refreshStatuses();
+        _flushUpdates();
+      },
+    );
   }
 
   final DeviceRepository deviceRepo;
   final GeocodingRepository geocodingRepo;
   final SettingsRepository settingsRepo;
-  // addressCache dùng chung theo tọa độ; deviceAddressKeys ghi tọa độ mới nhất mà mỗi
-  // thiết bị đang chờ để response cũ không ghi đè địa chỉ của vị trí mới.
-  final Map<String, String> _addressCache = {};
-  final Map<String, String> _deviceAddressKeys = {};
+  final Map<String, DeviceModel> _devices = {};
+  final Map<String, DeviceModel> _pending = {};
+  final Map<String, DeviceModel?> _duringLoad = {};
+  final Set<String> _deleted = {};
+  final Map<String, ResolvedDeviceStatus> _statuses = {};
+  final List<int> _counts = List.filled(6, 0);
+  final Map<String, int> _visible = {};
+  final Map<String, String> _addressKeys = {};
+  final Map<String, DateTime> _addressRequestedAt = {};
+  final Set<String> _addressInFlight = {};
+  final Map<String, String> _pendingAddresses = {};
   StreamSubscription<DeviceModel>? _deviceUpdatesSub;
   StreamSubscription<String>? _deviceDeletionsSub;
   StreamSubscription<SystemSettingsModel>? _settingsSub;
+  StreamSubscription<void>? _resyncSub;
+  Timer? _flushTimer;
+  Timer? _statusTimer;
+  Future<void>? _loadFuture;
+  bool _closing = false;
+  bool _needsResync = false;
 
-  /// Tải snapshot REST ban đầu; cập nhật sau đó được hợp nhất từ WebSocket.
-  Future<void> loadDashboard() async {
-    // State loading giữ nguyên dữ liệu cũ để refresh không làm danh sách biến mất đột ngột.
-    emit(state.copyWith(isLoading: true, error: null));
+  Future<void> loadDashboard({bool background = false}) {
+    return _loadFuture ??= _load(
+      background,
+    ).whenComplete(() => _loadFuture = null);
+  }
+
+  Future<void> _load(bool background) async {
+    _duringLoad.clear();
+    if (!background) emit(state.copyWith(isLoading: true, error: null));
     try {
-      // Repository parse toàn bộ response `/devices/` thành DeviceModel.
-      final devices = await deviceRepo.getDevices();
-      _updateDevices(devices);
-    } catch (e) {
-      // Lỗi được giữ trong state để DashboardPage chọn khối thông báo phù hợp.
-      emit(state.copyWith(isLoading: false, error: e.toString()));
+      final snapshot = await deviceRepo.getDevices();
+      if (isClosed) return;
+      final merged = {for (final device in snapshot) device.id: device};
+      for (final entry in _duringLoad.entries) {
+        if (entry.value == null) {
+          merged.remove(entry.key);
+        } else {
+          merged[entry.key] = entry.value!;
+        }
+      }
+      _devices
+        ..clear()
+        ..addAll(merged);
+      _pending.clear();
+      _deleted.clear();
+      _needsResync = false;
+      _addressKeys.removeWhere((id, _) => !_devices.containsKey(id));
+      _addressRequestedAt.removeWhere((id, _) => !_devices.containsKey(id));
+      _refreshStatuses();
+      final addresses = Map<String, String>.from(state.deviceAddresses)
+        ..removeWhere((id, _) => !_devices.containsKey(id));
+      _emitSnapshot(addresses: addresses);
+      _resolveVisibleAddresses();
+    } catch (error) {
+      _needsResync = true;
+      if (!isClosed) {
+        emit(state.copyWith(isLoading: false, error: error.toString()));
+      }
+    } finally {
+      _duringLoad.clear();
     }
   }
 
-  void setSearchQuery(String query) {
-    // Query nằm trong state để widget lọc nhất quán, không gọi lại API.
-    emit(state.copyWith(searchQuery: query));
-  }
-
-  void setStatusFilter(DeviceFilter filter) {
-    // Filter chỉ thay cách nhìn; state.devices vẫn giữ nguyên snapshot nguồn.
-    emit(state.copyWith(statusFilter: filter));
-  }
+  void setSearchQuery(String query) => emit(state.copyWith(searchQuery: query));
+  void setStatusFilter(DeviceFilter filter) =>
+      emit(state.copyWith(statusFilter: filter));
 
   void _onDeviceUpdated(DeviceModel device) {
-    // Thay đúng phần tử theo database id; thiết bị mới được thêm nếu snapshot chưa có.
-    final updatedDevices = List<DeviceModel>.from(state.devices);
-    final index = updatedDevices.indexWhere((d) => d.id == device.id);
-    // ID đã tồn tại nghĩa đây là snapshot mới của cùng thiết bị.
-    if (index >= 0) {
-      updatedDevices[index] = device;
-    } else {
-      // Thiết bị đăng ký sau lần tải đầu được thêm vào dashboard mà không cần refresh.
-      updatedDevices.add(device);
-    }
-    // Tính lại bộ đếm và địa chỉ từ danh sách sau hợp nhất.
-    _updateDevices(updatedDevices);
+    if (isClosed || device.id.isEmpty || _deleted.contains(device.id)) return;
+    _pending[device.id] = device;
+    if (_loadFuture != null) _duringLoad[device.id] = device;
+    _scheduleFlush();
   }
 
-  void _onDeviceDeleted(String deviceId) {
-    // Client khác có thể xóa thiết bị trong khi dashboard/bản đồ đang mở. Loại đúng
-    // ID và dọn khóa địa chỉ để một phản hồi geocoding chậm không làm dữ liệu quay lại.
-    if (!state.devices.any((device) => device.id == deviceId)) return;
-    _deviceAddressKeys.remove(deviceId);
+  void _onDeviceDeleted(String id) {
+    if (isClosed) return;
+    _deleted.add(id);
+    _pending.remove(id);
+    if (_loadFuture != null) _duringLoad[id] = null;
+    final previous = _statuses.remove(id);
+    if (previous != null) _count(previous, -1);
+    _devices.remove(id);
+    _addressKeys.remove(id);
+    _addressRequestedAt.remove(id);
+    _pendingAddresses.remove(id);
     final addresses = Map<String, String>.from(state.deviceAddresses)
-      ..remove(deviceId);
-    emit(state.copyWith(deviceAddresses: addresses));
-    _updateDevices(
-      state.devices.where((device) => device.id != deviceId).toList(),
+      ..remove(id);
+    _emitSnapshot(addresses: addresses);
+  }
+
+  void _scheduleFlush() {
+    if (_closing || isClosed || (_flushTimer?.isActive ?? false)) return;
+    _flushTimer = Timer(
+      Duration(
+        milliseconds: settingsRepo.systemSettings.dashboardUpdateIntervalMs
+            .clamp(250, 1000),
+      ),
+      _flushUpdates,
     );
   }
 
-  void _updateDevices(List<DeviceModel> devices) {
-    // Mọi bộ đếm dùng chung DeviceStatusResolver để thẻ, bộ lọc và thống kê không
-    // tự diễn giải online/moving theo các ngưỡng khác nhau.
-    // Tính lại từ đầu để một DEVICE_UPDATE không làm các bộ đếm cộng dồn sai.
-    int online = 0,
-        offline = 0,
-        moving = 0,
-        stopped = 0,
-        inactive = 0,
-        stale = 0,
-        attention = 0;
-
-    for (final dev in devices) {
-      // Chỉ gọi reverse geocoding khi backend cung cấp đủ hai thành phần GPS thật.
-      if (dev.latitude != null && dev.longitude != null) {
-        _resolveAddressForDashboard(dev.id, dev.latitude!, dev.longitude!);
-      }
-
-      final status = DeviceStatusResolver.resolve(
-        isOnline: dev.isOnline,
-        lastSeenAt: dev.lastSeenAt,
-        latestMeasuredAt: dev.latestMeasuredAt,
-        currentSpeedMps: dev.currentSpeedMps,
-        baseStatus: dev.status,
+  ResolvedDeviceStatus _resolve(DeviceModel device) =>
+      DeviceStatusResolver.resolve(
+        isOnline: device.isOnline,
+        lastSeenAt: device.lastSeenAt,
+        latestMeasuredAt: device.latestMeasuredAt,
+        currentSpeedMps: device.currentSpeedMps,
+        baseStatus: device.status,
+        thresholds: DeviceStateThresholds(
+          onlineTimeout: Duration(
+            seconds: settingsRepo.systemSettings.offlineTimeoutSeconds,
+          ),
+          movementSpeedThresholdMps:
+              settingsRepo.systemSettings.movementThresholdMps,
+        ),
       );
 
-      // Connectivity luôn thuộc đúng một trong hai nhóm, vì vậy tổng online+offline
-      // phải bằng tổng thiết bị đang hiển thị.
-      if (status.connectivity == ConnectivityStatus.online) {
-        online++;
-      } else {
-        offline++;
-      }
+  void _count(ResolvedDeviceStatus status, int delta) {
+    _counts[status.connectivity == ConnectivityStatus.online ? 0 : 1] += delta;
+    if (status.movement == MovementStatus.moving) _counts[2] += delta;
+    if (status.movement == MovementStatus.stopped) _counts[3] += delta;
+    if (status.activity == ActivityStatus.inactive) _counts[4] += delta;
+    if (status.freshness == DataFreshnessStatus.stale) _counts[5] += delta;
+  }
 
-      // stale là trục độ mới dữ liệu độc lập với online/offline.
-      if (status.freshness == DataFreshnessStatus.stale) {
-        stale++;
-      }
-
-      // Movement unknown không bị tính nhầm vào moving hoặc stopped.
-      if (status.movement == MovementStatus.moving) {
-        moving++;
-      } else if (status.movement == MovementStatus.stopped) {
-        stopped++;
-      }
-
-      // Activity inactive lấy từ trạng thái quản lý thật, không suy từ mất mạng.
-      if (status.activity == ActivityStatus.inactive) {
-        inactive++;
-      }
+  void _refreshStatuses() {
+    _counts.fillRange(0, _counts.length, 0);
+    _statuses.clear();
+    for (final device in _devices.values) {
+      final status = _resolve(device);
+      _statuses[device.id] = status;
+      _count(status, 1);
     }
+  }
 
+  void _flushUpdates() {
+    if (isClosed) return;
+    _flushTimer?.cancel();
+    _flushTimer = null;
+    for (final device in _pending.values) {
+      final old = _statuses[device.id];
+      if (old != null) _count(old, -1);
+      _devices[device.id] = device;
+      final status = _resolve(device);
+      _statuses[device.id] = status;
+      _count(status, 1);
+    }
+    _pending.clear();
+    final addresses = Map<String, String>.from(state.deviceAddresses);
+    for (final entry in _pendingAddresses.entries) {
+      if (_devices.containsKey(entry.key)) addresses[entry.key] = entry.value;
+    }
+    _pendingAddresses.clear();
+    _emitSnapshot(addresses: addresses);
+    _resolveVisibleAddresses();
+  }
+
+  void _emitSnapshot({Map<String, String>? addresses}) {
+    if (isClosed) return;
     emit(
       state.copyWith(
         isLoading: false,
-        devices: devices,
-        totalDevices: devices.length,
-        onlineCount: online,
-        offlineCount: offline,
-        movingCount: moving,
-        stoppedCount: stopped,
-        inactiveCount: inactive,
-        staleCount: stale,
-        attentionCount: attention,
+        devices: List<DeviceModel>.unmodifiable(_devices.values),
+        totalDevices: _devices.length,
+        onlineCount: _counts[0],
+        offlineCount: _counts[1],
+        movingCount: _counts[2],
+        stoppedCount: _counts[3],
+        inactiveCount: _counts[4],
+        staleCount: _counts[5],
+        deviceAddresses: addresses ?? state.deviceAddresses,
       ),
     );
   }
 
-  Future<void> _resolveAddressForDashboard(
-    String deviceId,
-    double lat,
-    double lng,
-  ) async {
-    // Làm tròn giống cache backend để dịch chuyển GPS rất nhỏ không gọi geocoding lại.
-    final cacheKey = '${lat.toStringAsFixed(5)},${lng.toStringAsFixed(5)}';
-    final cached = _addressCache[cacheKey];
-    // Trả sớm khi đúng thiết bị, đúng tọa độ và đúng địa chỉ đã nằm trong state.
-    if (_deviceAddressKeys[deviceId] == cacheKey &&
-        cached != null &&
-        state.deviceAddresses[deviceId] == cached) {
+  void setDeviceVisible(String id, bool visible) {
+    if (isClosed) return;
+    final count = (_visible[id] ?? 0) + (visible ? 1 : -1);
+    if (count <= 0) {
+      _visible.remove(id);
+    } else {
+      _visible[id] = count;
+      final device = _devices[id];
+      if (device != null) unawaited(_resolveAddress(device));
+    }
+  }
+
+  void _resolveVisibleAddresses() {
+    for (final id in _visible.keys) {
+      final device = _devices[id];
+      if (device != null) unawaited(_resolveAddress(device));
+    }
+  }
+
+  String _coordinateKey(DeviceModel device) =>
+      '${device.latitude!.toStringAsFixed(5)},${device.longitude!.toStringAsFixed(5)}';
+
+  Future<void> _resolveAddress(DeviceModel device) async {
+    if (device.latitude == null ||
+        device.longitude == null ||
+        _addressInFlight.contains(device.id)) {
       return;
     }
-
-    _deviceAddressKeys[deviceId] = cacheKey;
-
-    // Cache hit chỉ cập nhật map địa chỉ trong state, không gọi HTTP.
-    if (cached != null) {
-      final newAddresses = Map<String, String>.from(state.deviceAddresses);
-      newAddresses[deviceId] = cached;
-      emit(state.copyWith(deviceAddresses: newAddresses));
+    final key = _coordinateKey(device);
+    if (_addressKeys[device.id] == key &&
+        state.deviceAddresses.containsKey(device.id)) {
       return;
     }
-
-    if (state.deviceAddresses.containsKey(deviceId)) {
-      // Khi thiết bị sang tọa độ chưa có cache, bỏ địa chỉ cũ để UI không gắn nhầm
-      // tên đường cũ trong lúc chờ request mới.
-      final newAddresses = Map<String, String>.from(state.deviceAddresses)
-        ..remove(deviceId);
-      emit(state.copyWith(deviceAddresses: newAddresses));
-    }
-
-    // Repository trả null khi provider không khả dụng; GPS gốc vẫn được giữ nguyên.
-    final address = await geocodingRepo.reverseAddress(lat, lng);
-    final normalizedAddress = address?.trim();
-    if (normalizedAddress == null || normalizedAddress.isEmpty) {
+    final last = _addressRequestedAt[device.id];
+    if (last != null &&
+        DateTime.now().difference(last).inSeconds <
+            AppConfig.geocodingRefreshSeconds.clamp(1, 3600)) {
       return;
     }
-
-    _addressCache[cacheKey] = normalizedAddress;
-    // Chỉ áp dụng response nếu thiết bị vẫn đang ở đúng cacheKey đã yêu cầu.
-    // isClosed ngăn emit sau khi DashboardCubit đã bị hủy khi chuyển màn hình.
-    if (_deviceAddressKeys[deviceId] != cacheKey || isClosed) {
-      return;
+    _addressRequestedAt[device.id] = DateTime.now();
+    _addressInFlight.add(device.id);
+    try {
+      final address = (await geocodingRepo.reverseAddress(
+        device.latitude!,
+        device.longitude!,
+      ))?.trim();
+      if (isClosed ||
+          address == null ||
+          address.isEmpty ||
+          !_visible.containsKey(device.id)) {
+        return;
+      }
+      final current = _devices[device.id];
+      if (current == null ||
+          current.latitude == null ||
+          current.longitude == null ||
+          _coordinateKey(current) != key) {
+        return;
+      }
+      _addressKeys[device.id] = key;
+      _pendingAddresses[device.id] = address;
+      _scheduleFlush();
+    } finally {
+      _addressInFlight.remove(device.id);
     }
-
-    final newAddresses = Map<String, String>.from(state.deviceAddresses);
-    newAddresses[deviceId] = normalizedAddress;
-    emit(state.copyWith(deviceAddresses: newAddresses));
   }
 
   @override
   Future<void> close() async {
-    // Hủy subscription để repository dùng chung không gọi Cubit sau khi rời màn hình.
+    _closing = true;
+    _flushTimer?.cancel();
+    _statusTimer?.cancel();
     await _deviceUpdatesSub?.cancel();
     await _deviceDeletionsSub?.cancel();
     await _settingsSub?.cancel();
-    await super.close();
+    await _resyncSub?.cancel();
+    return super.close();
   }
 }

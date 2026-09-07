@@ -6,11 +6,13 @@ class SystemSettingsModel {
     this.offlineTimeoutSeconds = 300,
     this.movementThresholdMps = 0.5,
     this.defaultGapThresholdSeconds = 300,
+    this.dashboardUpdateIntervalMs = 500,
   });
 
   final int offlineTimeoutSeconds;
   final double movementThresholdMps;
   final int defaultGapThresholdSeconds;
+  final int dashboardUpdateIntervalMs;
 
   factory SystemSettingsModel.fromJson(Map<String, dynamic> json) {
     // Tên khóa khớp schema FastAPI và giữ đơn vị giây/mét trên giây của domain.
@@ -19,6 +21,11 @@ class SystemSettingsModel {
       movementThresholdMps: _doubleValue(json['movement_threshold_mps']) ?? 0.5,
       defaultGapThresholdSeconds:
           _intValue(json['default_gap_threshold_seconds']) ?? 300,
+      dashboardUpdateIntervalMs:
+          (_intValue(json['dashboard_update_interval_ms']) ?? 500).clamp(
+            250,
+            1000,
+          ),
     );
   }
 
@@ -27,6 +34,7 @@ class SystemSettingsModel {
     'offline_timeout_seconds': offlineTimeoutSeconds,
     'movement_threshold_mps': movementThresholdMps,
     'default_gap_threshold_seconds': defaultGapThresholdSeconds,
+    'dashboard_update_interval_ms': dashboardUpdateIntervalMs,
   };
 
   SystemSettingsModel copyWith({
@@ -34,6 +42,7 @@ class SystemSettingsModel {
     int? offlineTimeoutSeconds,
     double? movementThresholdMps,
     int? defaultGapThresholdSeconds,
+    int? dashboardUpdateIntervalMs,
   }) {
     return SystemSettingsModel(
       offlineTimeoutSeconds:
@@ -41,6 +50,8 @@ class SystemSettingsModel {
       movementThresholdMps: movementThresholdMps ?? this.movementThresholdMps,
       defaultGapThresholdSeconds:
           defaultGapThresholdSeconds ?? this.defaultGapThresholdSeconds,
+      dashboardUpdateIntervalMs:
+          dashboardUpdateIntervalMs ?? this.dashboardUpdateIntervalMs,
     );
   }
 

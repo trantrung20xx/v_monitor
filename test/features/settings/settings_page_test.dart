@@ -430,6 +430,45 @@ void main() {
     },
   );
 
+  testWidgets(
+    'dashboard interval validates and fits narrow screens with large text',
+    (tester) async {
+      for (final width in [320.0, 390.0, 840.0, 1440.0]) {
+        final harness = await _pumpSettings(
+          tester,
+          role: 'ADMIN',
+          size: Size(width, 900),
+          section: SettingsSection.tracking,
+          textScale: 2,
+        );
+        final field = find.byKey(const Key('dashboard-update-interval-field'));
+        final save = find.byKey(const Key('save-system-settings'));
+        await tester.ensureVisible(field);
+        await tester.enterText(field, '249');
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(save);
+        await tester.pumpAndSettle();
+        await tester.tap(save);
+        await tester.pumpAndSettle();
+        expect(find.text('Từ 250 đến 1000.'), findsOneWidget);
+        expect(harness.repository.systemUpdateCount, 0);
+        await tester.ensureVisible(field);
+        await tester.enterText(field, '750');
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(save);
+        await tester.pumpAndSettle();
+        await tester.tap(save);
+        await tester.pumpAndSettle();
+        expect(
+          harness.repository.systemSettings.dashboardUpdateIntervalMs,
+          750,
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
+    },
+  );
+
   testWidgets('admin can edit, lock, change role, and reset password', (
     tester,
   ) async {
@@ -1463,6 +1502,7 @@ Future<_SettingsHarness> _pumpSettings(
   required Size size,
   SettingsSection? section = SettingsSection.overview,
   String theme = 'system',
+  double textScale = 1,
   void Function(_FakeSettingsRepository repository)? configureRepository,
 }) async {
   tester.view.physicalSize = size;
@@ -1504,6 +1544,12 @@ Future<_SettingsHarness> _pumpSettings(
             theme: AppTheme.light,
             darkTheme: AppTheme.dark,
             themeMode: state.userSettings.themeMode,
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(textScale)),
+              child: child!,
+            ),
             home: SettingsPage(section: section),
           ),
         ),

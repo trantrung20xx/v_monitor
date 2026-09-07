@@ -19,6 +19,7 @@ async def websocket_endpoint(websocket: WebSocket):
     # Socket chỉ được thêm vào registry broadcast sau khi xác thực hoàn tất.
     await websocket.accept()
     token: str | None = None
+    supports_batches = False
     try:
         # Nhánh AUTH chỉ tồn tại khi cấu hình backend yêu cầu đăng nhập.
         if settings.auth_required:
@@ -38,6 +39,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 # Chỉ chấp nhận token dạng chuỗi và loại khoảng trắng do quá trình lưu/đọc.
                 token = token_value.strip() if isinstance(token_value, str) else None
                 await authenticate_websocket_token(token)
+                supports_batches = auth_payload.get("realtime_batches") is True
             except (asyncio.TimeoutError, json.JSONDecodeError, ValueError, HTTPException):
                 # Mã 4401 là mã đóng ứng dụng quy ước cho lỗi xác thực WebSocket.
                 await websocket.close(code=4401)
@@ -46,7 +48,7 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.send_json({"type": "AUTH_OK"})
 
         # Từ thời điểm này socket mới được nhận các event nghiệp vụ broadcast.
-        await realtime_service.connect(websocket, already_accepted=True)
+        await realtime_service.connect(websocket, already_accepted=True, supports_batches=supports_batches)
         while True:
             # Chiều client → server hiện chỉ dùng cho heartbeat. Dữ liệu thiết bị
             # luôn đi qua MQTT/REST, không được nhập qua kết nối frontend này.
@@ -55,6 +57,9 @@ async def websocket_endpoint(websocket: WebSocket):
                 payload = json.loads(data)
             except json.JSONDecodeError:
                 # Frame không phải JSON không ảnh hưởng kết nối và không được phát lại.
+                continue
+            if isinstance(payload, dict) and payload.get("type") == "CLIENT_CAPABILITIES":
+                realtime_service.set_batch_support(websocket, payload.get("realtime_batches") is True)
                 continue
             # Các loại message chưa hỗ trợ được bỏ qua; chỉ PING tạo phản hồi PONG.
             if payload.get("type") == "PING":

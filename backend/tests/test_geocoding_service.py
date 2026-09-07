@@ -25,7 +25,7 @@ class GeocodingServiceTest(unittest.TestCase):
         service = GeocodingService()
         calls = []
 
-        def fake_fetch(latitude, longitude):
+        async def fake_fetch(latitude, longitude):
             calls.append((latitude, longitude))
             return (
                 "nominatim",
@@ -61,7 +61,7 @@ class GeocodingServiceTest(unittest.TestCase):
         service = GeocodingService(retry_attempts=2, retry_delay_seconds=0)
         calls = []
 
-        def fake_fetch(latitude, longitude):
+        async def fake_fetch(latitude, longitude):
             calls.append((latitude, longitude))
             if len(calls) == 1:
                 raise URLError("temporary DNS failure")
@@ -84,9 +84,9 @@ class GeocodingServiceTest(unittest.TestCase):
         service = GeocodingService(retry_attempts=1, retry_delay_seconds=0)
         calls = []
 
-        def fake_fetch(latitude, longitude):
+        async def fake_fetch(latitude, longitude):
             calls.append((latitude, longitude))
-            time.sleep(0.02)
+            await asyncio.sleep(0.02)
             return (
                 "nominatim",
                 {
@@ -112,7 +112,7 @@ class GeocodingServiceTest(unittest.TestCase):
         service = GeocodingService(retry_attempts=1, retry_delay_seconds=0)
         calls = []
 
-        def fake_fetch(latitude, longitude):
+        async def fake_fetch(latitude, longitude):
             calls.append((latitude, longitude))
             if len(calls) == 1:
                 raise URLError("temporary DNS failure")

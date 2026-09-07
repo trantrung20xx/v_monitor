@@ -11,6 +11,9 @@ from app.core.config import settings
 from app.core.database import AsyncSessionLocal, engine
 from app.services.mqtt_service import mqtt_service
 from app.services.presence_service import presence_service
+from app.services.realtime_service import realtime_service
+from app.services.realtime_outbox_service import realtime_outbox_service
+from app.services.geocoding_service import geocoding_service
 
 
 logger = logging.getLogger(__name__)
@@ -25,6 +28,8 @@ async def lifespan(app: FastAPI):
         # Presence và MQTT là dịch vụ nền độc lập. MQTT mất kết nối không được
         # làm API dừng; trạng thái thật được phản ánh tại `/health` để vận hành
         # có thể phân biệt lỗi broker với lỗi HTTP hoặc PostgreSQL.
+        await realtime_service.start()
+        await realtime_outbox_service.start()
         await presence_service.start()
         try:
             await mqtt_service.start()
@@ -47,6 +52,9 @@ async def lifespan(app: FastAPI):
             # Không để lỗi task presence bỏ qua bước giải phóng pool PostgreSQL.
             logger.exception("Không thể dừng bộ giám sát trạng thái thiết bị")
         # Dispose đóng toàn bộ socket còn trong pool khi tiến trình kết thúc.
+        await realtime_outbox_service.stop()
+        await realtime_service.stop()
+        await geocoding_service.close()
         await engine.dispose()
 
 

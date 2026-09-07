@@ -18,6 +18,8 @@ websockets>=11.0.3,<18.0.0
 alembic>=1.11.0,<2.0.0
 # Kiểu/câu lệnh không gian PostGIS cho SQLAlchemy.
 GeoAlchemy2>=0.14.1,<1.0.0
+# HTTP bất đồng bộ, hủy request geocoding theo deadline mà không giữ thread nền.
+httpx>=0.28.1,<1.0.0
 # Phát và xác minh JSON Web Token.
 PyJWT>=2.10.0,<3.0.0
 # Băm/kiểm tra mật khẩu bằng Argon2.

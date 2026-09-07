@@ -1,5 +1,6 @@
 // Khung danh sách thiết bị chịu trách nhiệm trạng thái rỗng/loading và điều hướng
 // sang chi tiết. Từng hàng được ủy quyền cho DeviceCard.
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -7,6 +8,7 @@ import '../../../core/theme/app_theme_colors.dart';
 import '../../../data/models/device_model.dart';
 import '../../../domain/entities/device_query_filter.dart';
 import 'device_card.dart';
+import 'visible_device.dart';
 
 // Lưới danh sách thiết bị nhận kết quả đã lọc từ DashboardState và tự chọn số cột
 // theo chiều rộng; mỗi ô là DeviceCard mở route chi tiết theo id.
@@ -17,12 +19,25 @@ class DeviceGrid extends StatelessWidget {
     required this.searchQuery,
     required this.statusFilter,
     required this.deviceAddresses,
+    this.onDeviceVisibilityChanged,
   });
 
+  final void Function(String, bool)? onDeviceVisibilityChanged;
   final List<DeviceModel> devices;
   final String searchQuery;
   final DeviceFilter statusFilter;
   final Map<String, String> deviceAddresses;
+
+  Widget _visibleCard({
+    required DeviceModel device,
+    required String? address,
+    required VoidCallback onTap,
+  }) => VisibleDevice(
+    key: ValueKey(device.id),
+    deviceId: device.id,
+    onVisibilityChanged: onDeviceVisibilityChanged,
+    child: DeviceCard(device: device, address: address, onTap: onTap),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -96,7 +111,7 @@ class DeviceGrid extends StatelessWidget {
             separatorBuilder: (_, _) => const SizedBox(height: 14),
             itemBuilder: (context, index) {
               final device = filteredDevices[index];
-              return DeviceCard(
+              return _visibleCard(
                 device: device,
                 address: deviceAddresses[device.id],
                 onTap: () => context.pushNamed(
@@ -109,7 +124,7 @@ class DeviceGrid extends StatelessWidget {
         }
 
         // Lưới đáp ứng nhiều cột, tối thiểu ba thẻ trên màn hình máy tính.
-        final int columnCount;
+        int columnCount;
         if (totalWidth >= 1200) {
           columnCount = 4;
         } else if (totalWidth >= 800) {
@@ -120,6 +135,15 @@ class DeviceGrid extends StatelessWidget {
           columnCount = 1;
         }
 
+        // Chữ lớn cần thẻ rộng/cao hơn để số liệu và địa chỉ không tràn ô cố định.
+        final textScale = math.max(
+          1.0,
+          MediaQuery.textScalerOf(context).scale(14) / 14,
+        );
+        columnCount = math.min(
+          columnCount,
+          math.max(1, (totalWidth / (260 * textScale)).floor()),
+        );
         if (columnCount == 1) {
           return ListView.separated(
             padding: const EdgeInsets.only(top: 4, bottom: 20),
@@ -127,7 +151,7 @@ class DeviceGrid extends StatelessWidget {
             separatorBuilder: (_, _) => const SizedBox(height: 10),
             itemBuilder: (context, index) {
               final device = filteredDevices[index];
-              return DeviceCard(
+              return _visibleCard(
                 device: device,
                 address: deviceAddresses[device.id],
                 onTap: () => context.pushNamed(
@@ -145,12 +169,12 @@ class DeviceGrid extends StatelessWidget {
             crossAxisCount: columnCount,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            mainAxisExtent: 186,
+            mainAxisExtent: 186 * textScale,
           ),
           itemCount: filteredDevices.length,
           itemBuilder: (context, index) {
             final device = filteredDevices[index];
-            return DeviceCard(
+            return _visibleCard(
               device: device,
               address: deviceAddresses[device.id],
               onTap: () => context.pushNamed(

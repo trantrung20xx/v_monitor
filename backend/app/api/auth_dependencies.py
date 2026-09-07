@@ -90,6 +90,18 @@ async def require_viewer_if_enabled(
     return user
 
 
+async def require_viewer_with_short_session(
+    credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(_bearer)],
+) -> Optional[UserAccount]:
+    """Đóng session xác thực trước khi chờ dịch vụ địa chỉ bên ngoài."""
+    if credentials is None:
+        if settings.auth_required:
+            raise _authentication_error()
+        return None
+    async with AsyncSessionLocal() as db:
+        return await _load_user_from_token(credentials.credentials, db)
+
+
 def _require_admin_role(user: UserAccount) -> UserAccount:
     # Phân biệt xác thực và phân quyền: tài khoản hợp lệ nhưng không phải ADMIN nhận 403.
     if user.role != UserRole.ADMIN:

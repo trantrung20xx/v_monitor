@@ -14,6 +14,7 @@ class DeviceRepository {
   final WebsocketClient _websocketClient;
 
   DeviceRepository(this._apiClient, this._websocketClient);
+  Stream<void> get resyncRequests => _websocketClient.resyncRequests;
 
   /// Lấy danh sách toàn bộ thiết bị từ Backend thông qua endpoint `/devices/`.
   Future<List<DeviceModel>> getDevices() async {
@@ -27,12 +28,11 @@ class DeviceRepository {
         final List<dynamic> data = response.data;
         return data.map((json) => DeviceModel.fromJson(json)).toList();
       }
-      return [];
+      throw StateError('Không thể tải danh sách thiết bị');
     } catch (e) {
-      // Màn hình giám sát coi mất snapshot là danh sách rỗng và ghi log chẩn đoán;
-      // Cubit không nhận raw DioException từ phương thức này.
+      // Cubit giữ snapshot hiện tại khi REST lỗi, tránh xóa danh sách lúc reconnect.
       debugPrint('Lỗi khi lấy danh sách thiết bị: $e');
-      return [];
+      rethrow;
     }
   }
 

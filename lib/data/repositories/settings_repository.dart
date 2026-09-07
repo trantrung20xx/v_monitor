@@ -15,6 +15,9 @@ class SettingsRepository {
     _websocketSubscription = _websocketClient.messages
         .where((message) => message['type'] == 'SYSTEM_SETTINGS_UPDATED')
         .listen(_handleSystemSettingsEvent);
+    _resyncSubscription = _websocketClient.resyncRequests.listen(
+      (_) => _reloadAfterReconnect(),
+    );
   }
 
   final ApiClient _apiClient;
@@ -26,6 +29,20 @@ class SettingsRepository {
   final _systemSettingsController =
       StreamController<SystemSettingsModel>.broadcast();
   StreamSubscription<Map<String, dynamic>>? _websocketSubscription;
+  StreamSubscription<void>? _resyncSubscription;
+  bool _resyncing = false;
+
+  Future<void> _reloadAfterReconnect() async {
+    if (_resyncing) return;
+    _resyncing = true;
+    try {
+      await loadSystemSettings();
+    } catch (_) {
+      // Giữ snapshot hiện tại khi REST chưa phục hồi.
+    } finally {
+      _resyncing = false;
+    }
+  }
 
   // Hai snapshot mặc định tồn tại trước khi đăng nhập/tải server và được thay toàn bộ
   // bằng response đã parse thành công.
@@ -184,7 +201,9 @@ class SettingsRepository {
 
   SystemSettingsModel _setSystemSettings(SystemSettingsModel value) {
     _systemSettings = value;
-    _systemSettingsController.add(value);
+    if (!_systemSettingsController.isClosed) {
+      _systemSettingsController.add(value);
+    }
     return value;
   }
 
@@ -201,6 +220,7 @@ class SettingsRepository {
   Future<void> dispose() async {
     // Repository sống ở cấp ứng dụng nên chỉ dispose khi toàn cây dependency kết thúc.
     await _websocketSubscription?.cancel();
+    await _resyncSubscription?.cancel();
     await _userSettingsController.close();
     await _systemSettingsController.close();
   }

@@ -14,6 +14,8 @@ from app.models.device_latest_state import DeviceLatestState
 from app.models.location_sample import LocationSample
 from app.schemas.tracking import LocationSampleCreate
 from app.services.system_settings_service import system_settings_service
+from app.services.realtime_service import realtime_service
+from app.services.realtime_outbox_service import stage_device_events
 
 
 class DeviceNotFoundError(ValueError):
@@ -245,11 +247,9 @@ class TrackingService:
             latest.latest_measured_at = measured_at
             latest.latest_sample_id = sample.id
 
+        stage_device_events(db, generated_events)
         await db.commit()
+        realtime_service.notify_device(location_in.device_id)
         # Commit một lần bảo đảm sample, latest state và mọi event cùng thành công
-        # hoặc cùng rollback; caller chỉ phát realtime sau điểm này.
-        await db.refresh(sample)
-        # Refresh event lấy id/timestamp do database sinh trước khi phát WebSocket.
-        for event in generated_events:
-            await db.refresh(event)
+        # hoặc cùng rollback. Bộ phát realtime độc lập xử lý sau commit.
         return sample, generated_events

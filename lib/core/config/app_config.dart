@@ -3,6 +3,35 @@
 class AppConfig {
   AppConfig._();
 
+  static const geocodingCacheSize = int.fromEnvironment(
+    'GEOCODING_CACHE_SIZE',
+    defaultValue: 512,
+  );
+  static const geocodingMaxPending = int.fromEnvironment(
+    'GEOCODING_MAX_PENDING',
+    defaultValue: 32,
+  );
+  static const geocodingConcurrency = int.fromEnvironment(
+    'GEOCODING_CONCURRENCY',
+    defaultValue: 4,
+  );
+  static const geocodingCacheTtlSeconds = int.fromEnvironment(
+    'GEOCODING_CACHE_TTL_SECONDS',
+    defaultValue: 3600,
+  );
+  static const geocodingRefreshSeconds = int.fromEnvironment(
+    'GEOCODING_REFRESH_SECONDS',
+    defaultValue: 15,
+  );
+  static const dashboardStatusRefreshSeconds = int.fromEnvironment(
+    'DASHBOARD_STATUS_REFRESH_SECONDS',
+    defaultValue: 5,
+  );
+  static const mapClusterCellPixels = int.fromEnvironment(
+    'MAP_CLUSTER_CELL_PIXELS',
+    defaultValue: 80,
+  );
+
   /// Tên môi trường chỉ dùng để nhận diện bản dựng trong log và kiểm thử.
   /// Giá trị được truyền bằng `--dart-define-from-file`; ứng dụng không đọc
   /// tệp cấu hình trực tiếp khi đang chạy nên hoạt động giống nhau trên web,

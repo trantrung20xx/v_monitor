@@ -2,7 +2,7 @@
 # tới GeocodingService và trả 503 khi nhà cung cấp bên ngoài tạm thời không sẵn sàng.
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.api.auth_dependencies import require_viewer_if_enabled
+from app.api.auth_dependencies import require_viewer_with_short_session
 from app.schemas.geocoding import ReverseGeocodeResponse
 from app.services.geocoding_service import (
     GeocodingUnavailableError,
@@ -16,7 +16,7 @@ router = APIRouter()
 async def reverse_geocode(
     latitude: float = Query(..., ge=-90, le=90),
     longitude: float = Query(..., ge=-180, le=180),
-    _current_user=Depends(require_viewer_if_enabled),
+    _current_user=Depends(require_viewer_with_short_session),
 ):
     # Query tự kiểm tra biên tọa độ trước khi gọi nhà cung cấp. Endpoint đọc dữ liệu
     # nên áp dụng cùng quyền viewer với các màn hình giám sát.

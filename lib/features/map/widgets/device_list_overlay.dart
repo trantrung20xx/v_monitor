@@ -1,3 +1,4 @@
+import '../../dashboard/widgets/visible_device.dart';
 // Danh sách thiết bị nổi trên bản đồ: tìm kiếm, trạng thái và chọn marker.
 // Chiều cao/chiều rộng được giới hạn theo viewport để không overflow trên mobile.
 import 'dart:math' as math;
@@ -22,6 +23,7 @@ class DeviceListOverlay extends StatefulWidget {
     required this.devices,
     this.addresses = const {},
     required this.onDeviceSelected,
+    this.onDeviceVisibilityChanged,
     this.onClose,
     this.scrollController,
     this.isMobileSheet = false,
@@ -30,6 +32,7 @@ class DeviceListOverlay extends StatefulWidget {
   final List<DeviceModel> devices;
   final Map<String, String> addresses;
   final void Function(DeviceModel) onDeviceSelected;
+  final void Function(String, bool)? onDeviceVisibilityChanged;
   final VoidCallback? onClose;
   final ScrollController? scrollController;
   final bool isMobileSheet;
@@ -347,10 +350,15 @@ class _DeviceListOverlayState extends State<DeviceListOverlay> {
                     itemCount: filteredDevices.length,
                     itemBuilder: (context, index) {
                       final device = filteredDevices[index];
-                      return _DeviceMapCard(
-                        device: device,
-                        address: widget.addresses[device.id],
-                        onTap: () => widget.onDeviceSelected(device),
+                      return VisibleDevice(
+                        key: ValueKey(device.id),
+                        deviceId: device.id,
+                        onVisibilityChanged: widget.onDeviceVisibilityChanged,
+                        child: _DeviceMapCard(
+                          device: device,
+                          address: widget.addresses[device.id],
+                          onTap: () => widget.onDeviceSelected(device),
+                        ),
                       );
                     },
                   ),

@@ -4,6 +4,15 @@ VMonitor là hệ thống giám sát vị trí thiết bị theo thời gian th�
 
 Tài liệu kiến trúc, cấu hình, API và vận hành đầy đủ nằm tại [docs/SYSTEM_DOCUMENTATION.md](docs/SYSTEM_DOCUMENTATION.md).
 
+## Lưu dữ liệu và cập nhật giao diện
+
+- Worker ghi GPS, trạng thái mới nhất, sự kiện và thông báo chờ phát trong cùng giao dịch nghiệp vụ. Bộ phát outbox chạy nền, thử lại khi gửi lỗi; worker tiếp tục xử lý sau khi commit, không đợi WebSocket.
+- Mỗi kết nối WebSocket có hàng chờ và timeout gửi riêng. Khi kết nối lại, Flutter lấy bù trạng thái, lịch sử màn hình chi tiết và thiết lập qua REST.
+- Dashboard gộp cập nhật theo device ID; quản trị viên chỉnh **Nhịp cập nhật giao diện** từ **250–1.000 ms**, mặc định **500 ms**, trong cài đặt hệ thống. Bản đồ phân cụm thiết bị; danh sách chỉ yêu cầu địa chỉ cho các thẻ đang được hiển thị.
+- Tra cứu địa chỉ có giới hạn hàng chờ, cache và thời gian chờ. Session xác thực DB được đóng trước khi gọi dịch vụ địa chỉ. Việc gộp giao diện không cắt bớt các mẫu GPS hợp lệ đã lưu trong DB.
+
+Xem luồng xử lý tại [mục 2](docs/SYSTEM_DOCUMENTATION.md#2-kiến-trúc-và-luồng-dữ-liệu), các mức cấu hình tại [mục 8](docs/SYSTEM_DOCUMENTATION.md#8-cấu-hình), cách mô phỏng và giới hạn bằng chứng chịu tải tại [mục 11](docs/SYSTEM_DOCUMENTATION.md#11-kiểm-thử-và-build). Mô phỏng 5.000 device ID hiện có chưa phải phép thử 5.000 kết nối thiết bị đồng thời hoặc cam kết chịu tải production.
+
 ## Cách chạy khuyến nghị: Docker trên Ubuntu Server
 
 ### 1. Chuẩn bị
@@ -214,6 +223,8 @@ flutter build windows --release --dart-define-from-file=config/production.json
 Docker Web lấy domain trực tiếp từ `.env.docker`, không đọc `config/production.json`.
 
 Bản Windows phải phân phối toàn bộ thư mục `build/windows/x64/runner/Release`; không phân phối riêng `v_monitor.exe`.
+
+Kiểm thử MQTT → DB → WebSocket bằng kết nối mạng thật được cung cấp trong [integration_realtime_performance.py](backend/tests/integration_realtime_performance.py); kiểm tra reconnect và phát lại sau hết hạn giữ outbox nằm trong [verify_realtime_recovery.py](backend/tests/verify_realtime_recovery.py). Các script dùng database thử nghiệm riêng; xem điều kiện và lệnh chạy trong tài liệu hệ thống trước khi thực hiện.
 
 ## Cấu trúc chính
 

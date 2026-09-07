@@ -1,6 +1,7 @@
 // Điều phối trang chi tiết: tải hồ sơ/lịch sử/sự kiện, nhận realtime, giữ địa chỉ
 // ổn định khi GPS đổi và phát state bất biến cho các tab.
 import 'dart:async';
+import '../../core/config/app_config.dart';
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -117,6 +118,7 @@ class DeviceDetailCubit extends Cubit<DeviceDetailState> {
     _deviceEventsSub = deviceRepo.deviceEvents
         .where((event) => event.deviceId == deviceId)
         .listen(_onDeviceEventReceived);
+    _resyncSub = deviceRepo.resyncRequests.listen((_) => _resync());
   }
 
   final String deviceId;
@@ -130,6 +132,19 @@ class DeviceDetailCubit extends Cubit<DeviceDetailState> {
   String? _activeAddressKey;
   StreamSubscription<DeviceModel>? _deviceUpdatesSub;
   StreamSubscription<DeviceEventModel>? _deviceEventsSub;
+  StreamSubscription<void>? _resyncSub;
+  bool _resyncing = false;
+  Future<void>? _loadFuture;
+
+  Future<void> _resync() async {
+    if (_resyncing || isClosed) return;
+    _resyncing = true;
+    try {
+      await load();
+    } finally {
+      _resyncing = false;
+    }
+  }
 
   (DateTime, DateTime) _calculateRange(
     OverviewTimeRange range, {
@@ -208,7 +223,12 @@ class DeviceDetailCubit extends Cubit<DeviceDetailState> {
     }
   }
 
-  Future<void> load() async {
+  Future<void> load() =>
+      _loadFuture ??= _load().whenComplete(() => _loadFuture = null);
+
+  Future<void> _load() async {
+    if (isClosed) return;
+    final deviceBeforeLoad = state.device;
     // Phát loading nhưng giữ lựa chọn khoảng hiện tại để thao tác refresh không đổi ngữ cảnh.
     emit(state.copyWith(isLoading: true, error: null));
     try {
@@ -227,14 +247,25 @@ class DeviceDetailCubit extends Cubit<DeviceDetailState> {
       ]);
 
       // Future.wait giữ thứ tự kết quả đúng theo thứ tự ba Future ở trên.
-      final device = results[0] as DeviceModel?;
+      if (isClosed) return;
+      final device = identical(state.device, deviceBeforeLoad)
+          ? results[0] as DeviceModel?
+          : state.device;
+      // Giữ event đến trong lúc REST đang tải; outbox có thể phát lại cùng ID.
+      final eventsById = {
+        for (final event in results[1] as List<DeviceEventModel>)
+          event.id: event,
+        for (final event in state.events) event.id: event,
+      };
+      final events = eventsById.values.toList()
+        ..sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
 
       // Một emit duy nhất chuyển toàn trang từ loading sang snapshot đã đồng bộ.
       emit(
         state.copyWith(
           isLoading: false,
           device: device,
-          events: results[1] as List<DeviceEventModel>,
+          events: events,
           locations: results[2] as List<LocationModel>,
           rangeFrom: from,
           rangeTo: to,
@@ -248,7 +279,9 @@ class DeviceDetailCubit extends Cubit<DeviceDetailState> {
       }
     } catch (e) {
       // Lỗi hồ sơ/sự kiện trong Future.wait làm lần tải tổng thất bại rõ ràng.
-      emit(state.copyWith(isLoading: false, error: e.toString()));
+      if (!isClosed) {
+        emit(state.copyWith(isLoading: false, error: e.toString()));
+      }
     }
   }
 
@@ -274,12 +307,7 @@ class DeviceDetailCubit extends Cubit<DeviceDetailState> {
     try {
       // Chỉ thay locations sau khi request mới hoàn tất, giữ dữ liệu cũ trong lúc chờ.
       final locations = await _fetchLocationsForRange(from, to);
-      emit(
-        state.copyWith(
-          locations: locations,
-          isRangeLoading: false,
-        ),
-      );
+      emit(state.copyWith(locations: locations, isRangeLoading: false));
     } catch (e) {
       // Tắt loading nhưng giữ locations cũ để lỗi đổi bộ lọc không làm trang trắng.
       emit(state.copyWith(isRangeLoading: false));
@@ -343,7 +371,11 @@ class DeviceDetailCubit extends Cubit<DeviceDetailState> {
 
   void _onDeviceEventReceived(DeviceEventModel newEvent) {
     // Backend chỉ broadcast event sau commit; event mới nhất được đưa lên đầu timeline.
-    final updatedEvents = [newEvent, ...state.events];
+    if (isClosed || state.events.any((event) => event.id == newEvent.id)) {
+      return;
+    }
+    final updatedEvents = [newEvent, ...state.events]
+      ..sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
     emit(state.copyWith(events: updatedEvents));
   }
 
@@ -378,6 +410,10 @@ class DeviceDetailCubit extends Cubit<DeviceDetailState> {
     }
 
     _addressCache[cacheKey] = normalizedAddress;
+    while (_addressCache.length >
+        AppConfig.geocodingCacheSize.clamp(1, 100000)) {
+      _addressCache.remove(_addressCache.keys.first);
+    }
     // Bỏ response nếu trong lúc chờ thiết bị đã chuyển sang tọa độ khác hoặc Cubit đóng.
     if (_activeAddressKey != cacheKey || isClosed) {
       return;
@@ -397,6 +433,7 @@ class DeviceDetailCubit extends Cubit<DeviceDetailState> {
     // Dừng nghe realtime của riêng thiết bị khi rời trang chi tiết.
     _deviceUpdatesSub?.cancel();
     _deviceEventsSub?.cancel();
+    _resyncSub?.cancel();
     return super.close();
   }
 }

@@ -59,9 +59,22 @@ class Settings(BaseSettings):
     mqtt_worker_count: int = Field(default=8, ge=1, le=64)
     mqtt_queue_size: int = Field(default=20000, ge=100, le=1000000)
 
-    # Một kết nối frontend chậm không được phép chặn luồng xử lý MQTT cho mọi
-    # người dùng còn lại.
+    # Mỗi socket được gửi một lô trong tối đa 5s theo mặc định, tính từ lúc bắt đầu gửi.
+    # Các socket đếm riêng nhưng cùng dùng giá trị cấu hình này. Từ giá trị đó,
+    # bộ phát chờ kết quả tối đa 2 lần (10s), và tạm giữ dòng DB 3 lần + 10s (25s).
     realtime_send_timeout_seconds: float = Field(default=5, gt=0, le=30)
+    # Nhịp gom trạng thái thiết bị để gửi và số thiết bị/sự kiện tối đa trong một lô.
+    realtime_flush_interval_seconds: float = Field(default=0.1, ge=0.05, le=1)
+    realtime_batch_size: int = Field(default=250, ge=1, le=1000)
+    # Mỗi socket giữ tối đa số lô đang chờ này trong RAM; không tính lô đang gửi.
+    realtime_client_queue_size: int = Field(default=32, ge=2, le=256)
+    # Số device ID tối đa chờ đọc trạng thái mới nhất để gửi lên giao diện.
+    realtime_pending_device_limit: int = Field(default=10000, ge=100, le=100000)
+    # Chưa có thông báo tới giờ gửi hoặc gặp lỗi: nghỉ 0,25s rồi kiểm tra DB lại.
+    realtime_outbox_poll_seconds: float = Field(default=0.25, ge=0.05, le=10)
+    # Nhận kết quả gửi False: hẹn thử lại sau 2s. Nếu chương trình dừng trước khi ghi
+    # được lịch hẹn này, phải chờ hết thời gian tạm giữ dòng DB (lease) còn lại.
+    realtime_outbox_retry_seconds: float = Field(default=2, ge=0.1, le=60)
 
     # Nhà cung cấp geocoding phải khai báo rõ để URL proxy hoặc host nội bộ
     # không bị đoán sai loại payload dựa trên tên miền.
@@ -73,6 +86,10 @@ class Settings(BaseSettings):
     geocoding_timeout_seconds: int = Field(default=8, ge=1, le=30)
     geocoding_retry_attempts: int = Field(default=2, ge=1, le=3)
     geocoding_retry_delay_seconds: float = Field(default=0.5, ge=0, le=5)
+    geocoding_cache_size: int = Field(default=5000, ge=1, le=100000)
+    geocoding_cache_ttl_seconds: int = Field(default=3600, ge=1, le=86400)
+    geocoding_max_pending: int = Field(default=32, ge=1, le=1000)
+    geocoding_request_timeout_seconds: float = Field(default=10, gt=0, le=60)
 
     # Cấu hình truy vấn lịch sử theo dõi.
     # default_timezone: múi giờ chuẩn khi client không truyền múi giờ riêng.

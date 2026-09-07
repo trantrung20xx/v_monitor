@@ -20,10 +20,7 @@ from app.domain.enums import ProcessingStatus
 from app.models.device import Device
 from app.models.mqtt_device_sighting import MqttDeviceSighting
 from app.models.telemetry_message import TelemetryMessage
-from app.schemas.device import DeviceResponse
 from app.schemas.tracking import LocationSampleCreate
-from app.services.device_service import DeviceService
-from app.services.realtime_service import realtime_service
 from app.services.tracking_service import TrackingService
 
 
@@ -393,7 +390,7 @@ class MQTTService:
                 telemetry.processed_at = datetime.now(timezone.utc)
                 # TrackingService commit telemetry đang attach, mẫu GPS, latest state
                 # và event trong cùng transaction.
-                _, generated_events = await TrackingService.add_location(
+                await TrackingService.add_location(
                     db,
                     location,
                     source_message_id=telemetry_id,
@@ -423,35 +420,6 @@ class MQTTService:
                 logger.exception("Lỗi xử lý telemetry từ %s", device_code)
                 return
 
-            updated_device = await DeviceService.get_device(db, device_id)
-            # Chỉ phát realtime sau khi database commit thành công. REST vẫn là nguồn
-            # tải lại chính xác nếu frontend mất một bản tin WebSocket.
-            # DEVICE_UPDATE mang snapshot đầy đủ để DashboardCubit thay đúng một item
-            # mà không cần gọi lại danh sách toàn bộ thiết bị.
-            if updated_device:
-                response = DeviceResponse.model_validate(updated_device)
-                await realtime_service.broadcast_telemetry(
-                    {
-                        "type": "DEVICE_UPDATE",
-                        "device": json.loads(response.model_dump_json()),
-                    }
-                )
-            # Event được phát riêng để màn hình lịch sử/sự kiện cập nhật theo đúng
-            # loại thông điệp mà không phải suy luận từ thay đổi tốc độ.
-            for event in generated_events:
-                await realtime_service.broadcast_telemetry(
-                    {
-                        "type": "DEVICE_EVENT",
-                        "event": {
-                            "id": str(event.id),
-                            "device_id": str(event.device_id),
-                            "event_type": event.event_type,
-                            "occurred_at": event.occurred_at.isoformat(),
-                            "source": event.source,
-                            "description": event.description,
-                        },
-                    }
-                )
             self._processed_count += 1
             self._last_processed_at = datetime.now(timezone.utc)
 

@@ -10,9 +10,11 @@ class SystemSettingsResponse(BaseSchema):
     offline_timeout_seconds: int
     movement_threshold_mps: float
     default_gap_threshold_seconds: int
+    dashboard_update_interval_ms: int = 500
 
 
 class SystemSettingsUpdate(BaseSchema):
+    dashboard_update_interval_ms: int | None = Field(default=None, ge=250, le=1000)
     # Mỗi trường tùy chọn để PATCH cục bộ; model validator yêu cầu ít nhất một thay đổi.
     offline_timeout_seconds: int | None = Field(
         default=None,
