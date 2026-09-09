@@ -96,9 +96,9 @@ Mã nguồn: [mqtt_service.py](../backend/app/services/mqtt_service.py), [Tracki
 
 Dashboard giữ dữ liệu theo device ID và chỉ áp dụng giá trị mới nhất của mỗi ID trong một đợt cập nhật. Khi tải REST trùng lúc có dữ liệu realtime, các thay đổi đến trong thời gian tải được ghép lại để phản hồi REST không ghi đè dữ liệu vừa nhận. Nếu tải bù thất bại, giao diện giữ dữ liệu hiện có và lên lịch thử lại. Màn hình chi tiết tải lại trạng thái, sự kiện và lịch sử khi reconnect; sự kiện được loại trùng theo ID.
 
-Danh sách dùng widget dựng theo vùng cuộn và theo dõi thẻ đang hiển thị, kể cả vùng đệm cuộn nhỏ. Dashboard chỉ yêu cầu địa chỉ cho các thẻ này. Bản đồ nhóm marker theo ô pixel trong vùng nhìn; chạm cụm để phóng tới nhóm, hoặc mở danh sách khi các thiết bị vẫn trùng vị trí ở mức zoom tối đa.
+Danh sách dùng widget dựng theo vùng cuộn và theo dõi thẻ đang hiển thị, kể cả vùng đệm cuộn nhỏ. Dashboard chỉ yêu cầu địa chỉ cho các thẻ này. Bản đồ hiển thị marker riêng cho từng thiết bị trong vùng nhìn ở mọi mức zoom, kể cả khi tọa độ trùng nhau; chạm marker để mở chi tiết thiết bị. Danh sách thiết bị vẫn cho phép chọn từng thiết bị khi các marker chồng lên nhau.
 
-Mã nguồn: [DashboardCubit](../lib/features/dashboard/dashboard_cubit.dart), [VisibleDevice](../lib/features/dashboard/widgets/visible_device.dart), [DeviceClusterLayer](../lib/features/map/widgets/device_cluster_layer.dart), [DeviceDetailCubit](../lib/features/device_detail/device_detail_cubit.dart).
+Mã nguồn: [DashboardCubit](../lib/features/dashboard/dashboard_cubit.dart), [VisibleDevice](../lib/features/dashboard/widgets/visible_device.dart), [DeviceMarkerLayer](../lib/features/map/widgets/device_marker_layer.dart), [DeviceDetailCubit](../lib/features/device_detail/device_detail_cubit.dart).
 
 ### 2.5. Thứ tự khởi động Docker
 
@@ -119,7 +119,7 @@ Lệnh khởi chạy hiện tại trong [server.py](../backend/app/server.py) kh
 | Gửi WebSocket | Mỗi client có một tác vụ gửi tuần tự; các client gửi đồng thời khi chờ mạng |
 | Quét offline | Tác vụ nền riêng, mặc định kiểm tra mỗi 30 giây; ghi trạng thái, sự kiện và outbox cùng giao dịch |
 | REST | Nhiều request có thể cùng chờ DB hoặc mạng; dùng chung pool DB với các tác vụ nền |
-| Flutter | Xử lý trạng thái, timer và phân cụm trên isolate giao diện; các yêu cầu mạng có thể cùng chờ, không đồng nghĩa tính toán CPU chạy trên nhiều thread |
+| Flutter | Xử lý trạng thái, timer và dựng marker trên isolate giao diện; các yêu cầu mạng có thể cùng chờ, không đồng nghĩa tính toán CPU chạy trên nhiều thread |
 | Dịch địa chỉ ở backend | Các yêu cầu có thể cùng chờ, nhưng khóa dịch vụ chỉ cho một lượt gọi nhà cung cấp tại một thời điểm trong mỗi tiến trình |
 
 `await` nhường thời gian thực thi cho tác vụ khác trong lúc chờ I/O. Tính toán đồng bộ kéo dài vẫn có thể làm chậm event loop. Các giới hạn RAM, pool và danh sách WebSocket thuộc từng tiến trình; không thể suy ra chỉ cần tăng số tiến trình là toàn bộ MQTT/realtime tự đồng bộ giữa chúng.
@@ -329,7 +329,6 @@ Các biến hiệu năng tùy chọn trong [AppConfig](../lib/core/config/app_co
 | `GEOCODING_CONCURRENCY` | 4 | Số HTTP request địa chỉ đồng thời tới backend |
 | `GEOCODING_REFRESH_SECONDS` | 15 | Khoảng nghỉ giữa các lần tra địa chỉ của thiết bị trên dashboard |
 | `DASHBOARD_STATUS_REFRESH_SECONDS` | 5 | Chu kỳ tính lại trạng thái theo thời gian và thử tải bù còn lỗi |
-| `MAP_CLUSTER_CELL_PIXELS` | 80 | Kích thước ô nhóm marker; lớp bản đồ giới hạn trong 40–200 pixel |
 
 Các biến này thuộc bản dựng Flutter, độc lập với biến cùng tên của backend. Riêng nhịp gộp cập nhật dashboard được lưu trong DB và chỉnh khi ứng dụng đang chạy, xem mục 8.4; không dùng `DASHBOARD_STATUS_REFRESH_SECONDS` để chỉnh nhịp đó.
 
@@ -678,7 +677,7 @@ Kết quả ngày **07/09/2026** được ghi tại `build/performance/vmonitor_
 
 Harness dùng timeout rút ngắn để kiểm tra nhánh lỗi: gửi WebSocket 0,5 giây, retry outbox 0,1 giây, poll 0,05 giây; địa chỉ tối đa 4 tác vụ chờ/chạy, deadline 0,4 giây và một lần gọi provider. Vì vậy kết quả timeout của mô phỏng không phải phép đo với toàn bộ cấu hình production mặc định.
 
-Các ca unit/widget liên quan nằm trong `backend/tests` và `test`: client chậm/hàng chờ đầy, gộp 25.000 cập nhật của 5.000 ID, cache/hàng chờ địa chỉ, session xác thực đã đóng, lấy bù khi REST trùng realtime, danh sách dựng theo vùng cuộn, nhịp cấu hình, cụm bản đồ và bố cục ở màn hình hẹp/chữ lớn. Widget test kiểm tra không overflow trong các kích thước được thử; chưa phải đo FPS hoặc kiểm tra tương tác trên mọi trình duyệt/thiết bị thật.
+Các ca unit/widget liên quan nằm trong `backend/tests` và `test`: client chậm/hàng chờ đầy, gộp 25.000 cập nhật của 5.000 ID, cache/hàng chờ địa chỉ, session xác thực đã đóng, lấy bù khi REST trùng realtime, danh sách dựng theo vùng cuộn, nhịp cấu hình, marker riêng cho từng thiết bị và bố cục ở màn hình hẹp/chữ lớn. Widget test kiểm tra không overflow trong các kích thước được thử; chưa phải đo FPS hoặc kiểm tra tương tác trên mọi trình duyệt/thiết bị thật.
 
 Trong lần đồng bộ tài liệu ngày 07/09/2026, đã chạy lại và đạt **71 test backend**, **161 test Flutter**, `flutter analyze` không có vấn đề và `docker compose --env-file .env.docker.example config --quiet` hợp lệ. Không chạy lại mô phỏng mạng hoặc dựng stack Docker trong lần sửa tài liệu này.
 

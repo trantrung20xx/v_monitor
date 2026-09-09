@@ -20,7 +20,7 @@ import '../dashboard/dashboard_cubit.dart';
 import '../dashboard/dashboard_state.dart';
 import '../settings/settings_cubit.dart';
 import 'widgets/device_list_overlay.dart';
-import 'widgets/device_cluster_layer.dart';
+import 'widgets/device_marker_layer.dart';
 
 /// Trang Bản đồ toàn màn hình hiển thị toàn bộ thiết bị.
 class MapViewPage extends StatefulWidget {
@@ -379,29 +379,9 @@ class _MapViewBodyState extends State<_MapViewBody> {
                         ),
                         // Marker được dựng từ danh sách đã lọc tọa độ, mỗi marker mở
                         // route chi tiết theo id database của thiết bị.
-                        DeviceClusterLayer(
+                        DeviceMarkerLayer(
                           devices: located,
                           markerBuilder: _buildMarker,
-                          onClusterTap: (devices) {
-                            if (_mapController.camera.zoom >= _maxZoom - 0.1) {
-                              _openMobileList(
-                                context,
-                                devices,
-                                state.deviceAddresses,
-                              );
-                            } else {
-                              final points = devices
-                                  .map((d) => LatLng(d.latitude!, d.longitude!))
-                                  .toList();
-                              _mapController.fitCamera(
-                                CameraFit.bounds(
-                                  bounds: LatLngBounds.fromPoints(points),
-                                  padding: const EdgeInsets.all(80),
-                                  maxZoom: _maxZoom,
-                                ),
-                              );
-                            }
-                          },
                         ),
                       ],
                     ),
@@ -578,68 +558,72 @@ class _MapViewBodyState extends State<_MapViewBody> {
         : device.deviceCode.trim();
 
     return Marker(
+      key: ValueKey('map-device-${device.id}'),
       point: LatLng(device.latitude!, device.longitude!),
       width: 140,
       height: 52 * MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 3.0),
-      child: GestureDetector(
-        onTap: () => context.pushNamed(
-          'device-detail',
-          pathParameters: {'id': device.id},
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: markerColor,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: markerColor.withValues(alpha: 0.4),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    DeviceIcon.iconFor(device.deviceType),
-                    color: AppPalette.onAccent,
-                    size: 13,
-                  ),
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: Text(
-                      displayName,
-                      style: const TextStyle(
-                        color: AppPalette.onAccent,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                    ),
-                  ),
-                  if (isMoving) ...[
-                    const SizedBox(width: 4),
-                    const Icon(
-                      Icons.navigation_rounded,
-                      color: AppPalette.onAccent,
-                      size: 10,
+      // Giữ phần vẽ của từng marker khi camera đổi vị trí.
+      child: RepaintBoundary(
+        child: GestureDetector(
+          onTap: () => context.pushNamed(
+            'device-detail',
+            pathParameters: {'id': device.id},
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: markerColor,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: markerColor.withValues(alpha: 0.4),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
                     ),
                   ],
-                ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      DeviceIcon.iconFor(device.deviceType),
+                      color: AppPalette.onAccent,
+                      size: 13,
+                    ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        displayName,
+                        style: const TextStyle(
+                          color: AppPalette.onAccent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
+                    if (isMoving) ...[
+                      const SizedBox(width: 4),
+                      const Icon(
+                        Icons.navigation_rounded,
+                        color: AppPalette.onAccent,
+                        size: 10,
+                      ),
+                    ],
+                  ],
+                ),
               ),
-            ),
-            // Mũi nhọn nối nhãn với điểm tọa độ.
-            CustomPaint(
-              size: const Size(10, 6),
-              painter: _ArrowPainter(markerColor),
-            ),
-          ],
+              // Mũi nhọn nối nhãn với điểm tọa độ.
+              CustomPaint(
+                size: const Size(10, 6),
+                painter: _ArrowPainter(markerColor),
+              ),
+            ],
+          ),
         ),
       ),
     );

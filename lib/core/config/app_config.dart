@@ -27,10 +27,6 @@ class AppConfig {
     'DASHBOARD_STATUS_REFRESH_SECONDS',
     defaultValue: 5,
   );
-  static const mapClusterCellPixels = int.fromEnvironment(
-    'MAP_CLUSTER_CELL_PIXELS',
-    defaultValue: 80,
-  );
 
   /// Tên môi trường chỉ dùng để nhận diện bản dựng trong log và kiểm thử.
   /// Giá trị được truyền bằng `--dart-define-from-file`; ứng dụng không đọc
