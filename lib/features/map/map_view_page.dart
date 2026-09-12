@@ -1,7 +1,5 @@
 // Màn hình bản đồ realtime: hiển thị marker thiết bị, danh sách nổi, chọn thiết bị,
 // zoom/recenter và nguồn tile theo tùy chọn cá nhân.
-import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -10,7 +8,6 @@ import 'package:latlong2/latlong.dart';
 
 import '../../core/config/map_tile_providers.dart';
 import '../../core/theme/app_theme_colors.dart';
-import '../../core/widgets/device_icon.dart';
 import '../../data/models/device_model.dart';
 import '../../data/repositories/device_repository.dart';
 import '../../data/repositories/geocoding_repository.dart';
@@ -19,7 +16,10 @@ import '../../domain/entities/device_status_resolver.dart';
 import '../dashboard/dashboard_cubit.dart';
 import '../dashboard/dashboard_state.dart';
 import '../settings/settings_cubit.dart';
+import 'device_heading_tracker.dart';
 import 'widgets/device_list_overlay.dart';
+import 'widgets/device_icon_canvas.dart';
+import 'widgets/device_map_icon.dart';
 import 'widgets/device_marker_layer.dart';
 
 /// Trang Bản đồ toàn màn hình hiển thị toàn bộ thiết bị.
@@ -76,6 +76,17 @@ class _MapViewBodyState extends State<_MapViewBody> {
   static const double _zoomStep = 1;
 
   final MapController _mapController = MapController();
+  final DeviceHeadingTracker _headings = DeviceHeadingTracker();
+  final _markers =
+      <
+        String,
+        ({
+          DeviceModel device,
+          Color color,
+          double? heading,
+          DeviceMapMarker marker,
+        })
+      >{};
   bool _showDesktopList = false;
   bool _mapReady = false;
   double _currentZoom = _initialZoom;
@@ -155,6 +166,9 @@ class _MapViewBodyState extends State<_MapViewBody> {
 
     return BlocBuilder<DashboardCubit, DashboardState>(
       builder: (context, state) {
+        _headings.update(state.devices);
+        final liveIds = state.devices.map((device) => device.id).toSet();
+        _markers.removeWhere((id, _) => !liveIds.contains(id));
         // Scaffold gồm AppBar thao tác và một Stack bản đồ toàn vùng ở body.
         return Scaffold(
           backgroundColor: appColors.mapBackground,
@@ -527,10 +541,7 @@ class _MapViewBodyState extends State<_MapViewBody> {
     );
   }
 
-  Marker _buildMarker(BuildContext context, DeviceModel device) {
-    // Resolver dùng isOnline/lastSeen/GPS/speed thật để chọn màu và biểu tượng;
-    // widget không tạo thêm trạng thái vận hành riêng cho bản đồ.
-    final appColors = context.appColors;
+  DeviceMapMarker _buildMarker(BuildContext context, DeviceModel device) {
     final status = DeviceStatusResolver.resolve(
       isOnline: device.isOnline,
       lastSeenAt: device.lastSeenAt,
@@ -538,95 +549,42 @@ class _MapViewBodyState extends State<_MapViewBody> {
       currentSpeedMps: device.currentSpeedMps,
       baseStatus: device.status,
     );
-    final isMoving = status.movement == MovementStatus.moving;
-    final isStale = status.freshness == DataFreshnessStatus.stale;
-    final Color markerColor;
-    if (status.connectivity == ConnectivityStatus.offline) {
-      markerColor = appColors.offline;
-    } else if (isStale) {
-      markerColor = appColors.danger;
-    } else if (isMoving) {
-      markerColor = appColors.primary;
-    } else if (status.movement == MovementStatus.stopped) {
-      markerColor = appColors.warning;
-    } else {
-      markerColor = appColors.success;
+    final color = DeviceMapIcon.statusColor(status, context.appColors);
+    final heading = _headings.headingFor(device.id);
+    final cached = _markers[device.id];
+    if (cached != null &&
+        identical(cached.device, device) &&
+        cached.color == color &&
+        cached.heading == heading) {
+      return cached.marker;
     }
-
-    final displayName = device.name.trim().isNotEmpty
+    final name = device.name.trim().isNotEmpty
         ? device.name.trim()
         : device.deviceCode.trim();
+    final direction = heading == null
+        ? 'Chưa xác định hướng'
+        : 'Hướng ${heading.round() % 360}°';
+    final description = '$name · ${status.label} · $direction';
 
-    return Marker(
-      key: ValueKey('map-device-${device.id}'),
+    final marker = DeviceMapMarker(
+      id: device.id,
       point: LatLng(device.latitude!, device.longitude!),
-      width: 140,
-      height: 52 * MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 3.0),
-      // Giữ phần vẽ của từng marker khi camera đổi vị trí.
-      child: RepaintBoundary(
-        child: GestureDetector(
-          onTap: () => context.pushNamed(
-            'device-detail',
-            pathParameters: {'id': device.id},
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: markerColor,
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: markerColor.withValues(alpha: 0.4),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      DeviceIcon.iconFor(device.deviceType),
-                      color: AppPalette.onAccent,
-                      size: 13,
-                    ),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        displayName,
-                        style: const TextStyle(
-                          color: AppPalette.onAccent,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                      ),
-                    ),
-                    if (isMoving) ...[
-                      const SizedBox(width: 4),
-                      const Icon(
-                        Icons.navigation_rounded,
-                        color: AppPalette.onAccent,
-                        size: 10,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              // Mũi nhọn nối nhãn với điểm tọa độ.
-              CustomPaint(
-                size: const Size(10, 6),
-                painter: _ArrowPainter(markerColor),
-              ),
-            ],
-          ),
-        ),
+      deviceType: device.deviceType,
+      color: color,
+      headingDegrees: heading,
+      description: description,
+      onTap: () => this.context.pushNamed(
+        'device-detail',
+        pathParameters: {'id': device.id},
       ),
     );
+    _markers[device.id] = (
+      device: device,
+      color: color,
+      heading: heading,
+      marker: marker,
+    );
+    return marker;
   }
 
   void _zoomBy(double delta) {
@@ -642,26 +600,6 @@ class _MapViewBodyState extends State<_MapViewBody> {
     if (!_mapReady) return;
     _mapController.move(center, _currentZoom, id: 'map-center');
   }
-}
-
-// Vẽ mũi nhọn nhỏ nối nhãn marker với đúng điểm tọa độ trên bản đồ.
-class _ArrowPainter extends CustomPainter {
-  _ArrowPainter(this.color);
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color;
-    final path = ui.Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width / 2, size.height)
-      ..lineTo(size.width, 0)
-      ..close();
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 // Cụm nút nổi điều khiển zoom, căn giữa và đổi loại bản đồ; callback do state cha xử lý.

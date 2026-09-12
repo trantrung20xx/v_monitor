@@ -16,10 +16,52 @@ import 'package:v_monitor/data/repositories/device_repository.dart';
 import 'package:v_monitor/data/repositories/geocoding_repository.dart';
 import 'package:v_monitor/features/map/map_view_page.dart';
 import 'package:v_monitor/features/map/widgets/device_list_overlay.dart';
+import 'package:v_monitor/features/map/widgets/device_icon_canvas.dart';
 
 import '../../support/settings_test_scope.dart';
 
 void main() {
+  testWidgets(
+    'REST refresh changes OTHER to vehicle artwork at the same GPS point',
+    (tester) async {
+      final repo = _FakeDeviceRepository()..deviceType = 'OTHER';
+      addTearDown(repo.dispose);
+      await tester.pumpWidget(
+        SettingsTestScope(
+          child: MultiRepositoryProvider(
+            providers: [
+              RepositoryProvider<DeviceRepository>.value(value: repo),
+              RepositoryProvider<GeocodingRepository>.value(
+                value: _FakeGeocodingRepository(),
+              ),
+            ],
+            child: MaterialApp(
+              theme: AppTheme.light,
+              home: const MapViewPage(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      final original = _markers(tester).single;
+      expect(original.deviceType, 'OTHER');
+      for (final type in ['VEHICLE', 'UAV_CONTROLLER']) {
+        repo.deviceType = type;
+        await tester.tap(find.byTooltip('Làm mới dữ liệu'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 600));
+        final updated = _markers(tester).single;
+        expect(updated.deviceType, type);
+        expect(updated.point, original.point);
+        expect(updated.key, original.key);
+        expect(updated, isNot(same(original)));
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
   testWidgets('5000 separate markers and device list work on a narrow map', (
     tester,
   ) async {
@@ -52,13 +94,10 @@ void main() {
     for (final zoom in [5.0, 13.0, 18.0]) {
       controller.move(controller.camera.center, zoom);
       await tester.pump();
-      expect(
-        tester.widget<MarkerLayer>(find.byType(MarkerLayer)).markers.length,
-        5000,
-      );
+      expect(_markers(tester).length, 5000);
       expect(
         find.descendant(
-          of: find.byType(MarkerLayer),
+          of: find.byType(DeviceIconCanvas),
           matching: find.text('5000'),
         ),
         findsNothing,
@@ -74,10 +113,7 @@ void main() {
     expect(find.byType(DeviceListOverlay), findsNothing);
     expect(controller.camera.zoom, 18);
     expect(controller.camera.center, const LatLng(21.0322, 105.80776));
-    expect(
-      tester.widget<MarkerLayer>(find.byType(MarkerLayer)).markers.length,
-      5000,
-    );
+    expect(_markers(tester).length, 5000);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
@@ -118,7 +154,7 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
-    await tester.tap(find.byKey(const ValueKey('map-device-device-map-1')));
+    await _tapMarker(tester, 'device-map-1');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
     expect(find.text('detail:device-map-1'), findsOneWidget);
@@ -128,12 +164,12 @@ void main() {
     repo.emit(_controllerDevice());
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
+    expect(_markers(tester).length, 2);
     expect(
-      tester.widget<MarkerLayer>(find.byType(MarkerLayer)).markers.length,
-      2,
+      _markers(tester).where((icon) => icon.deviceType == 'UAV_CONTROLLER'),
+      hasLength(1),
     );
-    expect(find.byIcon(Icons.gamepad_rounded), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('map-device-controller-map-1')));
+    await _tapMarker(tester, 'controller-map-1');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
     expect(find.text('detail:controller-map-1'), findsOneWidget);
@@ -180,7 +216,7 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
-    var markers = tester.widget<MarkerLayer>(find.byType(MarkerLayer)).markers;
+    var markers = _markers(tester);
     expect(markers.length, 2);
     expect(
       markers
@@ -188,11 +224,15 @@ void main() {
           .point,
       const LatLng(21.0325, 105.808),
     );
-    expect(find.text('Xe đã cập nhật'), findsOneWidget);
+    expect(find.text('Xe đã cập nhật'), findsNothing);
+    expect(
+      _markers(tester).any((m) => m.description.startsWith('Xe đã cập nhật ·')),
+      isTrue,
+    );
     repo.delete('controller-map-1');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
-    markers = tester.widget<MarkerLayer>(find.byType(MarkerLayer)).markers;
+    markers = _markers(tester);
     expect(markers.length, 1);
     expect(
       find.byKey(const ValueKey('map-device-controller-map-1')),
@@ -284,6 +324,7 @@ void main() {
 class _FakeDeviceRepository extends DeviceRepository {
   _FakeDeviceRepository() : super(ApiClient(), WebsocketClient());
   bool many = false;
+  String deviceType = 'VEHICLE';
 
   final _updates = StreamController<DeviceModel>.broadcast();
   final _deletions = StreamController<String>.broadcast();
@@ -319,7 +360,7 @@ class _FakeDeviceRepository extends DeviceRepository {
         id: 'device-map-1',
         deviceCode: 'GPS-001',
         name: 'GPS Unit 001',
-        type: 'VEHICLE',
+        type: deviceType,
         status: 'ACTIVE',
         isOnline: true,
         latitude: 21.0322,
@@ -358,4 +399,20 @@ class _FakeGeocodingRepository extends GeocodingRepository {
   Future<String?> reverseAddress(double latitude, double longitude) async {
     return 'Duong Cau Giay, Thu Le, Ha Noi, Viet Nam';
   }
+}
+
+List<DeviceMapMarker> _markers(WidgetTester tester) => tester
+    .widget<DeviceIconCanvas>(find.byType(DeviceIconCanvas))
+    .markers
+    .map((m) => m.marker)
+    .toList();
+
+Future<void> _tapMarker(WidgetTester tester, String id) async {
+  final finder = find.byType(DeviceIconCanvas);
+  final canvas = tester.widget<DeviceIconCanvas>(finder);
+  final marker = canvas.markers.firstWhere(
+    (m) => m.marker.key == ValueKey('map-device-$id'),
+  );
+  final box = tester.renderObject<RenderBox>(finder);
+  await tester.tapAt(box.localToGlobal(marker.position));
 }

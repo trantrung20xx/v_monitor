@@ -15,6 +15,7 @@ import 'package:v_monitor/data/repositories/device_repository.dart';
 import 'package:v_monitor/data/repositories/geocoding_repository.dart';
 import 'package:v_monitor/data/repositories/tracking_repository.dart';
 import 'package:v_monitor/features/device_detail/device_detail_page.dart';
+import 'package:v_monitor/features/map/widgets/device_icon_canvas.dart';
 
 import '../../support/settings_test_scope.dart';
 
@@ -108,7 +109,15 @@ void main() {
     expect(find.byTooltip('Căn giữa thiết bị'), findsOneWidget);
     expect(
       tester.getSize(find.byKey(const Key('overview-device-marker'))),
-      const Size(44, 50),
+      const Size(48, 48),
+    );
+    expect(
+      tester
+          .widget<DeviceMarkerIcon>(
+            find.byKey(const Key('overview-device-marker')),
+          )
+          .deviceType,
+      'UAV_CONTROLLER',
     );
 
     await tester.tap(find.byTooltip('Phóng to bản đồ'));

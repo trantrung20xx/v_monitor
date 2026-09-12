@@ -33,6 +33,9 @@ import '../journey_history/widgets/custom_date_time_range_dialog.dart';
 import '../journey_history/widgets/custom_gap_dialog.dart';
 import '../journey_history/widgets/history_map_layers.dart';
 import '../journey_history/widgets/point_info_popup.dart';
+import '../map/device_heading_tracker.dart';
+import '../map/widgets/device_icon_canvas.dart';
+import '../map/widgets/device_map_icon.dart';
 import '../settings/settings_cubit.dart';
 
 /// Màn hình chi tiết phục vụ tổng quan, hành trình và sự kiện của thiết bị.
@@ -196,10 +199,10 @@ class _DeviceDetailHeader extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: Icon(
-                    DeviceIcon.iconFor(device.deviceType),
+                  child: DeviceIcon(
+                    deviceType: device.deviceType,
                     color: AppPalette.onAccent,
-                    size: compact ? 18 : 20,
+                    size: compact ? 30 : 34,
                   ),
                 ),
                 SizedBox(width: compact ? 10 : 12),
@@ -2644,6 +2647,7 @@ class _MapWidgetState extends State<_MapWidget> {
   static const _fallbackCenter = LatLng(21.0285, 105.8542);
 
   final MapController _mapController = MapController();
+  final DeviceHeadingTracker _headings = DeviceHeadingTracker();
   late LatLng _targetCenter;
   var _zoom = _initialZoom;
   var _mapReady = false;
@@ -2689,6 +2693,7 @@ class _MapWidgetState extends State<_MapWidget> {
       currentSpeedMps: widget.device.currentSpeedMps,
       baseStatus: widget.device.status,
     );
+    _headings.update([widget.device]);
     if (!hasPosition && widget.locations.isEmpty) {
       return Container(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -2752,12 +2757,16 @@ class _MapWidgetState extends State<_MapWidget> {
                     markers: [
                       Marker(
                         point: _targetCenter,
-                        width: 44,
-                        height: 50,
-                        alignment: Alignment.topCenter,
-                        child: _DeviceMapMarker(
-                          icon: DeviceIcon.iconFor(widget.device.deviceType),
+                        width: DeviceMapIcon.touchSize,
+                        height: DeviceMapIcon.touchSize,
+                        alignment: Alignment.center,
+                        child: DeviceMarkerIcon(
+                          key: const Key('overview-device-marker'),
+                          deviceType: widget.device.deviceType,
                           color: _markerColor(status),
+                          headingDegrees: hasPosition
+                              ? _headings.headingFor(widget.device.id)
+                              : widget.locations.first.headingDeg,
                         ),
                       ),
                     ],
@@ -2826,69 +2835,6 @@ class _MapWidgetState extends State<_MapWidget> {
       return context.appColors.primaryStrong;
     }
     return context.appColors.success;
-  }
-}
-
-// Marker vị trí hiện tại hiển thị icon loại thiết bị và hướng nếu có dữ liệu heading.
-class _DeviceMapMarker extends StatelessWidget {
-  const _DeviceMapMarker({required this.icon, required this.color});
-
-  final IconData icon;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      key: const Key('overview-device-marker'),
-      width: 44,
-      height: 50,
-      child: Stack(
-        alignment: Alignment.topCenter,
-        children: [
-          Positioned(
-            top: 28,
-            child: Transform.rotate(
-              angle: 0.785398,
-              child: Container(
-                width: 14,
-                height: 14,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(5),
-                  border: Border.all(color: AppPalette.onAccent, width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: color.withValues(alpha: 0.28),
-                      blurRadius: 12,
-                      spreadRadius: 1,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppPalette.onAccent, width: 3),
-              boxShadow: [
-                BoxShadow(
-                  color: color.withValues(alpha: 0.32),
-                  blurRadius: 12,
-                  spreadRadius: 2,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Icon(icon, color: AppPalette.onAccent, size: 18),
-          ),
-        ],
-      ),
-    );
   }
 }
 
@@ -4001,6 +3947,7 @@ class _JourneyMapCard extends StatelessWidget {
                 alignment: Alignment.topRight,
                 child: PointInfoPopup(
                   point: selectedPoint,
+                  deviceType: state.selectedDevice?.deviceType,
                   stopPoint: selectedStop,
                   resolveAddress: context
                       .read<GeocodingRepository>()

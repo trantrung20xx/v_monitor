@@ -98,6 +98,10 @@ Dashboard giữ dữ liệu theo device ID và chỉ áp dụng giá trị mới
 
 Danh sách dùng widget dựng theo vùng cuộn và theo dõi thẻ đang hiển thị, kể cả vùng đệm cuộn nhỏ. Dashboard chỉ yêu cầu địa chỉ cho các thẻ này. Bản đồ hiển thị marker riêng cho từng thiết bị trong vùng nhìn ở mọi mức zoom, kể cả khi tọa độ trùng nhau; chạm marker để mở chi tiết thiết bị. Danh sách thiết bị vẫn cho phép chọn từng thiết bị khi các marker chồng lên nhau.
 
+Marker dùng ảnh ô tô nhìn từ trên xuống cho `VEHICLE` và ảnh UAV cho `UAV_CONTROLLER`, kích thước 40 px logic, vùng chạm 48 px. Bản đồ chính, Tổng quan thiết bị và phát lại hành trình dùng chung ảnh PNG và bộ vẽ; tâm ảnh đặt đúng tọa độ GPS. Tên và trạng thái xuất hiện khi rê chuột hoặc giữ icon trên bản đồ chính. Màu lấy từ `DeviceStatusResolver` và theme: di chuyển xanh dương, dừng cam, GPS cũ đỏ, ngoại tuyến/không hoạt động xám, trực tuyến chưa xác định chuyển động xanh lá. Lớp canvas vẽ từng icon từ một atlas chung, giữ thứ tự chồng hình và vùng chọn riêng; không thay thế thiết bị bằng cụm hoặc số đếm.
+
+Hướng hiển thị ưu tiên `current_heading_deg` hợp lệ. Khi thiếu hướng, `DeviceHeadingTracker` suy hướng từ các mẫu GPS tăng dần theo thời gian, dịch chuyển ít nhất 5 m và không vượt ngưỡng nhảy GPS; không suy hướng qua khoảng trống trên 2 phút. Xe dừng giữ hướng cuối để tránh xoay theo nhiễu. Khi chưa đủ dữ liệu, tooltip ghi chưa xác định hướng. Hướng này chỉ phục vụ hiển thị, không ghi ngược dữ liệu hay trạng thái về backend. Ảnh dựng ô tô/UAV giữ chi tiết kính, bánh xe và cánh quạt khi đổi màu thân; nguồn tạo ảnh được ghi tại [assets/map_icons](../assets/map_icons/README.md). Cách chạy kiểm tra Windows qua REST/WebSocket cục bộ tại [test/manual](../test/manual/README.md).
+
 Mã nguồn: [DashboardCubit](../lib/features/dashboard/dashboard_cubit.dart), [VisibleDevice](../lib/features/dashboard/widgets/visible_device.dart), [DeviceMarkerLayer](../lib/features/map/widgets/device_marker_layer.dart), [DeviceDetailCubit](../lib/features/device_detail/device_detail_cubit.dart).
 
 ### 2.5. Thứ tự khởi động Docker

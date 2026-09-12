@@ -2,10 +2,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:v_monitor/data/models/device_model.dart';
 import 'package:v_monitor/data/models/location_model.dart';
 import 'package:v_monitor/domain/entities/route_segment.dart';
 import 'package:v_monitor/features/journey_history/journey_history_state.dart';
 import 'package:v_monitor/features/journey_history/widgets/history_map_layers.dart';
+import 'package:v_monitor/features/map/widgets/device_icon_canvas.dart';
 
 void main() {
   group('HistoryMapLayers Tests', () {
@@ -597,32 +599,62 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('replay marker is compact and only labels current speed', (
-      tester,
-    ) async {
-      final marker = HistoryMapLayers.buildReplayMarker(
-        state: JourneyHistoryState(
-          status: JourneyHistoryStatus.playing,
-          currentPosition: const LatLng(21.0285, 105.8542),
-          currentReplayTime: DateTime(2026, 8, 19, 9, 15),
-          currentSpeedMps: 10,
-        ),
-        theme: ThemeData.light(),
+    for (final type in ['VEHICLE', 'UAV_CONTROLLER']) {
+      testWidgets(
+        'replay $type uses map artwork centered on GPS and labels speed',
+        (tester) async {
+          final marker = HistoryMapLayers.buildReplayMarker(
+            state: JourneyHistoryState(
+              selectedDevice: DeviceModel(
+                id: 'replay',
+                deviceCode: 'replay',
+                name: 'replay',
+                type: type,
+                status: 'ACTIVE',
+              ),
+              status: JourneyHistoryStatus.playing,
+              currentPosition: const LatLng(21.0285, 105.8542),
+              currentReplayTime: DateTime(2026, 8, 19, 9, 15),
+              currentSpeedMps: 10,
+              currentHeadingDeg: 90,
+            ),
+            theme: ThemeData.light(),
+          );
+
+          expect(marker, isNotNull);
+          expect(marker!.width, 86);
+          expect(marker.height, 48);
+
+          await tester.pumpWidget(
+            MaterialApp(
+              home: Scaffold(
+                body: Center(
+                  child: SizedBox(
+                    width: marker.width,
+                    height: marker.height,
+                    child: marker.child,
+                  ),
+                ),
+              ),
+            ),
+          );
+
+          expect(find.text('36 km/h'), findsOneWidget);
+          expect(find.textContaining('19/08/2026'), findsNothing);
+          expect(find.textContaining('09:15'), findsNothing);
+          final artwork = tester.widget<DeviceMarkerIcon>(
+            find.byType(DeviceMarkerIcon),
+          );
+          expect(artwork.deviceType, type);
+          expect(artwork.headingDegrees, 90);
+          expect(
+            tester.getCenter(find.byType(DeviceMarkerIcon)),
+            const Offset(400, 300),
+          );
+          expect(find.byType(Icon), findsNothing);
+          expect(tester.takeException(), isNull);
+        },
       );
-
-      expect(marker, isNotNull);
-      expect(marker!.width, 86);
-      expect(marker.height, 52);
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(body: Center(child: marker.child)),
-        ),
-      );
-
-      expect(find.text('36 km/h'), findsOneWidget);
-      expect(find.textContaining('19/08/2026'), findsNothing);
-      expect(find.textContaining('09:15'), findsNothing);
-    });
+    }
   });
 }

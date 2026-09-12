@@ -15,6 +15,7 @@ import subprocess
 import sys
 import time
 import uuid
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -110,6 +111,7 @@ async def exercise(args):
     from app.services.realtime_outbox_service import realtime_outbox_service, stage_device_events
     from app.services.realtime_service import realtime_service
     from app.services.mqtt_service import mqtt_service
+    from app.services.geocoding_service import geocoding_service
     from app.main import app
     from sqlalchemy.engine import make_url
     database_name = make_url(settings.database_url).database
@@ -274,14 +276,33 @@ async def exercise(args):
 
             # Provider chậm: request có token, DB không bị giữ trong lúc chờ địa chỉ.
             provider_delay = 1.0
-            requests = [asyncio.create_task(client.get("/api/v1/geocoding/reverse", params={"latitude": i / 10, "longitude": 106})) for i in range(20)]
-            await asyncio.sleep(0.1)
-            api_started = time.perf_counter()
-            response = await client.get("/api/v1/devices/", params={"limit": 10})
-            api_elapsed = time.perf_counter() - api_started
-            async with AsyncSessionLocal() as db:
-                held_auth = await db.scalar(text("SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND state='idle in transaction' AND query LIKE '%user_accounts%'"))
-            geocoding_results = await asyncio.gather(*requests)
+            authenticated = 0
+            all_authenticated = asyncio.Event()
+            start_geocoding = asyncio.Event()
+            reverse = geocoding_service.reverse
+            async def synchronized_reverse(*coordinates):
+                nonlocal authenticated
+                authenticated += 1
+                if authenticated == 20:
+                    all_authenticated.set()
+                await start_geocoding.wait()
+                return await reverse(*coordinates)
+            # Đo ở ranh giới sau xác thực, trước dịch vụ địa chỉ. Sleep cố định
+            # có thể đếm nhầm SELECT xác thực vừa xong nhưng đang chờ rollback.
+            # Nếu dependency giữ session đến cuối request, cả 20 vẫn bị phát hiện.
+            with patch.object(geocoding_service, "reverse", synchronized_reverse):
+                requests = [asyncio.create_task(client.get("/api/v1/geocoding/reverse", params={"latitude": i / 10, "longitude": 106})) for i in range(20)]
+                try:
+                    await asyncio.wait_for(all_authenticated.wait(), timeout=8)
+                    async with AsyncSessionLocal() as db:
+                        held_auth = await db.scalar(text("SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND state='idle in transaction' AND query LIKE '%user_accounts%'"))
+                    start_geocoding.set()
+                    api_started = time.perf_counter()
+                    response = await client.get("/api/v1/devices/", params={"limit": 10})
+                    api_elapsed = time.perf_counter() - api_started
+                finally:
+                    start_geocoding.set()
+                    geocoding_results = await asyncio.gather(*requests)
             assert response.status_code == 200 and api_elapsed < 1.0
             assert held_auth == 0, held_auth
             assert all(r.status_code == 503 for r in geocoding_results)

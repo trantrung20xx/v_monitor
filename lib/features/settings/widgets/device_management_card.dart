@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/theme/app_theme_colors.dart';
 import '../../../core/utils/device_formatters.dart';
+import '../../../core/widgets/device_icon.dart';
 import '../../../data/models/device_model.dart';
 import '../../../data/models/mqtt_device_sighting_model.dart';
 import '../../../domain/entities/device_status_resolver.dart';
@@ -17,13 +18,6 @@ enum _DevicePermissionFilter { all, enabled, disabled }
 
 // Chế độ gọn ưu tiên quét danh sách; chế độ chi tiết mở thêm metadata vận hành.
 enum _DeviceViewMode { compact, detailed }
-
-// Ánh xạ loại thiết bị từ API sang biểu tượng nhận diện, không dùng để suy luận trạng thái.
-IconData _deviceTypeIcon(String type) => switch (type) {
-  'UAV_CONTROLLER' => Icons.flight_rounded,
-  'VEHICLE' => Icons.directions_car_filled_rounded,
-  _ => Icons.memory_rounded,
-};
 
 // Khối nội dung chính của mục Quản lý thiết bị. Danh sách đã đăng ký và danh sách
 // MQTT chờ duyệt được truyền từ SettingsState; widget chỉ lọc và trình bày dữ liệu đó.
@@ -1175,7 +1169,7 @@ class _RegisteredDeviceTile extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _DeviceAvatar(
-          icon: _deviceTypeIcon(device.type),
+          deviceType: device.type,
           foreground: appColors.primary,
           background: appColors.primarySoft,
           compact: !detailed,
@@ -1498,13 +1492,15 @@ class _InlineDeviceMetadata extends StatelessWidget {
 // Nền biểu tượng thiết bị dùng palette theo theme; kích thước đổi theo mật độ item.
 class _DeviceAvatar extends StatelessWidget {
   const _DeviceAvatar({
-    required this.icon,
+    this.icon,
+    this.deviceType,
     required this.foreground,
     required this.background,
     this.compact = false,
   });
 
-  final IconData icon;
+  final IconData? icon;
+  final String? deviceType;
   final Color foreground;
   final Color background;
   final bool compact;
@@ -1518,7 +1514,13 @@ class _DeviceAvatar extends StatelessWidget {
         color: background,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Icon(icon, size: compact ? 19 : 21, color: foreground),
+      child: deviceType == null
+          ? Icon(icon, size: compact ? 19 : 21, color: foreground)
+          : DeviceIcon(
+              deviceType: deviceType!,
+              color: foreground,
+              size: compact ? 32 : 36,
+            ),
     );
   }
 }

@@ -583,10 +583,10 @@ class _DeviceMapCard extends StatelessWidget {
                         color: badgeColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Icon(
-                        DeviceIcon.iconFor(device.deviceType),
+                      child: DeviceIcon(
+                        deviceType: device.deviceType,
                         color: badgeColor,
-                        size: 15,
+                        size: 26,
                       ),
                     ),
                     const SizedBox(width: 7),

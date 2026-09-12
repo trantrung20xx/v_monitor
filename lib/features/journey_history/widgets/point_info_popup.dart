@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_theme_colors.dart';
 import '../../../core/utils/device_formatters.dart';
+import '../../../core/widgets/device_icon.dart';
 import '../../../data/models/location_model.dart';
 import '../../../domain/entities/device_status_resolver.dart';
 import 'history_map_layers.dart';
@@ -20,12 +21,14 @@ class PointInfoPopup extends StatefulWidget {
     required this.onClose,
     this.stopPoint,
     this.resolveAddress,
+    this.deviceType,
   });
 
   final LocationModel point;
   final VoidCallback onClose;
   final JourneyStopPoint? stopPoint;
   final JourneyAddressResolver? resolveAddress;
+  final String? deviceType;
 
   @override
   State<PointInfoPopup> createState() => _PointInfoPopupState();
@@ -81,7 +84,7 @@ class _PointInfoPopupState extends State<PointInfoPopup> {
     final headerIcon = isParked
         ? Icons.local_parking_rounded
         : isMoving
-        ? Icons.directions_car_filled_rounded
+        ? Icons.moving_rounded
         : isStopped
         ? Icons.pause_circle_filled_rounded
         : Icons.location_on_rounded;
@@ -128,11 +131,17 @@ class _PointInfoPopupState extends State<PointInfoPopup> {
                         color: AppPalette.onAccent.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(
-                        headerIcon,
-                        size: 14,
-                        color: AppPalette.onAccent,
-                      ),
+                      child: isMoving && widget.deviceType != null
+                          ? DeviceIcon(
+                              deviceType: widget.deviceType!,
+                              size: 22,
+                              color: AppPalette.onAccent,
+                            )
+                          : Icon(
+                              headerIcon,
+                              size: 14,
+                              color: AppPalette.onAccent,
+                            ),
                     ),
                     const SizedBox(width: 7),
                     Expanded(

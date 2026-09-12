@@ -8,11 +8,12 @@ import 'package:latlong2/latlong.dart' hide Path;
 
 import '../../../core/theme/app_theme_colors.dart';
 import '../../../core/utils/device_formatters.dart';
-import '../../../core/widgets/device_icon.dart';
 import '../../../data/models/location_model.dart';
 import '../../../domain/entities/device_status_resolver.dart';
 import '../../../domain/entities/gps_validator.dart';
 import '../../../domain/entities/route_segment.dart';
+import '../../map/widgets/device_icon_canvas.dart';
+import '../../map/widgets/device_map_icon.dart';
 import '../journey_history_state.dart';
 
 /// Đại diện cho một điểm Dừng hoặc Đỗ xe được gom cụm tự động từ chuỗi toạ độ GPS.
@@ -1049,57 +1050,40 @@ class HistoryMapLayers {
     return Marker(
       point: state.currentPosition!,
       width: 86,
-      height: 52,
+      height: DeviceMapIcon.touchSize,
       alignment: Alignment.center,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: appColors.primary,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: AppPalette.onAccent, width: 1.2),
-              boxShadow: [
-                BoxShadow(
-                  color: appColors.primary.withValues(alpha: 0.28),
-                  blurRadius: 5,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Text(
-              DeviceFormatters.speedMps(speed),
-              style: const TextStyle(
-                color: AppPalette.onAccent,
-                fontSize: 9,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
+          DeviceMarkerIcon(
+            deviceType: deviceType,
+            color: appColors.primary,
+            headingDegrees: heading,
           ),
-          const SizedBox(height: 2),
-          // Icon thiết bị xoay theo heading
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: appColors.primary,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppPalette.onAccent, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: appColors.primary.withValues(alpha: 0.5),
-                  blurRadius: 7,
-                  spreadRadius: 1,
+          Positioned(
+            bottom: DeviceMapIcon.touchSize + 2,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: appColors.primary,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppPalette.onAccent, width: 1.2),
+                boxShadow: [
+                  BoxShadow(
+                    color: appColors.primary.withValues(alpha: 0.28),
+                    blurRadius: 5,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Text(
+                DeviceFormatters.speedMps(speed),
+                style: const TextStyle(
+                  color: AppPalette.onAccent,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
                 ),
-              ],
-            ),
-            child: Transform.rotate(
-              angle: heading * (math.pi / 180.0),
-              child: Icon(
-                DeviceIcon.iconFor(deviceType),
-                color: AppPalette.onAccent,
-                size: 15,
               ),
             ),
           ),

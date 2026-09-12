@@ -109,10 +109,10 @@ class DeviceCard extends StatelessWidget {
                         color: typeBgColor,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(
-                        DeviceIcon.iconFor(device.deviceType),
+                      child: DeviceIcon(
+                        deviceType: device.deviceType,
                         color: typeColor,
-                        size: 18,
+                        size: 32,
                       ),
                     ),
                     const SizedBox(width: 8),

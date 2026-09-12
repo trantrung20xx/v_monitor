@@ -65,3 +65,5 @@ flutter:
     # Danh sách tài nguyên tĩnh được phép tải qua AssetBundle.
     assets:
         - assets/branding/v_monitor_logo.png
+        - assets/map_icons/car_top_render.png
+        - assets/map_icons/uav_top_render.png
