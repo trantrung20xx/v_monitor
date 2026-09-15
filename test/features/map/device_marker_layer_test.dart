@@ -144,6 +144,50 @@ void main() {
       }
     },
   );
+
+  testWidgets('moving vehicle advances smoothly to the confirmed GPS target', (
+    tester,
+  ) async {
+    final controller = MapController();
+    addTearDown(controller.dispose);
+    final measuredAt = DateTime.utc(2026, 9, 14, 10);
+    await _pumpLayer(tester, controller, [
+      _device('moving', 10, 106, speedMps: 7.6 / 3.6, measuredAt: measuredAt),
+    ]);
+    controller.move(const LatLng(10, 106), 18);
+    await tester.pump();
+    final startPosition = _markers(tester).single.position;
+
+    await _pumpLayer(tester, controller, [
+      _device(
+        'moving',
+        10,
+        106.0001,
+        speedMps: 7.6 / 3.6,
+        measuredAt: measuredAt.add(const Duration(seconds: 5)),
+      ),
+    ]);
+    final firstFrame = _markers(tester).single.position;
+    final targetPixel = controller.camera.project(const LatLng(10, 106.0001));
+    final targetPosition = Offset(
+      targetPixel.x - controller.camera.pixelOrigin.x,
+      targetPixel.y - controller.camera.pixelOrigin.y,
+    );
+    expect((firstFrame - startPosition).distance, lessThan(0.5));
+
+    await tester.pump(const Duration(milliseconds: 1500));
+    final halfway = _markers(tester).single.position;
+    expect(halfway.dx, greaterThan(startPosition.dx));
+    expect(halfway.dx, lessThan(targetPosition.dx));
+
+    await tester.pump(const Duration(seconds: 2));
+    expect(
+      (_markers(tester).single.position - targetPosition).distance,
+      lessThan(0.01),
+    );
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }
 
 List<String> _semanticLabels(WidgetTester tester) {
@@ -167,6 +211,8 @@ DeviceModel _device(
   double? latitude,
   double? longitude, {
   String type = 'VEHICLE',
+  double? speedMps,
+  DateTime? measuredAt,
 }) => DeviceModel(
   id: id,
   deviceCode: id,
@@ -175,6 +221,10 @@ DeviceModel _device(
   status: 'ACTIVE',
   latitude: latitude,
   longitude: longitude,
+  isOnline: measuredAt != null,
+  currentSpeedMps: speedMps,
+  lastSeenAt: measuredAt,
+  latestMeasuredAt: measuredAt,
 );
 
 List<ProjectedDeviceMarker> _markers(WidgetTester tester) =>
@@ -214,6 +264,9 @@ Future<void> _pumpLayer(
               color: Colors.blue,
               headingDegrees: 90,
               description: device.name,
+              positionTimestamp: device.latestMeasuredAt,
+              animatePosition:
+                  device.isOnline && (device.currentSpeedMps ?? 0) > 0.5,
               onTap: () => onTap?.call(device.id),
             ),
           ),

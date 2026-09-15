@@ -14,13 +14,15 @@ import 'device_map_icon.dart';
 /// Dữ liệu của một icon độc lập; không tạo cây widget cho từng thiết bị.
 class DeviceMapMarker extends Marker {
   DeviceMapMarker({
-    required String id,
+    required this.id,
     required super.point,
     required this.deviceType,
     required this.color,
     required this.headingDegrees,
     required this.description,
     required this.onTap,
+    this.positionTimestamp,
+    this.animatePosition = false,
   }) : super(
          key: ValueKey('map-device-$id'),
          width: DeviceMapIcon.touchSize,
@@ -28,11 +30,14 @@ class DeviceMapMarker extends Marker {
          child: const SizedBox.shrink(),
        );
 
+  final String id;
   final String deviceType;
   final Color color;
   final double? headingDegrees;
   final String description;
   final VoidCallback onTap;
+  final DateTime? positionTimestamp;
+  final bool animatePosition;
 }
 
 class ProjectedDeviceMarker {

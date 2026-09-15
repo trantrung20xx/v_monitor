@@ -3,7 +3,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:v_monitor/app/app_theme.dart';
 import 'package:v_monitor/core/network/api_client.dart';
 import 'package:v_monitor/core/network/websocket_client.dart';
@@ -139,6 +141,90 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'realtime GPS moves the detail marker without pinning the camera',
+    (tester) async {
+      final deviceRepo = _FakeDeviceRepository();
+      final trackingRepo = _FakeTrackingRepository();
+      final geocodingRepo = _FakeGeocodingRepository();
+      addTearDown(deviceRepo.dispose);
+
+      await _pumpDetailAtSize(
+        tester,
+        const _ViewportScenario(Size(1280, 800), 1),
+        deviceRepo: deviceRepo,
+        trackingRepo: trackingRepo,
+        geocodingRepo: geocodingRepo,
+      );
+      final markerFinder = find.byKey(const Key('overview-device-marker'));
+      final mapFinder = find
+          .ancestor(of: markerFinder, matching: find.byType(FlutterMap))
+          .first;
+      final controller = tester.widget<FlutterMap>(mapFinder).mapController!;
+      final initialCameraCenter = controller.camera.center;
+      final initialMarker = tester
+          .widget<MarkerLayer>(
+            find.ancestor(of: markerFinder, matching: find.byType(MarkerLayer)),
+          )
+          .markers
+          .single
+          .point;
+      const target = LatLng(21.0322, 105.80786);
+
+      deviceRepo.emit(
+        DeviceModel(
+          id: 'device-100',
+          deviceCode: 'CTRL-100',
+          name: 'Tay điều khiển 100',
+          type: 'UAV_CONTROLLER',
+          status: 'UNKNOWN',
+          isOnline: true,
+          latitude: target.latitude,
+          longitude: target.longitude,
+          currentAltitudeM: 36.5,
+          currentSpeedMps: 7.6 / 3.6,
+          currentHeadingDeg: 90,
+          lastSeenAt: DateTime.now(),
+          latestMeasuredAt: deviceRepo.initialMeasuredAt.add(
+            const Duration(seconds: 5),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(controller.camera.center, initialCameraCenter);
+
+      await tester.pump(const Duration(milliseconds: 1500));
+      final halfway = tester
+          .widget<MarkerLayer>(
+            find.ancestor(of: markerFinder, matching: find.byType(MarkerLayer)),
+          )
+          .markers
+          .single
+          .point;
+      expect(halfway.longitude, greaterThan(initialMarker.longitude));
+      expect(halfway.longitude, lessThan(target.longitude));
+      expect(controller.camera.center, initialCameraCenter);
+
+      await tester.pump(const Duration(seconds: 2));
+      final completed = tester
+          .widget<MarkerLayer>(
+            find.ancestor(of: markerFinder, matching: find.byType(MarkerLayer)),
+          )
+          .markers
+          .single
+          .point;
+      expect(completed.latitude, closeTo(target.latitude, 1e-12));
+      expect(completed.longitude, closeTo(target.longitude, 1e-12));
+      expect(controller.camera.center, initialCameraCenter);
+
+      await tester.tap(find.byTooltip('Căn giữa thiết bị'));
+      await tester.pump();
+      expect(controller.camera.center, target);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 class _ViewportScenario {
@@ -188,6 +274,9 @@ class _FakeDeviceRepository extends DeviceRepository {
   _FakeDeviceRepository() : super(ApiClient(), WebsocketClient());
 
   final _updates = StreamController<DeviceModel>.broadcast();
+  final initialMeasuredAt = DateTime.now().subtract(
+    const Duration(seconds: 12),
+  );
 
   @override
   Stream<DeviceModel> get deviceUpdates => _updates.stream;
@@ -206,9 +295,12 @@ class _FakeDeviceRepository extends DeviceRepository {
       currentAltitudeM: 36.5,
       currentSpeedMps: 12.5,
       currentHeadingDeg: 45,
-      lastSeenAt: DateTime.now().subtract(const Duration(seconds: 12)),
+      lastSeenAt: initialMeasuredAt,
+      latestMeasuredAt: initialMeasuredAt,
     );
   }
+
+  void emit(DeviceModel device) => _updates.add(device);
 
   void dispose() {
     _updates.close();

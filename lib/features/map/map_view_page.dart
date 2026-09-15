@@ -573,6 +573,11 @@ class _MapViewBodyState extends State<_MapViewBody> {
       color: color,
       headingDegrees: heading,
       description: description,
+      positionTimestamp: device.latestMeasuredAt ?? device.lastSeenAt,
+      animatePosition:
+          status.connectivity == ConnectivityStatus.online &&
+          status.freshness == DataFreshnessStatus.fresh &&
+          status.movement == MovementStatus.moving,
       onTap: () => this.context.pushNamed(
         'device-detail',
         pathParameters: {'id': device.id},

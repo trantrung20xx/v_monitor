@@ -35,7 +35,7 @@ import '../journey_history/widgets/history_map_layers.dart';
 import '../journey_history/widgets/point_info_popup.dart';
 import '../map/device_heading_tracker.dart';
 import '../map/widgets/device_icon_canvas.dart';
-import '../map/widgets/device_map_icon.dart';
+import '../map/widgets/device_marker_layer.dart';
 import '../settings/settings_cubit.dart';
 
 /// Màn hình chi tiết phục vụ tổng quan, hành trình và sự kiện của thiết bị.
@@ -2660,15 +2660,12 @@ class _MapWidgetState extends State<_MapWidget> {
 
   @override
   void didUpdateWidget(covariant _MapWidget oldWidget) {
-    // Khi vị trí thiết bị đổi từ realtime, camera chỉ cập nhật theo quy tắc hiện có
-    // và không tạo lại MapController.
+    // Giữ camera ổn định để người dùng thấy marker dịch chuyển trên nền bản đồ.
+    // Tọa độ đích vẫn được làm mới; nút căn giữa sẽ đưa camera tới vị trí mới nhất.
     super.didUpdateWidget(oldWidget);
     final nextCenter = _resolveCenter();
     if (!_samePoint(nextCenter, _targetCenter)) {
       _targetCenter = nextCenter;
-      if (_mapReady) {
-        _mapController.move(_targetCenter, _zoom, id: 'device-update');
-      }
     }
   }
 
@@ -2753,23 +2750,28 @@ class _MapWidgetState extends State<_MapWidget> {
                   errorImage: MemoryImage(TileProvider.transparentImage),
                 ),
                 if (hasPosition || widget.locations.isNotEmpty)
-                  MarkerLayer(
-                    markers: [
-                      Marker(
-                        point: _targetCenter,
-                        width: DeviceMapIcon.touchSize,
-                        height: DeviceMapIcon.touchSize,
-                        alignment: Alignment.center,
-                        child: DeviceMarkerIcon(
-                          key: const Key('overview-device-marker'),
-                          deviceType: widget.device.deviceType,
-                          color: _markerColor(status),
-                          headingDegrees: hasPosition
-                              ? _headings.headingFor(widget.device.id)
-                              : widget.locations.first.headingDeg,
-                        ),
-                      ),
-                    ],
+                  AnimatedDeviceMarkerLayer(
+                    id: widget.device.id,
+                    target: _targetCenter,
+                    positionTimestamp:
+                        widget.device.latestMeasuredAt ??
+                        widget.device.lastSeenAt ??
+                        (widget.locations.isEmpty
+                            ? null
+                            : widget.locations.first.measuredAt),
+                    animate:
+                        hasPosition &&
+                        status.connectivity == ConnectivityStatus.online &&
+                        status.freshness == DataFreshnessStatus.fresh &&
+                        status.movement == MovementStatus.moving,
+                    child: DeviceMarkerIcon(
+                      key: const Key('overview-device-marker'),
+                      deviceType: widget.device.deviceType,
+                      color: _markerColor(status),
+                      headingDegrees: hasPosition
+                          ? _headings.headingFor(widget.device.id)
+                          : widget.locations.first.headingDeg,
+                    ),
                   ),
               ],
             ),
