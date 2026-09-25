@@ -11,3 +11,8 @@ from app.models.user_account import UserAccount, UserSetting
 from app.models.system_setting import SystemSetting
 from app.models.mqtt_device_sighting import MqttDeviceSighting
 from app.models.realtime_outbox import RealtimeOutbox
+# Import tại đây bảo đảm Alembic Base.metadata nhìn thấy ba bảng LTE khi tạo
+# schema/autogenerate; không import chúng sẽ khiến migration bootstrap thiếu bảng.
+from app.models.cell_tower import CellTower
+from app.models.cell_observation import CellObservation
+from app.models.cell_position_estimate import CellPositionEstimate

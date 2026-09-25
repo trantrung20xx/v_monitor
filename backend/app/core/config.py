@@ -59,6 +59,21 @@ class Settings(BaseSettings):
     mqtt_worker_count: int = Field(default=8, ge=1, le=64)
     mqtt_queue_size: int = Field(default=20000, ge=100, le=1000000)
 
+    # Ước lượng LTE chỉ dùng catalog nội bộ; worker MQTT không gọi dịch vụ mạng
+    # ngoài. Ngưỡng accuracy chặn kết quả thô không phù hợp để công bố.
+    #
+    # max_neighbors giới hạn RAM/CPU của một gói modem bất thường; serving_weight
+    # chỉ ưu tiên tương đối serving cell, không diễn giải RSRP thành khoảng cách.
+    # single_site_accuracy_m là mức bất định tối thiểu khi chỉ khớp một site.
+    # Nếu uncertainty cuối cùng vượt max_accuracy_m, backend lưu trạng thái từ
+    # chối thay vì tọa độ để client không hiển thị marker sai như GPS.
+    cell_positioning_enabled: bool = True
+    cell_position_max_neighbors: int = Field(default=32, ge=1, le=64)
+    cell_position_serving_weight: float = Field(default=1.5, ge=1, le=4)
+    cell_position_min_accuracy_m: float = Field(default=100, ge=0, le=100000)
+    cell_position_single_site_accuracy_m: float = Field(default=3000, ge=1, le=100000)
+    cell_position_max_accuracy_m: float = Field(default=10000, ge=1, le=1000000)
+
     # Mỗi socket được gửi một lô trong tối đa 5s theo mặc định, tính từ lúc bắt đầu gửi.
     # Các socket đếm riêng nhưng cùng dùng giá trị cấu hình này. Từ giá trị đó,
     # bộ phát chờ kết quả tối đa 2 lần (10s), và tạm giữ dòng DB 3 lần + 10s (25s).
@@ -233,6 +248,11 @@ class Settings(BaseSettings):
             raise ValueError(
                 "MQTT_RECONNECT_MAX_DELAY_SECONDS không được nhỏ hơn "
                 "MQTT_RECONNECT_MIN_DELAY_SECONDS"
+            )
+        if self.cell_position_max_accuracy_m < self.cell_position_min_accuracy_m:
+            raise ValueError(
+                "CELL_POSITION_MAX_ACCURACY_M không được nhỏ hơn "
+                "CELL_POSITION_MIN_ACCURACY_M"
             )
         return self
 

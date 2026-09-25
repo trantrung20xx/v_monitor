@@ -21,6 +21,9 @@ class DataModelTest(unittest.TestCase):
             set(Base.metadata.tables),
             {
                 "audit_logs",
+                "cell_observations",
+                "cell_position_estimates",
+                "cell_towers",
                 "device_events",
                 "device_latest_state",
                 "devices",
@@ -55,6 +58,8 @@ class DataModelTest(unittest.TestCase):
                 "last_seen_at",
                 "latest_measured_at",
                 "latest_sample_id",
+                "latest_cell_estimate_id",
+                "latest_cell_measured_at",
                 "is_online",
                 "current_latitude",
                 "current_longitude",
@@ -83,6 +88,18 @@ class DataModelTest(unittest.TestCase):
             ("device_latest_state", "latest_sample_id"): (
                 "location_samples.id",
                 "SET NULL",
+            ),
+            ("device_latest_state", "latest_cell_estimate_id"): (
+                "cell_position_estimates.id",
+                "SET NULL",
+            ),
+            ("cell_observations", "telemetry_message_id"): (
+                "telemetry_messages.id",
+                "CASCADE",
+            ),
+            ("cell_position_estimates", "telemetry_message_id"): (
+                "telemetry_messages.id",
+                "CASCADE",
             ),
         }
         for (table_name, column_name), expected in expected_rules.items():

@@ -12,6 +12,7 @@ from app.models.device import Device
 from app.models.audit_log import AuditLog
 from app.models.device_event import DeviceEvent
 from app.models.device_latest_state import DeviceLatestState
+from app.models.cell_position_estimate import CellPositionEstimate
 from app.models.location_sample import LocationSample
 from app.models.mqtt_device_sighting import MqttDeviceSighting
 from app.models.telemetry_message import TelemetryMessage
@@ -53,6 +54,24 @@ class DeviceService:
         device = result.scalar_one_or_none()
         # None được giữ để router phân biệt và trả HTTP 404.
         return DeviceService._format_device(device) if device else None
+
+    @staticmethod
+    async def get_latest_cell_position_estimate(
+        db: AsyncSession,
+        device_id: uuid.UUID,
+    ) -> CellPositionEstimate | None:
+        """Trả kết quả LTE mới nhất mà không lẫn vào GPS response hiện hữu.
+
+        Đọc qua pointer ở DeviceLatestState thay vì sort bảng lịch sử cho mỗi
+        request. Pointer chỉ được TrackingService cập nhật khi scan có measured_at
+        mới hơn, nên thứ tự worker xử lý không làm REST trả lại scan cũ.
+        """
+        state = await db.get(DeviceLatestState, device_id)
+        if state is None or state.latest_cell_estimate_id is None:
+            return None
+        # db.get theo primary key là lookup rẻ; response trả nguyên status để
+        # client nhìn được NO_MATCH/REJECTED_ACCURACY thay vì nhận 404 sai nghĩa.
+        return await db.get(CellPositionEstimate, state.latest_cell_estimate_id)
 
     @staticmethod
     def _format_device(device: Device) -> dict:

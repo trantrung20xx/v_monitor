@@ -39,6 +39,23 @@ class DeviceLatestState(Base, TimestampMixin):
         nullable=True,
     )
 
+    # Vị trí từ LTE được lưu riêng, không được thay thế current_* vốn là GPS
+    # history/current state mà các client hiện hữu đang sử dụng. FK SET NULL
+    # khiến việc dọn estimate cũ không làm latest_state hoặc GPS bị xóa theo.
+    latest_cell_estimate_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("cell_position_estimates.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    # Mốc thời gian LTE tách riêng latest_measured_at của GPS để worker song song
+    # không để radio scan cũ ghi đè estimate mới hơn chỉ vì được xử lý muộn hơn.
+    # Nó là timestamp modem đo, còn last_seen_at vẫn phản ánh server nhận gói.
+    latest_cell_measured_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=True,
+    )
+
     is_online: Mapped[bool] = mapped_column(
         Boolean,
         default=False,

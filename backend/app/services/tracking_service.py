@@ -253,3 +253,71 @@ class TrackingService:
         # Commit một lần bảo đảm sample, latest state và mọi event cùng thành công
         # hoặc cùng rollback. Bộ phát realtime độc lập xử lý sau commit.
         return sample, generated_events
+
+    @staticmethod
+    async def record_cellular_presence(
+        db: AsyncSession,
+        device_id: uuid.UUID,
+        *,
+        latest_cell_estimate_id: uuid.UUID | None,
+        latest_cell_measured_at: datetime,
+    ) -> list[DeviceEvent]:
+        """Ghi nhận LTE telemetry mà không tạo hay sửa GPS sample.
+
+        Cell scan hợp lệ chứng minh thiết bị còn liên lạc. Vị trí ước lượng, nếu
+        có, chỉ được liên kết bằng ``latest_cell_estimate_id``; current GPS và
+        movement events được giữ nguyên. Hàm commit vì caller MQTT cần một điểm
+        commit chung cho telemetry LTE và state, tương tự add_location của GPS.
+        """
+        received_at = datetime.now(timezone.utc)
+        # Khóa một state/device để hai MQTT worker không xen kẽ last_seen hoặc
+        # pointer estimate. Không khóa LocationSample vì LTE không tạo GPS sample.
+        latest_result = await db.execute(
+            select(DeviceLatestState)
+            .where(DeviceLatestState.device_id == device_id)
+            .with_for_update()
+        )
+        latest = latest_result.scalar_one_or_none()
+        if latest is None:
+            # Tương thích database cũ thiếu latest_state: chỉ tạo bù sau khi xác
+            # nhận device gốc còn tồn tại, tránh sinh state mồ côi.
+            if await db.get(Device, device_id) is None:
+                raise DeviceNotFoundError("Không tìm thấy thiết bị")
+            latest = DeviceLatestState(device_id=device_id)
+            db.add(latest)
+            await db.flush()
+
+        events: list[DeviceEvent] = []
+        if not latest.is_online:
+            # LTE scan chứng minh thiết bị liên lạc được, nên có thể phát ONLINE;
+            # tuyệt đối không phát MOVEMENT_* vì LTE không có vị trí GPS xác nhận.
+            event = DeviceEvent(
+                device_id=device_id,
+                event_type="ONLINE",
+                occurred_at=received_at,
+                source="cellular",
+                description="Thiết bị kết nối trực tuyến qua mạng LTE",
+            )
+            db.add(event)
+            events.append(event)
+        latest.is_online = True
+        latest.last_seen_at = received_at
+        latest.updated_at = received_at
+        # measured_at là thứ tự nghiệp vụ, không phải thời điểm worker xong việc.
+        # Vì vậy gói tới muộn chỉ làm mới last_seen chứ không được hạ pointer về
+        # estimate cũ. So sánh >= cho phép firmware gửi hai scan cùng timestamp.
+        if (
+            latest_cell_estimate_id is not None
+            and (
+                latest.latest_cell_measured_at is None
+                or latest_cell_measured_at >= latest.latest_cell_measured_at
+            )
+        ):
+            latest.latest_cell_estimate_id = latest_cell_estimate_id
+            latest.latest_cell_measured_at = latest_cell_measured_at
+        # Outbox event được stage trước commit; notify chỉ chạy sau commit nên
+        # realtime reader không thể lấy state LTE chưa được lưu hoàn chỉnh.
+        stage_device_events(db, events)
+        await db.commit()
+        realtime_service.notify_device(device_id)
+        return events

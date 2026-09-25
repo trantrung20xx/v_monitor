@@ -20,7 +20,9 @@ from app.domain.enums import ProcessingStatus
 from app.models.device import Device
 from app.models.mqtt_device_sighting import MqttDeviceSighting
 from app.models.telemetry_message import TelemetryMessage
+from app.schemas.cellular import extract_cellular_payload
 from app.schemas.tracking import LocationSampleCreate
+from app.services.cellular_position_service import cellular_position_service
 from app.services.tracking_service import TrackingService
 
 
@@ -302,12 +304,33 @@ class MQTTService:
             # `received_at` là thời gian đáng tin của server, dùng cho presence;
             # `measured_at` phía dưới là thời gian đo của thiết bị, dùng cho hành trình.
             received_at = datetime.now(timezone.utc)
-            # Gói không có đủ latitude/longitude vẫn được lưu làm telemetry SKIPPED
-            # để phản ánh dữ liệu đã nhận nhưng không thể tạo một mẫu vị trí.
+            # Giữ nguyên tiêu chí GPS cũ: chỉ khi có đủ cặp latitude/longitude
+            # mới đi vào TrackingService. LTE scan là nhánh mới, độc lập với GPS.
+            # Có key GPS nhưng giá trị sai vẫn đi theo nhánh GPS cũ và bị validation
+            # như trước; LTE không âm thầm biến một payload GPS lỗi thành GPS hợp lệ.
             has_location = "latitude" in data and "longitude" in data
+            cellular_payload = None
+            cellular_parse_error = None
+            if settings.cell_positioning_enabled:
+                try:
+                    # Parser hỗ trợ envelope mới và alias modem, nhưng không đoán
+                    # identity neighbor. Giới hạn runtime có thể thấp hơn schema
+                    # tối đa để bảo vệ worker theo cấu hình triển khai.
+                    cellular_payload = extract_cellular_payload(data)
+                    if (
+                        cellular_payload is not None
+                        and len(cellular_payload.neighbors)
+                        > settings.cell_position_max_neighbors
+                    ):
+                        raise ValueError("Số neighbor LTE vượt giới hạn cấu hình")
+                except (ValidationError, ValueError, TypeError) as exc:
+                    # GPS hợp lệ không bị lỗi chỉ vì phần cellular mở rộng sai;
+                    # nhánh GPS phía dưới vẫn hoạt động đúng contract cũ.
+                    cellular_parse_error = exc
             # message_type do thiết bị gửi được ưu tiên; nếu thiếu thì suy ra từ tọa độ.
             message_type = str(
-                data.get("message_type") or ("location" if has_location else "unknown")
+                data.get("message_type")
+                or ("location" if has_location else "cellular" if cellular_payload or cellular_parse_error else "unknown")
             )[:50]
             # Các trường mô tả được giới hạn độ dài trước khi lưu; payload gốc vẫn
             # được giữ trong JSONB để chẩn đoán và mở rộng schema về sau.
@@ -356,13 +379,74 @@ class MQTTService:
             telemetry_id = telemetry.id
 
             if not has_location:
-                # SKIPPED là gói hợp lệ về transport nhưng không mang tọa độ; không
-                # phải lỗi hệ thống và không tác động online/latest state.
-                telemetry.processing_status = ProcessingStatus.SKIPPED
-                telemetry.processed_at = datetime.now(timezone.utc)
-                await db.commit()
+                if cellular_parse_error is not None:
+                    # LTE payload có mặt nhưng không hợp lệ được phân biệt với
+                    # heartbeat cũ không mang tọa độ hay radio scan.
+                    telemetry.processing_status = ProcessingStatus.FAILED
+                    telemetry.processing_error = str(cellular_parse_error)[:2000]
+                    telemetry.processed_at = datetime.now(timezone.utc)
+                    await db.commit()
+                    self._processed_count += 1
+                    self._last_processed_at = telemetry.processed_at
+                    return
+                if cellular_payload is None:
+                    # Contract cũ của heartbeat không GPS vẫn là SKIPPED và không
+                    # làm thay đổi trạng thái thiết bị.
+                    telemetry.processing_status = ProcessingStatus.SKIPPED
+                    telemetry.processed_at = datetime.now(timezone.utc)
+                    await db.commit()
+                    self._processed_count += 1
+                    self._last_processed_at = telemetry.processed_at
+                    return
+                try:
+                    # process_scan chỉ flush. record_cellular_presence commit cả
+                    # telemetry, observation, estimate, pointer và ONLINE event
+                    # trong một transaction để REST không thấy bản ghi nửa chừng.
+                    measured_at = _parse_measured_at(data.get("measured_at"), received_at)
+                    estimate = await cellular_position_service.process_scan(
+                        db,
+                        device_id=device_id,
+                        telemetry_message_id=telemetry_id,
+                        measured_at=measured_at,
+                        received_at=received_at,
+                        cellular=cellular_payload,
+                    )
+                    telemetry.measured_at = measured_at
+                    telemetry.processing_status = ProcessingStatus.PROCESSED
+                    telemetry.processing_error = None
+                    telemetry.processed_at = datetime.now(timezone.utc)
+                    # Chỉ LTE telemetry mới làm mới presence và pointer estimate;
+                    # GPS latest/history/current_* không được đụng tới. Estimate
+                    # NO_MATCH cũng được trỏ tới để client biết scan mới nhất không
+                    # đủ anchor, thay vì vô tình hiển thị tọa độ LTE cũ.
+                    await TrackingService.record_cellular_presence(
+                        db,
+                        device_id,
+                        latest_cell_estimate_id=estimate.id,
+                        latest_cell_measured_at=measured_at,
+                    )
+                except (ValidationError, ValueError, TypeError, IntegrityError) as exc:
+                    await db.rollback()
+                    failed = await db.get(TelemetryMessage, telemetry_id)
+                    if failed is not None:
+                        failed.processing_status = ProcessingStatus.FAILED
+                        failed.processing_error = str(exc)[:2000]
+                        failed.processed_at = datetime.now(timezone.utc)
+                        await db.commit()
+                    logger.warning("LTE telemetry không hợp lệ từ %s: %s", device_code, exc)
+                    return
+                except Exception as exc:
+                    await db.rollback()
+                    failed = await db.get(TelemetryMessage, telemetry_id)
+                    if failed is not None:
+                        failed.processing_status = ProcessingStatus.FAILED
+                        failed.processing_error = str(exc)[:2000]
+                        failed.processed_at = datetime.now(timezone.utc)
+                        await db.commit()
+                    logger.exception("Lỗi xử lý LTE telemetry từ %s", device_code)
+                    return
                 self._processed_count += 1
-                self._last_processed_at = telemetry.processed_at
+                self._last_processed_at = datetime.now(timezone.utc)
                 return
 
             try:
@@ -371,6 +455,23 @@ class MQTTService:
                 # Thời gian đo được chuẩn hóa trước để cả telemetry và location dùng
                 # đúng một mốc UTC.
                 measured_at = _parse_measured_at(data.get("measured_at"), received_at)
+                if cellular_payload is not None:
+                    try:
+                        # Radio scan đi kèm GPS chỉ là dữ liệu chẩn đoán/catalog;
+                        # savepoint bảo đảm lỗi feature mới không làm GPS cũ thất bại.
+                        # Không cập nhật latest_cell_estimate_id ở nhánh này vì
+                        # endpoint LTE được định nghĩa cho fallback khi không GPS.
+                        async with db.begin_nested():
+                            await cellular_position_service.process_scan(
+                                db,
+                                device_id=device_id,
+                                telemetry_message_id=telemetry_id,
+                                measured_at=measured_at,
+                                received_at=received_at,
+                                cellular=cellular_payload,
+                            )
+                    except Exception:
+                        logger.exception("Không thể lưu LTE scan kèm GPS từ %s", device_code)
                 location = LocationSampleCreate(
                     device_id=device_id,
                     measured_at=measured_at,

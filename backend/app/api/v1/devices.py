@@ -16,6 +16,7 @@ from app.schemas.device import (
     DeviceUpdate,
     MqttDeviceSightingResponse,
 )
+from app.schemas.cellular import CellPositionEstimateResponse
 from app.services.device_service import DeviceService
 from app.services.realtime_service import realtime_service
 
@@ -92,6 +93,34 @@ async def read_device(
     if device is None:
         raise HTTPException(status_code=404, detail="Không tìm thấy thiết bị")
     return device
+
+
+@router.get(
+    "/{device_id}/estimated-position",
+    response_model=CellPositionEstimateResponse,
+)
+async def read_estimated_position(
+    device_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _current_user=Depends(require_viewer_if_enabled),
+):
+    """Đọc vị trí LTE riêng biệt; không thay nghĩa GPS current/history cũ.
+
+    Quyền VIEWER giống các endpoint đọc thiết bị. Route trả cả status/accuracy
+    để caller tự quyết định hiển thị; nó không ghép tọa độ LTE vào DeviceResponse
+    vì mọi client cũ đang hiểu các trường current_* là GPS đã xác nhận.
+    """
+    if await DeviceService.get_device(db, device_id) is None:
+        raise HTTPException(status_code=404, detail="Không tìm thấy thiết bị")
+    estimate = await DeviceService.get_latest_cell_position_estimate(db, device_id)
+    if estimate is None:
+        # 404 ở đây chỉ nghĩa chưa hề có scan đã xử lý. Một scan đã xử lý nhưng
+        # không khớp catalog vẫn trả 200 cùng status NO_MATCH để phân biệt rõ.
+        raise HTTPException(
+            status_code=404,
+            detail="Thiết bị chưa có radio scan LTE đã xử lý",
+        )
+    return estimate
 
 
 @router.patch("/{device_id}", response_model=DeviceResponse)
