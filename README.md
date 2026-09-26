@@ -204,6 +204,100 @@ flutter run -d windows --dart-define-from-file=config/development.json
 
 `API_BASE_URL` trong `config/development.json` phải truy cập được backend và phải chứa `/api/v1`.
 
+## GPS LTE/4G và catalog cell tower
+
+VMonitor hỗ trợ ước lượng vị trí từ quét LTE/4G bằng catalog nội bộ và không gọi dịch vụ định vị ngoài trong worker MQTT. Đây là luồng được cấu hình trong [backend/.env.example](backend/.env.example) và triển khai trong [backend/app/core/config.py](backend/app/core/config.py):
+
+- `CELL_POSITIONING_ENABLED=true` bật chức năng định vị theo cell.
+- `CELL_POSITION_MAX_NEIGHBORS` giới hạn số neighbor xử lý trong một scan.
+- `CELL_POSITION_MIN_ACCURACY_M`, `CELL_POSITION_SINGLE_SITE_ACCURACY_M` và `CELL_POSITION_MAX_ACCURACY_M` chặn các ước lượng không đủ tin cậy.
+- Khi không khớp catalog, hệ thống trả về `NO_MATCH`; khi độ bất định vượt ngưỡng, hệ thống trả về `REJECTED_ACCURACY` và không bịa tọa độ.
+
+Luồng thực tế nằm trong [backend/app/services/cellular_position_service.py](backend/app/services/cellular_position_service.py): backend nhận LTE/4G scan, so khớp với `cell_towers`, tính centroid có trọng số theo serving/neighbor và lưu `CellPositionEstimate` tách riêng với GPS history. Dữ liệu anchor dùng bảng `cell_towers` với khóa identity `(rat, mcc, mnc, tac, cell_id)` như trong [backend/app/models/cell_tower.py](backend/app/models/cell_tower.py).
+
+### Chuẩn bị file catalog CSV
+
+File đầu vào phải là UTF-8, có header và chứa các cột tối thiểu sau. `rat` chấp nhận `LTE` hoặc `4G`; mã này được chuẩn hóa về `LTE` bởi schema kiểm tra.
+
+```csv
+rat,mcc,mnc,tac,cell_id,latitude,longitude,pci,earfcn,site_key,accuracy_m,source_updated_at,is_active
+LTE,452,04,12345,12345678,21.0285,105.8542,101,1800,site-hn-01,150,2026-09-26T00:00:00Z,true
+```
+
+Các quy tắc hiện hành theo source code:
+
+- `mcc`: 3 chữ số.
+- `mnc`: 2–3 chữ số.
+- `tac`: từ 0 đến 65535.
+- `cell_id`: từ 0 đến 268435455.
+- `latitude`: từ -90 đến 90.
+- `longitude`: từ -180 đến 180.
+- `pci`: tùy chọn, từ 0 đến 503.
+- `earfcn`: tùy chọn, số nguyên không âm.
+- `accuracy_m`: tùy chọn, không âm.
+- `source_updated_at`: tùy chọn, ISO datetime.
+- `is_active`: tùy chọn, giá trị hợp lệ `true`/`false`.
+- Dòng không đúng định dạng sẽ bị script từ chối, không được ghi vào database.
+
+### Import catalog LTE/4G bằng Docker
+
+Script import hiện có tại [backend/scripts/import_cell_catalog.py](backend/scripts/import_cell_catalog.py). Script không tự download dữ liệu từ mạng; nó đọc file CSV local đã được cấp quyền sử dụng và ghi vào PostgreSQL/PostGIS theo upsert theo identity.
+
+Thực hiện theo thứ tự sau:
+
+1. Chuẩn bị file CSV trên máy host, ví dụ `towers.csv` ở thư mục gốc dự án.
+2. Khởi động stack Docker nếu chưa chạy:
+
+```powershell
+docker compose --env-file .env.docker up -d --build
+```
+
+3. Copy file CSV vào container backend:
+
+```powershell
+docker compose --env-file .env.docker cp ./towers.csv backend:/tmp/towers.csv
+```
+
+4. Chạy kiểm tra khô trước khi ghi DB:
+
+```powershell
+docker compose --env-file .env.docker exec backend \
+  python scripts/import_cell_catalog.py --input /tmp/towers.csv --source provider-2026-09 --dry-run
+```
+
+5. Nếu không có lỗi validation và số dòng bị từ chối bằng 0, tiến hành import thực tế:
+
+```powershell
+docker compose --env-file .env.docker exec backend \
+  python scripts/import_cell_catalog.py --input /tmp/towers.csv --source provider-2026-09
+```
+
+6. Kiểm tra kết quả log. Script in ra thống kê dạng:
+
+```text
+CELL_CATALOG_IMPORT accepted=123 rejected=0 dry_run=False
+```
+
+7. Nếu muốn import thêm vào một phiên bản catalog khác, đổi `--source` sang tên dataset mới, ví dụ `provider-2026-10`. Tên `--source` chỉ là nhãn metadata dùng để trace catalog, không phải endpoint truy cập runtime.
+
+### Import catalog cho môi trường phát triển local
+
+Nếu chạy backend không qua Docker:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+.\.venv\Scripts\python.exe backend\scripts\import_cell_catalog.py --input .\towers.csv --source provider-2026-09 --dry-run
+.\.venv\Scripts\python.exe backend\scripts\import_cell_catalog.py --input .\towers.csv --source provider-2026-09
+```
+
+### Một số lưu ý quan trọng
+
+- Dữ liệu catalog không được dùng để bịa vị trí khi không có match; hệ thống lưu `NO_MATCH` thay vì tọa độ giả.
+- `CellTowerImportRow` bỏ qua cột dư nhưng bắt buộc các cột định vị và identity phải đúng chuẩn.
+- `site_key` nên được điền nếu một site có nhiều sector/cell nhằm giúp estimator gộp đúng anchor ở cùng địa điểm vật lý.
+- Trước khi đẩy lên production, nên dùng `--dry-run` để xác nhận toàn bộ CSV hợp lệ.
+- Dữ liệu không được import từ Internet theo code hiện tại; mọi nguồn catalog phải là file hợp lệ được cấp quyền sử dụng.
+
 ## Kiểm tra trước khi phát hành
 
 ```powershell
