@@ -47,11 +47,34 @@ class CellularObservationInput(BaseSchema):
         # đang dùng camelCase hoặc thuật ngữ 3GPP như ECI/CI, không được phép ghi
         # đè giá trị mà firmware đã gửi đúng tên chuẩn.
         aliases = {
-            "network_type": "rat", "radio": "rat", "technology": "rat",
-            "cellId": "cell_id", "cellid": "cell_id", "ci": "cell_id", "eci": "cell_id",
-            "tracking_area_code": "tac", "trackingAreaCode": "tac",
-            "physical_cell_id": "pci", "physicalCellId": "pci",
-            "rsrp": "rsrp_dbm", "rsrq": "rsrq_db", "sinr": "sinr_db",
+            # RAT / technology
+            "network_type": "rat",
+            "radio": "rat",
+            "technology": "rat",
+
+            # Cell identity
+            "cell_mcc": "mcc",
+            "cell_mnc": "mnc",
+            "cell_tac": "tac",
+            "cell_id": "cell_id",
+            "cellId": "cell_id",
+            "cellid": "cell_id",
+            "ci": "cell_id",
+            "eci": "cell_id",
+
+            # Signal metrics
+            "cell_rsrp": "rsrp_dbm",
+            "cell_rsrq": "rsrq_db",
+            "cell_sinr": "sinr_db",
+            "rsrp": "rsrp_dbm",
+            "rsrq": "rsrq_db",
+            "sinr": "sinr_db",
+
+            # If modem emits full names
+            "tracking_area_code": "tac",
+            "trackingAreaCode": "tac",
+            "physical_cell_id": "pci",
+            "physicalCellId": "pci",
         }
         for old, new in aliases.items():
             if new not in normalized and old in normalized:
@@ -141,30 +164,82 @@ class CellularPayloadInput(BaseSchema):
         return self
 
 
+def _normalize_legacy_cellular_aliases(data: dict[str, Any]) -> dict[str, Any]:
+    """Chuẩn hóa alias raw LTE phổ biến trước khi build candidate."""
+    if not isinstance(data, dict):
+        return data
+
+    normalized = dict(data)
+
+    # Root-level aliases chung
+    aliases = {
+        "cell_mcc": "mcc",
+        "cell_mnc": "mnc",
+        "cell_tac": "tac",
+        "cell_id": "cell_id",
+        "cellId": "cell_id",
+        "cellid": "cell_id",
+        "ci": "cell_id",
+        "eci": "cell_id",
+        "cell_rsrp": "rsrp_dbm",
+        "cell_rsrq": "rsrq_db",
+        "cell_sinr": "sinr_db",
+        "rsrp": "rsrp_dbm",
+        "rsrq": "rsrq_db",
+        "sinr": "sinr_db",
+    }
+    for old, new in aliases.items():
+        if old in normalized and new not in normalized:
+            normalized[new] = normalized[old]
+
+    # cellular.serving aliases
+    if "cellular" in normalized and isinstance(normalized["cellular"], dict):
+        cellular = dict(normalized["cellular"])
+        serving = cellular.get("serving")
+        if serving is None:
+            for alias in ("serving_cell", "servingCell", "cell"):
+                if alias in cellular:
+                    serving = cellular[alias]
+                    break
+        if isinstance(serving, dict):
+            for old, new in aliases.items():
+                if old in serving and new not in serving:
+                    serving[new] = serving[old]
+            cellular["serving"] = serving
+        normalized["cellular"] = cellular
+
+    # Chuẩn hóa kiểu cơ bản để tránh lỗi validate từ int/string mismatch
+    if "mcc" in normalized and normalized["mcc"] is not None and not isinstance(normalized["mcc"], str):
+        normalized["mcc"] = str(normalized["mcc"])
+    if "mnc" in normalized and normalized["mnc"] is not None and not isinstance(normalized["mnc"], str):
+        normalized["mnc"] = str(normalized["mnc"]) if not isinstance(normalized["mnc"], int) else f"{normalized['mnc']:02d}"
+
+    return normalized
+
+
 def extract_cellular_payload(data: dict[str, Any]) -> CellularPayloadInput | None:
     """Lấy payload chuẩn từ envelope mới hoặc alias modem tối thiểu.
 
     Không đoán identity từ PCI. Nếu không có cellular envelope hay root identity,
     trả ``None`` để giữ nguyên xử lý telemetry không có vị trí của hệ thống cũ.
     """
+    normalized = _normalize_legacy_cellular_aliases(data)
 
-    # Envelope ``cellular`` là hợp đồng mới. ``cell_info`` và root fields giữ
-    # tương thích firmware đơn giản, nhưng chỉ được nhận khi đủ identity serving.
-    candidate = data.get("cellular") or data.get("cell_info")
-    if candidate is None and all(key in data for key in ("mcc", "mnc", "tac")) and any(
-        key in data for key in ("cell_id", "cellId", "cellid", "ci", "eci")
+    candidate = normalized.get("cellular") or normalized.get("cell_info")
+    if candidate is None and all(key in normalized for key in ("mcc", "mnc", "tac")) and any(
+        key in normalized for key in ("cell_id", "cellId", "cellid", "ci", "eci")
     ):
         candidate = {
-            "rat": data.get("rat") or data.get("network_type") or data.get("radio") or "LTE",
-            "serving": data,
-            "neighbors": data.get("neighbors") or data.get("neighbor_cells") or data.get("neighbour_cells") or [],
+            "rat": normalized.get("rat") or normalized.get("network_type") or normalized.get("radio") or "LTE",
+            "serving": normalized,
+            "neighbors": normalized.get("neighbors") or normalized.get("neighbor_cells") or normalized.get("neighbour_cells") or [],
         }
     if candidate is None:
         return None
+
     # Gọi model_validate ở một điểm duy nhất để MQTT worker nhận cùng một lỗi
     # validation bất kể modem dùng envelope mới hay payload root cũ.
     return CellularPayloadInput.model_validate(candidate)
-
 
 class CellPositionEstimateResponse(BaseSchema):
     """Response chỉ-đọc của estimate LTE, tách khỏi DeviceResponse GPS.
