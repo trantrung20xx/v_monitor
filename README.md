@@ -258,7 +258,7 @@ docker compose --env-file .env.docker up -d --build
 docker compose --env-file .env.docker cp ./towers.csv backend:/tmp/towers.csv
 ```
 
-4. Chạy kiểm tra khô trước khi ghi DB:
+4. Chạy kiểm tra trước khi ghi DB:
 
 ```powershell
 docker compose --env-file .env.docker exec backend \

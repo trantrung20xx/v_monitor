@@ -43,12 +43,12 @@ MQTT Broker và dịch vụ geocoding không nằm trong `compose.yaml`. Địa 
 
 ### 2.2. Vai trò của từng service
 
-| Service | Vai trò | Phạm vi truy cập |
-|---|---|---|
-| `web` | Phục vụ Flutter Web, kết thúc HTTPS và chuyển tiếp API/WebSocket | Public cổng `80`, `443` |
-| `backend` | Xử lý REST, WebSocket, MQTT, xác thực và nghiệp vụ | Chỉ trong mạng Docker, cổng `8000` |
-| `db` | Lưu dữ liệu nghiệp vụ và tọa độ không gian | Chỉ trong mạng Docker, cổng `5432` |
-| `postgres_data` | Giữ dữ liệu PostgreSQL khi container được tạo lại | Docker volume, không public |
+| Service         | Vai trò                                                          | Phạm vi truy cập                   |
+| --------------- | ---------------------------------------------------------------- | ---------------------------------- |
+| `web`           | Phục vụ Flutter Web, kết thúc HTTPS và chuyển tiếp API/WebSocket | Public cổng `80`, `443`            |
+| `backend`       | Xử lý REST, WebSocket, MQTT, xác thực và nghiệp vụ               | Chỉ trong mạng Docker, cổng `8000` |
+| `db`            | Lưu dữ liệu nghiệp vụ và tọa độ không gian                       | Chỉ trong mạng Docker, cổng `5432` |
+| `postgres_data` | Giữ dữ liệu PostgreSQL khi container được tạo lại                | Docker volume, không public        |
 
 Caddy là điểm truy cập public duy nhất. REST, WebSocket và Flutter Web sử dụng chung `${DOMAIN}`; backend và database không mở cổng trực tiếp ra Internet.
 
@@ -85,14 +85,57 @@ Các worker có thể hoàn thành khác thứ tự lấy bản tin. Khóa `FOR 
 
 Mã nguồn: [mqtt_service.py](../backend/app/services/mqtt_service.py), [TrackingService.add_location](../backend/app/services/tracking_service.py).
 
+### 2.3.1. Định vị LTE/4G bằng catalog nội bộ
+
+VMonitor có một luồng riêng để ước lượng vị trí dựa trên tín hiệu LTE/4G của thiết bị. Luồng này không gọi dịch vụ định vị mạng bên ngoài trong worker MQTT. Thay vào đó, backend nhận bản tin radio, kiểm tra dữ liệu đầu vào, so khớp với `cell_towers` đã import từ file CSV nội bộ, rồi lưu kết quả vào `cell_position_estimates`.
+
+Luồng này làm việc như sau:
+
+1. `extract_cellular_payload()` trong [cellular.py](../backend/app/schemas/cellular.py) nhận dữ liệu từ MQTT. Hàm này hỗ trợ cả định dạng mới và các tên trường cũ mà modem hay gửi. Nếu không có đủ thông tin, hệ thống sẽ coi đây là bản tin không có dữ liệu định vị và giữ nguyên cách xử lý GPS cũ. Nếu có dữ liệu LTE nhưng sai định dạng, lỗi sẽ được ghi riêng vào `telemetry_messages`, không làm hỏng phần GPS.
+2. `CellularObservationInput` chỉ chấp nhận `rat` là `LTE` hoặc `4G`. Giá trị này sau đó được chuẩn hóa về `LTE` trong schema. Serving cell phải có đủ thông tin định danh cơ bản: `mcc`, `mnc`, `tac` và `cell_id` (hoặc các tên gọi tương đương như `eci`/`ci`). Neighbor có thể thiếu một số trường, nên không phải lúc nào cũng đủ để làm anchor định vị.
+3. `CellularPositionService.process_scan()` trong [cellular_position_service.py](../backend/app/services/cellular_position_service.py) gom serving cell và tất cả neighbor lại thành danh sách observation. Sau đó, hệ thống tìm trong `cell_towers` những trạm khớp với khóa identity `(rat, mcc, mnc, tac, cell_id)`.
+4. `CellularPositionService._distinct_sites()` gộp các cell cùng `site_key` hoặc cùng site để tránh việc nhiều sector của cùng một trạm bị xem là nhiều điểm định vị khác nhau. Đây là cách đảm bảo một vị trí vật lý không bị tính thành nhiều anchor.
+5. `CellularPositionService._estimate()` tính một vị trí ước lượng bằng cách lấy trung tâm có trọng số từ các trạm phù hợp. Kết quả này không phải là tọa độ GPS thật, mà chỉ là điểm ước lượng dựa trên catalog và tín hiệu. Giá trị `rsrp_dbm` chỉ được dùng như trọng số tương đối, không phải để đo khoảng cách trực tiếp.
+6. `CellPositionEstimate` lưu trạng thái theo ba giá trị: `ESTIMATED`, `NO_MATCH` và `REJECTED_ACCURACY`. Nếu không tìm thấy trạm nào phù hợp, hệ thống lưu `NO_MATCH` và để `latitude`, `longitude`, `location` bằng `NULL`. Nếu có trạm phù hợp nhưng độ bất định quá lớn, hệ thống lưu `REJECTED_ACCURACY` và cũng không trả về tọa độ để tránh nhầm với GPS hợp lệ.
+7. `DeviceLatestState` không ghi đè các trường GPS hiện tại như `current_latitude`, `current_longitude` bằng kết quả LTE. Thay vào đó, nó lưu riêng `latest_cell_estimate_id` và `latest_cell_measured_at` để UI và API biết scan LTE mới nhất mà không làm lệch dữ liệu GPS gốc.
+8. `TrackingService.record_cellular_presence()` chỉ cập nhật các trường LTE mới, và so sánh thời gian để scan đến muộn không ghi đè estimate mới hơn.
+
+Dòng xử lý chính của một gói LTE/4G như sau:
+
+```text
+Thiết bị phát tín hiệu LTE/4G
+  → MQTT Broker
+  → worker MQTT của backend
+  → extract_cellular_payload()
+  → kiểm tra serving + neighbor
+  → tìm trong cell_towers theo identity
+  → lưu cell_observations
+  → tính toán vị trí ước lượng
+  → lưu cell_position_estimates
+  → cập nhật latest_cell_estimate_id trong device_latest_state
+  → client hoặc API đọc trạng thái NO_MATCH hoặc ESTIMATED
+```
+
+Các thiết lập liên quan đến tính năng này nằm trong [backend/.env.example](../backend/.env.example) và [backend/app/core/config.py](../backend/app/core/config.py):
+
+- `CELL_POSITIONING_ENABLED=true` bật chức năng định vị LTE.
+- `CELL_POSITION_MAX_NEIGHBORS` giới hạn số neighbor xử lý trong một scan.
+- `CELL_POSITION_MIN_ACCURACY_M` là ngưỡng tối thiểu để estimate được coi là đủ tin cậy.
+- `CELL_POSITION_SINGLE_SITE_ACCURACY_M` là mức an toàn khi chỉ khớp một site.
+- `CELL_POSITION_MAX_ACCURACY_M` là giới hạn cuối cùng; nếu vượt quá, estimate bị từ chối.
+
+Dữ liệu catalog không được tự động tải từ mạng. Nó phải là file CSV UTF-8 do người vận hành có quyền cung cấp, sau đó được import bằng [backend/scripts/import_cell_catalog.py](../backend/scripts/import_cell_catalog.py). File CSV này chứa các dòng `cell_towers` theo chuẩn `CellTowerImportRow`. Giá trị `rat` có thể là `LTE` hoặc `4G`, nhưng khi ghi vào DB sẽ được normalize về `LTE`.
+
+Mã nguồn tham khảo: [extract_cellular_payload](../backend/app/schemas/cellular.py), [CellularPositionService](../backend/app/services/cellular_position_service.py), [CellPositionEstimate](../backend/app/models/cell_position_estimate.py), [DeviceLatestState](../backend/app/models/device_latest_state.py), [import_cell_catalog.py](../backend/scripts/import_cell_catalog.py).
+
 ### 2.4. Luồng truy cập từ Flutter
 
-| Yêu cầu | Đường đi | Kết quả |
-|---|---|---|
-| Mở ứng dụng web | Client → Caddy → tệp Flutter Web | Tải giao diện |
-| Đăng nhập, xem thiết bị và lịch sử | Flutter → Caddy → FastAPI → PostgreSQL | Trả dữ liệu JSON |
-| Nhận cập nhật trực tiếp | Flutter ⇄ Caddy ⇄ FastAPI WebSocket | Cập nhật trạng thái không cần tải lại |
-| Tra cứu địa chỉ | Flutter → FastAPI → dịch vụ geocoding | Trả địa chỉ từ tọa độ |
+| Yêu cầu                            | Đường đi                               | Kết quả                               |
+| ---------------------------------- | -------------------------------------- | ------------------------------------- |
+| Mở ứng dụng web                    | Client → Caddy → tệp Flutter Web       | Tải giao diện                         |
+| Đăng nhập, xem thiết bị và lịch sử | Flutter → Caddy → FastAPI → PostgreSQL | Trả dữ liệu JSON                      |
+| Nhận cập nhật trực tiếp            | Flutter ⇄ Caddy ⇄ FastAPI WebSocket    | Cập nhật trạng thái không cần tải lại |
+| Tra cứu địa chỉ                    | Flutter → FastAPI → dịch vụ geocoding  | Trả địa chỉ từ tọa độ                 |
 
 Dashboard giữ dữ liệu theo device ID và chỉ áp dụng giá trị mới nhất của mỗi ID trong một đợt cập nhật. Khi tải REST trùng lúc có dữ liệu realtime, các thay đổi đến trong thời gian tải được ghép lại để phản hồi REST không ghi đè dữ liệu vừa nhận. Nếu tải bù thất bại, giao diện giữ dữ liệu hiện có và lên lịch thử lại. Màn hình chi tiết tải lại trạng thái, sự kiện và lịch sử khi reconnect; sự kiện được loại trùng theo ID.
 
@@ -116,15 +159,15 @@ Caddy tự cấp chứng chỉ HTTPS khi DNS trỏ đúng về server và firewa
 
 Lệnh khởi chạy hiện tại trong [server.py](../backend/app/server.py) không đặt nhiều Uvicorn worker. Với cấu hình một tiến trình backend, luồng nhận MQTT có thread mạng Paho riêng; các worker nghiệp vụ là `asyncio.Task`, không phải 8 thread xử lý CPU.
 
-| Thành phần | Cách thực hiện |
-|---|---|
-| MQTT worker | 8 tác vụ cùng tiến triển khi chờ I/O; từng tác vụ chờ xử lý xong một bản tin mới lấy bản tin tiếp |
-| Snapshot realtime và outbox | Hai tác vụ nền độc lập với worker GPS; mỗi tác vụ xử lý các lô của mình lần lượt |
-| Gửi WebSocket | Mỗi client có một tác vụ gửi tuần tự; các client gửi đồng thời khi chờ mạng |
-| Quét offline | Tác vụ nền riêng, mặc định kiểm tra mỗi 30 giây; ghi trạng thái, sự kiện và outbox cùng giao dịch |
-| REST | Nhiều request có thể cùng chờ DB hoặc mạng; dùng chung pool DB với các tác vụ nền |
-| Flutter | Xử lý trạng thái, timer và dựng marker trên isolate giao diện; các yêu cầu mạng có thể cùng chờ, không đồng nghĩa tính toán CPU chạy trên nhiều thread |
-| Dịch địa chỉ ở backend | Các yêu cầu có thể cùng chờ, nhưng khóa dịch vụ chỉ cho một lượt gọi nhà cung cấp tại một thời điểm trong mỗi tiến trình |
+| Thành phần                  | Cách thực hiện                                                                                                                                         |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| MQTT worker                 | 8 tác vụ cùng tiến triển khi chờ I/O; từng tác vụ chờ xử lý xong một bản tin mới lấy bản tin tiếp                                                      |
+| Snapshot realtime và outbox | Hai tác vụ nền độc lập với worker GPS; mỗi tác vụ xử lý các lô của mình lần lượt                                                                       |
+| Gửi WebSocket               | Mỗi client có một tác vụ gửi tuần tự; các client gửi đồng thời khi chờ mạng                                                                            |
+| Quét offline                | Tác vụ nền riêng, mặc định kiểm tra mỗi 30 giây; ghi trạng thái, sự kiện và outbox cùng giao dịch                                                      |
+| REST                        | Nhiều request có thể cùng chờ DB hoặc mạng; dùng chung pool DB với các tác vụ nền                                                                      |
+| Flutter                     | Xử lý trạng thái, timer và dựng marker trên isolate giao diện; các yêu cầu mạng có thể cùng chờ, không đồng nghĩa tính toán CPU chạy trên nhiều thread |
+| Dịch địa chỉ ở backend      | Các yêu cầu có thể cùng chờ, nhưng khóa dịch vụ chỉ cho một lượt gọi nhà cung cấp tại một thời điểm trong mỗi tiến trình                               |
 
 `await` nhường thời gian thực thi cho tác vụ khác trong lúc chờ I/O. Tính toán đồng bộ kéo dài vẫn có thể làm chậm event loop. Các giới hạn RAM, pool và danh sách WebSocket thuộc từng tiến trình; không thể suy ra chỉ cần tăng số tiến trình là toàn bộ MQTT/realtime tự đồng bộ giữa chúng.
 
@@ -159,40 +202,47 @@ Mã nguồn: [require_viewer_with_short_session](../backend/app/api/auth_depende
 
 ## 3. Cấu trúc mã nguồn
 
-| Đường dẫn | Nội dung |
-|---|---|
-| `lib/app` | router, theme và khung ứng dụng Flutter |
-| `lib/core` | cấu hình, REST client, WebSocket và widget dùng chung |
-| `lib/features` | đăng nhập, dashboard, chi tiết thiết bị, hành trình, cài đặt |
-| `backend/app/api/v1` | endpoint REST và WebSocket |
-| `backend/app/services` | nghiệp vụ thiết bị, tracking, MQTT, realtime, auth |
-| `backend/app/models` | model SQLAlchemy |
-| `backend/app/schemas` | hợp đồng request/response Pydantic |
-| `backend/alembic` | lịch sử migration database |
-| `backend/tests` | unit test backend và script mô phỏng MQTT/DB/HTTP/WebSocket |
-| `test` | unit và widget test Flutter |
-| `config` | cấu hình frontend tại thời điểm build |
-| `docker` | image backend, image Flutter Web và Caddy |
+| Đường dẫn              | Nội dung                                                     |
+| ---------------------- | ------------------------------------------------------------ |
+| `lib/app`              | router, theme và khung ứng dụng Flutter                      |
+| `lib/core`             | cấu hình, REST client, WebSocket và widget dùng chung        |
+| `lib/features`         | đăng nhập, dashboard, chi tiết thiết bị, hành trình, cài đặt |
+| `backend/app/api/v1`   | endpoint REST và WebSocket                                   |
+| `backend/app/services` | nghiệp vụ thiết bị, tracking, MQTT, realtime, auth           |
+| `backend/app/models`   | model SQLAlchemy                                             |
+| `backend/app/schemas`  | hợp đồng request/response Pydantic                           |
+| `backend/alembic`      | lịch sử migration database                                   |
+| `backend/tests`        | unit test backend và script mô phỏng MQTT/DB/HTTP/WebSocket  |
+| `test`                 | unit và widget test Flutter                                  |
+| `config`               | cấu hình frontend tại thời điểm build                        |
+| `docker`               | image backend, image Flutter Web và Caddy                    |
 
 ## 4. Cơ sở dữ liệu
 
 Các bảng nghiệp vụ hiện hành:
 
-| Bảng | Mục đích |
-|---|---|
-| `devices` | thông tin và quyền nhận dữ liệu của thiết bị |
-| `device_latest_state` | trạng thái mới nhất và thời điểm xuất hiện gần nhất |
-| `location_samples` | lịch sử tọa độ bất biến |
-| `telemetry_messages` | nhật ký gói MQTT và chống trùng |
-| `device_events` | sự kiện bắt đầu/dừng di chuyển và sự kiện thiết bị |
-| `realtime_outbox` | thông báo sự kiện đã commit đang chờ phát hoặc thử lại; tách khỏi lịch sử sự kiện |
-| `mqtt_device_sightings` | thiết bị MQTT đã thấy nhưng chưa đăng ký |
-| `user_accounts` | tài khoản, vai trò, khóa đăng nhập và phiên bản token |
-| `user_settings` | thiết lập riêng của tài khoản |
-| `system_settings` | thiết lập dùng chung toàn hệ thống |
-| `audit_logs` | nhật ký thao tác quản trị |
+| Bảng                      | Mục đích                                                                                  |
+| ------------------------- | ----------------------------------------------------------------------------------------- |
+| `devices`                 | thông tin và quyền nhận dữ liệu của thiết bị                                              |
+| `device_latest_state`     | trạng thái mới nhất và thời điểm xuất hiện gần nhất                                       |
+| `location_samples`        | lịch sử tọa độ bất biến                                                                   |
+| `telemetry_messages`      | nhật ký gói MQTT và chống trùng                                                           |
+| `device_events`           | sự kiện bắt đầu/dừng di chuyển và sự kiện thiết bị                                        |
+| `cell_towers`             | catalog LTE/4G nội bộ dùng làm anchor định vị; chứa tọa độ, identity và metadata catalog  |
+| `cell_observations`       | dữ liệu radio scan thô của serving/neighbor cell cho một telemetry message                |
+| `cell_position_estimates` | kết quả ước lượng vị trí dựa trên catalog, bao gồm ESTIMATED, NO_MATCH, REJECTED_ACCURACY |
+| `realtime_outbox`         | thông báo sự kiện đã commit đang chờ phát hoặc thử lại; tách khỏi lịch sử sự kiện         |
+| `mqtt_device_sightings`   | thiết bị MQTT đã thấy nhưng chưa đăng ký                                                  |
+| `user_accounts`           | tài khoản, vai trò, khóa đăng nhập và phiên bản token                                     |
+| `user_settings`           | thiết lập riêng của tài khoản                                                             |
+| `system_settings`         | thiết lập dùng chung toàn hệ thống                                                        |
+| `audit_logs`              | nhật ký thao tác quản trị                                                                 |
 
 `alembic_version` và `spatial_ref_sys` là dữ liệu hạ tầng của Alembic/PostGIS, không phải bảng nghiệp vụ để xóa.
+
+Bảng `cell_towers` là danh mục anchor định vị. `cell_observations` lưu toàn bộ serving/neighbor scan đi kèm `telemetry_message_id`, trong khi `cell_position_estimates` lưu quyết định cuối cùng: `ESTIMATED` nếu có vị trí công bố; `NO_MATCH` nếu catalog không có trạm phù hợp; `REJECTED_ACCURACY` nếu vận chuyển không đủ chất lượng. Các bảng này được tách riêng khỏi `location_samples` và `device_latest_state.current_*` để giữ GPS history gốc và radio estimate trên hai nhánh riêng.
+
+`device_latest_state` có thêm cột `latest_cell_estimate_id` và `latest_cell_measured_at` để client hoặc API có thể truy xuất estimate LTE mới nhất mà không cần đọc lịch sử GPS. Cột `latest_measured_at` và `current_*` vẫn dành cho GPS từ thiết bị; không có code nào ghi đè GPS bằng vị trí LTE.
 
 Migration mới phải được tạo thành revision mới. Không sửa hoặc xóa migration đã chạy trên production. Trước mọi thay đổi schema phải sao lưu database và thử trên bản sao.
 
@@ -224,16 +274,16 @@ Không có API đăng ký công khai. Tài khoản quản trị đầu tiên đ�
 
 Tiền tố mặc định: `/api/v1`.
 
-| Nhóm | Endpoint chính |
-|---|---|
-| Auth | `POST /auth/login`, `GET /auth/me`, `POST /auth/change-password`, `GET/PATCH /auth/settings` |
-| Devices | `GET/POST /devices/`, `GET/PATCH/DELETE /devices/{device_id}` và danh sách MQTT discovery |
-| Tracking | `POST /tracking/`, `GET /tracking/{device_id}/history`, `/history/range`, `/events` |
-| Geocoding | `GET /geocoding/reverse` |
-| Users | `GET/POST /users/`, `PATCH /users/{user_id}`, `POST /users/{user_id}/reset-password` |
-| System | `GET/PATCH /system/settings` |
-| Realtime | `WS /ws` |
-| Health | `GET /health`, không có tiền tố `/api/v1` |
+| Nhóm      | Endpoint chính                                                                               |
+| --------- | -------------------------------------------------------------------------------------------- |
+| Auth      | `POST /auth/login`, `GET /auth/me`, `POST /auth/change-password`, `GET/PATCH /auth/settings` |
+| Devices   | `GET/POST /devices/`, `GET/PATCH/DELETE /devices/{device_id}` và danh sách MQTT discovery    |
+| Tracking  | `POST /tracking/`, `GET /tracking/{device_id}/history`, `/history/range`, `/events`          |
+| Geocoding | `GET /geocoding/reverse`                                                                     |
+| Users     | `GET/POST /users/`, `PATCH /users/{user_id}`, `POST /users/{user_id}/reset-password`         |
+| System    | `GET/PATCH /system/settings`                                                                 |
+| Realtime  | `WS /ws`                                                                                     |
+| Health    | `GET /health`, không có tiền tố `/api/v1`                                                    |
 
 REST sử dụng header:
 
@@ -244,22 +294,22 @@ Authorization: Bearer <access_token>
 Khi mở WebSocket với xác thực bật, frame đầu tiên phải được gửi trong 10 giây:
 
 ```json
-{"type":"AUTH","access_token":"<access_token>"}
+{ "type": "AUTH", "access_token": "<access_token>" }
 ```
 
 Server trả `{"type":"AUTH_OK"}` khi hợp lệ. Heartbeat sử dụng `PING` và `PONG`. Client cũ dùng frame `AUTH` như trên tiếp tục nhận `DEVICE_UPDATE` và `DEVICE_EVENT` riêng lẻ. Flutter hiện tại đăng ký khả năng nhận lô:
 
 ```json
-{"type":"AUTH","access_token":"<access_token>","realtime_batches":true}
+{ "type": "AUTH", "access_token": "<access_token>", "realtime_batches": true }
 ```
 
 Khi tắt xác thực trong môi trường thử nghiệm, client có thể gửi `{"type":"CLIENT_CAPABILITIES","realtime_batches":true}`. Server chỉ gửi định dạng gộp cho client đã đăng ký:
 
-| Frame | Nội dung và cách xử lý |
-|---|---|
-| `DEVICE_UPDATES` | Mảng `devices` chứa trạng thái mới nhất; WebsocketClient tách thành các cập nhật theo device ID |
-| `REALTIME_BATCH` | Mảng `messages` chứa các frame sự kiện; WebsocketClient chuyển tiếp từng sự kiện tới luồng nghiệp vụ |
-| `RESYNC_REQUIRED` | Yêu cầu tải lại dữ liệu qua REST |
+| Frame             | Nội dung và cách xử lý                                                                               |
+| ----------------- | ---------------------------------------------------------------------------------------------------- |
+| `DEVICE_UPDATES`  | Mảng `devices` chứa trạng thái mới nhất; WebsocketClient tách thành các cập nhật theo device ID      |
+| `REALTIME_BATCH`  | Mảng `messages` chứa các frame sự kiện; WebsocketClient chuyển tiếp từng sự kiện tới luồng nghiệp vụ |
+| `RESYNC_REQUIRED` | Yêu cầu tải lại dữ liệu qua REST                                                                     |
 
 Sau `AUTH_OK` hoặc tín hiệu lấy bù, dashboard tải lại danh sách, màn hình chi tiết đang mở tải lại dữ liệu của thiết bị và repository thiết lập tải lại cấu hình. Reconnect bù bằng trạng thái/lịch sử trong DB, không yêu cầu server giữ mọi frame bị lỡ. Mã nguồn: [WebsocketClient](../lib/core/network/websocket_client.dart), [endpoint WebSocket](../backend/app/api/v1/websocket.py).
 
@@ -275,13 +325,13 @@ Ví dụ payload:
 
 ```json
 {
-  "message_id": "a0b1c2d3-e4f5-4678-9012-3456789abcde",
-  "latitude": 10.7769,
-  "longitude": 106.7009,
-  "altitude_m": 12.5,
-  "speed_mps": 4.2,
-  "heading_deg": 180.0,
-  "measured_at": "2026-09-04T08:00:00Z"
+	"message_id": "a0b1c2d3-e4f5-4678-9012-3456789abcde",
+	"latitude": 10.7769,
+	"longitude": 106.7009,
+	"altitude_m": 12.5,
+	"speed_mps": 4.2,
+	"heading_deg": 180.0,
+	"measured_at": "2026-09-04T08:00:00Z"
 }
 ```
 
@@ -308,11 +358,11 @@ Script đọc cấu hình MQTT từ `backend/.env` và phát QoS 1.
 
 Flutter nhận cấu hình tại thời điểm build qua `--dart-define-from-file`:
 
-| File | Mục đích |
-|---|---|
-| `config/development.json` | backend cục bộ |
-| `config/cloudflare.json` | backend qua Cloudflare Tunnel |
-| `config/production.json` | domain production |
+| File                      | Mục đích                      |
+| ------------------------- | ----------------------------- |
+| `config/development.json` | backend cục bộ                |
+| `config/cloudflare.json`  | backend qua Cloudflare Tunnel |
+| `config/production.json`  | domain production             |
 
 Biến quan trọng:
 
@@ -325,14 +375,14 @@ Khi `WS_BASE_URL` để trống, ứng dụng tự suy ra `ws://` hoặc `wss://
 
 Các biến hiệu năng tùy chọn trong [AppConfig](../lib/core/config/app_config.dart) có thể thêm vào file JSON hoặc truyền bằng `--dart-define` khi build Flutter độc lập:
 
-| Biến frontend | Mặc định | Ý nghĩa |
-|---|---|---|
-| `GEOCODING_CACHE_SIZE` | 512 | Số tọa độ giữ trong cache địa chỉ |
-| `GEOCODING_CACHE_TTL_SECONDS` | 3.600 | Tuổi cache, tính bằng giây |
-| `GEOCODING_MAX_PENDING` | 32 | Tổng yêu cầu địa chỉ đang chạy và chờ |
-| `GEOCODING_CONCURRENCY` | 4 | Số HTTP request địa chỉ đồng thời tới backend |
-| `GEOCODING_REFRESH_SECONDS` | 15 | Khoảng nghỉ giữa các lần tra địa chỉ của thiết bị trên dashboard |
-| `DASHBOARD_STATUS_REFRESH_SECONDS` | 5 | Chu kỳ tính lại trạng thái theo thời gian và thử tải bù còn lỗi |
+| Biến frontend                      | Mặc định | Ý nghĩa                                                          |
+| ---------------------------------- | -------- | ---------------------------------------------------------------- |
+| `GEOCODING_CACHE_SIZE`             | 512      | Số tọa độ giữ trong cache địa chỉ                                |
+| `GEOCODING_CACHE_TTL_SECONDS`      | 3.600    | Tuổi cache, tính bằng giây                                       |
+| `GEOCODING_MAX_PENDING`            | 32       | Tổng yêu cầu địa chỉ đang chạy và chờ                            |
+| `GEOCODING_CONCURRENCY`            | 4        | Số HTTP request địa chỉ đồng thời tới backend                    |
+| `GEOCODING_REFRESH_SECONDS`        | 15       | Khoảng nghỉ giữa các lần tra địa chỉ của thiết bị trên dashboard |
+| `DASHBOARD_STATUS_REFRESH_SECONDS` | 5        | Chu kỳ tính lại trạng thái theo thời gian và thử tải bù còn lỗi  |
 
 Các biến này thuộc bản dựng Flutter, độc lập với biến cùng tên của backend. Riêng nhịp gộp cập nhật dashboard được lưu trong DB và chỉnh khi ứng dụng đang chạy, xem mục 8.4; không dùng `DASHBOARD_STATUS_REFRESH_SECONDS` để chỉnh nhịp đó.
 
@@ -340,15 +390,15 @@ Các biến này thuộc bản dựng Flutter, độc lập với biến cùng t
 
 Backend đọc biến môi trường và `backend/.env`. File này không được commit.
 
-| Nhóm | Biến cần kiểm tra |
-|---|---|
-| API | `API_HOST`, `API_PORT`, `API_RELOAD`, `CORS_ORIGINS` |
-| Database | `DATABASE_URL`, `DATABASE_POOL_*` |
-| MQTT | `MQTT_HOST`, `MQTT_PORT`, `MQTT_USERNAME`, `MQTT_PASSWORD`, `MQTT_USE_TLS`, `MQTT_TOPIC_PREFIX` |
-| Auth | `AUTH_REQUIRED`, `JWT_SECRET`, giới hạn đăng nhập sai |
-| Presence | `DEVICE_OFFLINE_TIMEOUT_SECONDS`, `DEVICE_OFFLINE_SCAN_INTERVAL_SECONDS` |
-| Geocoding | `GEOCODING_PROVIDER`, `GEOCODING_BASE_URL`, `GEOCODING_USER_AGENT` |
-| Realtime | `REALTIME_*`, xem bảng dưới |
+| Nhóm      | Biến cần kiểm tra                                                                               |
+| --------- | ----------------------------------------------------------------------------------------------- |
+| API       | `API_HOST`, `API_PORT`, `API_RELOAD`, `CORS_ORIGINS`                                            |
+| Database  | `DATABASE_URL`, `DATABASE_POOL_*`                                                               |
+| MQTT      | `MQTT_HOST`, `MQTT_PORT`, `MQTT_USERNAME`, `MQTT_PASSWORD`, `MQTT_USE_TLS`, `MQTT_TOPIC_PREFIX` |
+| Auth      | `AUTH_REQUIRED`, `JWT_SECRET`, giới hạn đăng nhập sai                                           |
+| Presence  | `DEVICE_OFFLINE_TIMEOUT_SECONDS`, `DEVICE_OFFLINE_SCAN_INTERVAL_SECONDS`                        |
+| Geocoding | `GEOCODING_PROVIDER`, `GEOCODING_BASE_URL`, `GEOCODING_USER_AGENT`                              |
+| Realtime  | `REALTIME_*`, xem bảng dưới                                                                     |
 
 `DATABASE_URL` bắt buộc dùng dạng:
 
@@ -360,25 +410,25 @@ postgresql+asyncpg://USER:PASSWORD@HOST:5432/DATABASE
 
 Các giá trị dưới đây là mặc định trong [config.py](../backend/app/core/config.py), không phải số kết nối hay mức tải đang đo được. Khi chạy backend trực tiếp, có thể khai báo trong `backend/.env` hoặc môi trường tiến trình rồi khởi động lại:
 
-| Biến backend | Mặc định | Ý nghĩa |
-|---|---|---|
-| `DATABASE_POOL_SIZE` / `DATABASE_MAX_OVERFLOW` | 10 / 10 | Pool cơ bản và số kết nối được tăng tạm; tổng tối đa 20 mỗi tiến trình |
-| `DATABASE_POOL_TIMEOUT_SECONDS` | 30 | Hạn chờ mượn kết nối DB |
-| `DATABASE_POOL_RECYCLE_SECONDS` | 1.800 | Tuổi kết nối trước khi thay lúc mượn lại |
-| `DATABASE_CONNECT_TIMEOUT_SECONDS` | 10 | Hạn mở kết nối DB |
-| `MQTT_WORKER_COUNT` / `MQTT_QUEUE_SIZE` | 8 / 20.000 | Số worker async và sức chứa hàng chờ bản tin trong RAM |
-| `REALTIME_FLUSH_INTERVAL_SECONDS` | 0,1 | Khoảng nghỉ giữa các vòng tạo trạng thái gửi giao diện |
-| `REALTIME_BATCH_SIZE` | 250 | Số thiết bị hoặc sự kiện tối đa mỗi lô |
-| `REALTIME_PENDING_DEVICE_LIMIT` | 10.000 | Số device ID khác nhau chờ tạo trạng thái; vượt giới hạn yêu cầu client lấy bù |
-| `REALTIME_CLIENT_QUEUE_SIZE` | 32 | Số lô chờ tối đa cho mỗi WebSocket |
-| `REALTIME_SEND_TIMEOUT_SECONDS` | 5 | Hạn gửi một lô cho từng client; cũng là cơ sở tính hạn chờ outbox và hạn giữ dòng |
-| `REALTIME_OUTBOX_POLL_SECONDS` | 0,25 | Khoảng nghỉ khi vòng phát chưa có dữ liệu hoặc gặp lỗi |
-| `REALTIME_OUTBOX_RETRY_SECONDS` | 2 | Khoảng chờ hẹn phát lại sau khi ghi nhận gửi thất bại |
-| `GEOCODING_CACHE_SIZE` / `GEOCODING_CACHE_TTL_SECONDS` | 5.000 / 3.600 | Số tọa độ cache backend và thời gian sống tính bằng giây |
-| `GEOCODING_MAX_PENDING` | 32 | Số tọa độ đang xử lý hoặc chờ ở backend |
-| `GEOCODING_REQUEST_TIMEOUT_SECONDS` | 10 | Deadline tổng cho một tác vụ tra địa chỉ, gồm chờ và thử lại |
-| `GEOCODING_TIMEOUT_SECONDS` | 8 | Timeout HTTP tới nhà cung cấp; deadline tổng vẫn giới hạn toàn tác vụ |
-| `GEOCODING_RETRY_ATTEMPTS` / `GEOCODING_RETRY_DELAY_SECONDS` | 2 / 0,5 | Tổng số lần gọi tối đa, gồm lần đầu, và khoảng nghỉ giữa các lần |
+| Biến backend                                                 | Mặc định      | Ý nghĩa                                                                           |
+| ------------------------------------------------------------ | ------------- | --------------------------------------------------------------------------------- |
+| `DATABASE_POOL_SIZE` / `DATABASE_MAX_OVERFLOW`               | 10 / 10       | Pool cơ bản và số kết nối được tăng tạm; tổng tối đa 20 mỗi tiến trình            |
+| `DATABASE_POOL_TIMEOUT_SECONDS`                              | 30            | Hạn chờ mượn kết nối DB                                                           |
+| `DATABASE_POOL_RECYCLE_SECONDS`                              | 1.800         | Tuổi kết nối trước khi thay lúc mượn lại                                          |
+| `DATABASE_CONNECT_TIMEOUT_SECONDS`                           | 10            | Hạn mở kết nối DB                                                                 |
+| `MQTT_WORKER_COUNT` / `MQTT_QUEUE_SIZE`                      | 8 / 20.000    | Số worker async và sức chứa hàng chờ bản tin trong RAM                            |
+| `REALTIME_FLUSH_INTERVAL_SECONDS`                            | 0,1           | Khoảng nghỉ giữa các vòng tạo trạng thái gửi giao diện                            |
+| `REALTIME_BATCH_SIZE`                                        | 250           | Số thiết bị hoặc sự kiện tối đa mỗi lô                                            |
+| `REALTIME_PENDING_DEVICE_LIMIT`                              | 10.000        | Số device ID khác nhau chờ tạo trạng thái; vượt giới hạn yêu cầu client lấy bù    |
+| `REALTIME_CLIENT_QUEUE_SIZE`                                 | 32            | Số lô chờ tối đa cho mỗi WebSocket                                                |
+| `REALTIME_SEND_TIMEOUT_SECONDS`                              | 5             | Hạn gửi một lô cho từng client; cũng là cơ sở tính hạn chờ outbox và hạn giữ dòng |
+| `REALTIME_OUTBOX_POLL_SECONDS`                               | 0,25          | Khoảng nghỉ khi vòng phát chưa có dữ liệu hoặc gặp lỗi                            |
+| `REALTIME_OUTBOX_RETRY_SECONDS`                              | 2             | Khoảng chờ hẹn phát lại sau khi ghi nhận gửi thất bại                             |
+| `GEOCODING_CACHE_SIZE` / `GEOCODING_CACHE_TTL_SECONDS`       | 5.000 / 3.600 | Số tọa độ cache backend và thời gian sống tính bằng giây                          |
+| `GEOCODING_MAX_PENDING`                                      | 32            | Số tọa độ đang xử lý hoặc chờ ở backend                                           |
+| `GEOCODING_REQUEST_TIMEOUT_SECONDS`                          | 10            | Deadline tổng cho một tác vụ tra địa chỉ, gồm chờ và thử lại                      |
+| `GEOCODING_TIMEOUT_SECONDS`                                  | 8             | Timeout HTTP tới nhà cung cấp; deadline tổng vẫn giới hạn toàn tác vụ             |
+| `GEOCODING_RETRY_ATTEMPTS` / `GEOCODING_RETRY_DELAY_SECONDS` | 2 / 0,5       | Tổng số lần gọi tối đa, gồm lần đầu, và khoảng nghỉ giữa các lần                  |
 
 Khi khai báo số thập phân trong `.env`, dùng dấu chấm, ví dụ `REALTIME_FLUSH_INTERVAL_SECONDS=0.1`.
 
@@ -395,7 +445,7 @@ Các biến pool DB, số worker/hàng chờ MQTT và timeout/retry HTTP tới n
 Quản trị viên chỉnh **Nhịp cập nhật giao diện** trong cài đặt hệ thống. Trường API là `dashboard_update_interval_ms`, mặc định **500 ms**, chỉ nhận **250–1.000 ms**. `PATCH /system/settings` yêu cầu quyền `ADMIN`, lưu DB và nhật ký quản trị theo luồng thiết lập hiện có; giá trị ngoài khoảng bị từ chối với `422`.
 
 ```json
-{"dashboard_update_interval_ms":750}
+{ "dashboard_update_interval_ms": 750 }
 ```
 
 Đây là thiết lập chung cho dashboard của hệ thống, không phải tùy chọn riêng từng người dùng. Flutter áp dụng nhịp mới khi nhận thay đổi thiết lập và tải lại thiết lập khi reconnect; không cần build lại. Giá trị này điều khiển thời gian gộp hiển thị, không đổi tần suất thiết bị gửi GPS, không cắt mẫu lịch sử và không phải cam kết độ trễ đầu cuối luôn dưới 1 giây. Độ trễ thực tế còn gồm hàng chờ MQTT, xử lý DB, phát mạng và tải thiết bị chạy Flutter.
@@ -668,16 +718,16 @@ Script recovery ghi thêm một mẫu GPS vào DB thử trong lúc WebSocket ng�
 
 Kết quả ngày **07/09/2026** được ghi tại `build/performance/vmonitor_perf_test_a562b9358026/results.json` và `recovery_results.json` trên máy kiểm thử. Các file thuộc `build/`, không được đưa vào Git; khi chạy lại cần dùng thư mục kết quả mới. Đây là kết quả của lần mô phỏng đó, không phải trạng thái kiểm thử được cập nhật tự động theo tài liệu.
 
-| Hạng mục | Kết quả đã ghi nhận |
-|---|---|
-| Dữ liệu vào | Một MQTT publisher đại diện 5.000 device ID, mỗi ID gửi 2 mẫu: tổng 10.000 bản tin |
-| Dữ liệu DB | 10.000 telemetry, 10.000 mẫu GPS, 10.000 sự kiện của kịch bản và 5.000 trạng thái mới nhất đúng |
-| Thời gian xử lý đầu vào | 102,964 giây; tốc độ quan sát 97,1 bản tin/giây; MQTT `dropped_count = 0` |
-| Hai client WebSocket | Client nhận lô và client cũ đều nhận đủ 10.000 ID sự kiện; trạng thái cuối của 5.000 thiết bị đúng |
-| Outbox | Thông báo đã commit được phát sau khi bật lại tác vụ; thông báo rollback không phát; dòng hết hạn giữ được phát lại |
-| Dịch vụ địa chỉ chậm | 20 request trả `503` có kiểm soát; API danh sách vẫn trả `200` trong 0,431 giây; không còn transaction xác thực bị giữ lúc chờ địa chỉ |
-| Thiết lập runtime | Giá trị 750 ms lưu được; giá trị 1 ms bị từ chối |
-| Reconnect | REST lấy bù đúng trạng thái mới nhất; lịch sử thiết bị kiểm tra đủ 3 mẫu sau mẫu bổ sung; `/health` trả `ok` |
+| Hạng mục                | Kết quả đã ghi nhận                                                                                                                    |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Dữ liệu vào             | Một MQTT publisher đại diện 5.000 device ID, mỗi ID gửi 2 mẫu: tổng 10.000 bản tin                                                     |
+| Dữ liệu DB              | 10.000 telemetry, 10.000 mẫu GPS, 10.000 sự kiện của kịch bản và 5.000 trạng thái mới nhất đúng                                        |
+| Thời gian xử lý đầu vào | 102,964 giây; tốc độ quan sát 97,1 bản tin/giây; MQTT `dropped_count = 0`                                                              |
+| Hai client WebSocket    | Client nhận lô và client cũ đều nhận đủ 10.000 ID sự kiện; trạng thái cuối của 5.000 thiết bị đúng                                     |
+| Outbox                  | Thông báo đã commit được phát sau khi bật lại tác vụ; thông báo rollback không phát; dòng hết hạn giữ được phát lại                    |
+| Dịch vụ địa chỉ chậm    | 20 request trả `503` có kiểm soát; API danh sách vẫn trả `200` trong 0,431 giây; không còn transaction xác thực bị giữ lúc chờ địa chỉ |
+| Thiết lập runtime       | Giá trị 750 ms lưu được; giá trị 1 ms bị từ chối                                                                                       |
+| Reconnect               | REST lấy bù đúng trạng thái mới nhất; lịch sử thiết bị kiểm tra đủ 3 mẫu sau mẫu bổ sung; `/health` trả `ok`                           |
 
 Harness dùng timeout rút ngắn để kiểm tra nhánh lỗi: gửi WebSocket 0,5 giây, retry outbox 0,1 giây, poll 0,05 giây; địa chỉ tối đa 4 tác vụ chờ/chạy, deadline 0,4 giây và một lần gọi provider. Vì vậy kết quả timeout của mô phỏng không phải phép đo với toàn bộ cấu hình production mặc định.
 
@@ -696,22 +746,22 @@ Mô phỏng này chứng minh luồng chức năng trong điều kiện đã ch�
 
 ## 12. Xử lý lỗi thường gặp
 
-| Hiện tượng | Kiểm tra |
-|---|---|
-| Docker chỉ hiện `Client`, không có `Server` | Docker Desktop phải ở trạng thái `Engine running`; chạy `wsl --shutdown`, sau đó mở lại Docker Desktop |
-| Lỗi `dockerDesktopLinuxEngine` hoặc thiếu named pipe | Docker Desktop chưa chạy Linux Engine; chưa chạy lệnh Compose cho tới khi `docker version` có phần `Server` |
-| Caddy xin chứng chỉ cho `monitor.example.com` | `.env.docker` vẫn dùng domain mẫu; production thay domain thật, local Windows đặt `DOMAIN=localhost`, sau đó build lại `web` |
-| `/health` trả `status: degraded` | Xem riêng `database`, `mqtt.connected`, `mqtt.subscribed` và log backend |
-| `curl` local báo lỗi chứng chỉ | Dùng đúng `curl.exe -k https://localhost/health`; URL không chứa định dạng Markdown `[]()` |
-| Backend không khởi động | `DATABASE_URL`, PostGIS, `JWT_SECRET`, log Alembic |
-| Web mở được nhưng API lỗi | DNS, HTTPS, `DOMAIN`, trạng thái backend, log Caddy |
-| Flutter không kết nối | `API_BASE_URL` phải gồm `/api/v1`; build lại sau khi sửa JSON |
-| WebSocket bị đóng mã `4401` | token hết hiệu lực, tài khoản bị khóa hoặc frame `AUTH` sai |
-| WebSocket bị đóng mã `1013` | client gửi chậm, lỗi mạng hoặc hàng chờ đầy; kiểm tra tải client và timeout, xác nhận lấy bù REST sau reconnect |
-| Dashboard cập nhật chậm | nhịp `dashboard_update_interval_ms`, hàng chờ MQTT, thời gian DB và phát realtime; nhịp giao diện không phải độ trễ toàn hệ thống |
-| Thiết bị không xuất hiện | topic prefix, `device_code`, quyền nhận dữ liệu, log MQTT |
-| Thiết bị hiển thị offline | `last_seen_at`, timeout presence, đồng hồ server và kết nối MQTT |
-| Địa chỉ không hiển thị | cấu hình geocoding, internet, hạn mức nhà cung cấp |
-| Geocoding trả `503` | hàng chờ/deadline backend hoặc nhà cung cấp lỗi; kiểm tra log, giới hạn cache/hàng chờ và thiết bị đang được xem |
-| Lỗi chờ pool DB | kết nối đang bị giữ lâu, giao dịch chờ khóa và số tác vụ đồng thời; kiểm tra trước khi tăng giới hạn pool |
-| Windows báo thiếu DLL | phân phối toàn bộ thư mục Release, không sao chép riêng EXE |
+| Hiện tượng                                           | Kiểm tra                                                                                                                          |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Docker chỉ hiện `Client`, không có `Server`          | Docker Desktop phải ở trạng thái `Engine running`; chạy `wsl --shutdown`, sau đó mở lại Docker Desktop                            |
+| Lỗi `dockerDesktopLinuxEngine` hoặc thiếu named pipe | Docker Desktop chưa chạy Linux Engine; chưa chạy lệnh Compose cho tới khi `docker version` có phần `Server`                       |
+| Caddy xin chứng chỉ cho `monitor.example.com`        | `.env.docker` vẫn dùng domain mẫu; production thay domain thật, local Windows đặt `DOMAIN=localhost`, sau đó build lại `web`      |
+| `/health` trả `status: degraded`                     | Xem riêng `database`, `mqtt.connected`, `mqtt.subscribed` và log backend                                                          |
+| `curl` local báo lỗi chứng chỉ                       | Dùng đúng `curl.exe -k https://localhost/health`; URL không chứa định dạng Markdown `[]()`                                        |
+| Backend không khởi động                              | `DATABASE_URL`, PostGIS, `JWT_SECRET`, log Alembic                                                                                |
+| Web mở được nhưng API lỗi                            | DNS, HTTPS, `DOMAIN`, trạng thái backend, log Caddy                                                                               |
+| Flutter không kết nối                                | `API_BASE_URL` phải gồm `/api/v1`; build lại sau khi sửa JSON                                                                     |
+| WebSocket bị đóng mã `4401`                          | token hết hiệu lực, tài khoản bị khóa hoặc frame `AUTH` sai                                                                       |
+| WebSocket bị đóng mã `1013`                          | client gửi chậm, lỗi mạng hoặc hàng chờ đầy; kiểm tra tải client và timeout, xác nhận lấy bù REST sau reconnect                   |
+| Dashboard cập nhật chậm                              | nhịp `dashboard_update_interval_ms`, hàng chờ MQTT, thời gian DB và phát realtime; nhịp giao diện không phải độ trễ toàn hệ thống |
+| Thiết bị không xuất hiện                             | topic prefix, `device_code`, quyền nhận dữ liệu, log MQTT                                                                         |
+| Thiết bị hiển thị offline                            | `last_seen_at`, timeout presence, đồng hồ server và kết nối MQTT                                                                  |
+| Địa chỉ không hiển thị                               | cấu hình geocoding, internet, hạn mức nhà cung cấp                                                                                |
+| Geocoding trả `503`                                  | hàng chờ/deadline backend hoặc nhà cung cấp lỗi; kiểm tra log, giới hạn cache/hàng chờ và thiết bị đang được xem                  |
+| Lỗi chờ pool DB                                      | kết nối đang bị giữ lâu, giao dịch chờ khóa và số tác vụ đồng thời; kiểm tra trước khi tăng giới hạn pool                         |
+| Windows báo thiếu DLL                                | phân phối toàn bộ thư mục Release, không sao chép riêng EXE                                                                       |
